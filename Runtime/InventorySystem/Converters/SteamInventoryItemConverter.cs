@@ -55,12 +55,10 @@ namespace SteamToys.Runtime.InventorySystem.Converters
             WriteIfNotEmpty(writer, "tags", value.Tags);
 
             // tradable
-            writer.WritePropertyName("tradable");
-            writer.WriteValue(value.Tradable);
+            WriteBoolIfTrue(writer, "tradable", value.Tradable);
 
             // marketable
-            writer.WritePropertyName("marketable");
-            writer.WriteValue(value.Marketable);
+            WriteBoolIfTrue(writer, "marketable", value.Marketable);
 
             // exchange
             WriteExchangeIfNotEmpty(writer, "exchange", value.Exchange);
@@ -84,6 +82,45 @@ namespace SteamToys.Runtime.InventorySystem.Converters
 
             // drop_start_time
             WriteSteamDateTimeIfHasValue(writer, "drop_start_time", value.DropStartTime);
+
+            // game_only
+            WriteBoolIfTrue(writer, "game_only", value.GameOnly);
+
+            // hidden
+            WriteBoolIfTrue(writer, "hidden", value.Hidden);
+
+            // store_hidden
+            WriteBoolIfTrue(writer, "store_hidden", value.StoreHidden);
+
+            // granted_manually
+            WriteBoolIfTrue(writer, "granted_manually", value.GrantedManually);
+
+            // auto_stack
+            WriteBoolIfTrue(writer, "auto_stack", value.AutoStack);
+
+            // purchase_limit
+            WriteUintIfNotZero(writer, "purchase_limit", value.PurchaseLimit);
+
+            // use_drop_limit
+            WriteBoolIfTrue(writer, "use_drop_limit", value.UseDropLimit);
+
+            // drop_limit
+            WriteUintIfNotZero(writer, "drop_limit", value.DropLimit);
+
+            // drop_interval
+            WriteUintIfNotZero(writer, "drop_interval", value.DropInterval);
+
+            // use_drop_window
+            WriteBoolIfTrue(writer, "use_drop_window", value.UseDropWindow);
+
+            // drop_window
+            WriteUintIfNotZero(writer, "drop_window", value.DropWindow);
+
+            // drop_max_per_window
+            WriteUintIfNotZero(writer, "drop_max_per_window", value.DropMaxPerWindow);
+
+            // use_bundle_price
+            WriteBoolIfTrue(writer, "use_bundle_price", value.UseBundlePrice);
 
             writer.WriteEndObject();
         }
@@ -173,6 +210,24 @@ namespace SteamToys.Runtime.InventorySystem.Converters
 
             writer.WritePropertyName(propertyName);
             writer.WriteValue(value.ToSteamString());
+        }
+
+        private static void WriteBoolIfTrue(JsonWriter writer, string propertyName, bool value)
+        {
+            if (!value)
+                return;
+
+            writer.WritePropertyName(propertyName);
+            writer.WriteValue(true);
+        }
+
+        private static void WriteUintIfNotZero(JsonWriter writer, string propertyName, uint value)
+        {
+            if (value == 0)
+                return;
+
+            writer.WritePropertyName(propertyName);
+            writer.WriteValue(value);
         }
 
         #endregion

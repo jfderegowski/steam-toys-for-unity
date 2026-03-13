@@ -118,28 +118,167 @@ namespace SteamToys.Runtime.InventorySystem
             set => SetPrice(value);
         }
 
+        public bool GameOnly
+        {
+            get => GetGameOnly();
+            set => SetGameOnly(value);
+        }
+
+        public bool Hidden
+        {
+            get => GetHidden();
+            set => SetHidden(value);
+        }
+
+        public bool StoreHidden
+        {
+            get => GetStoreHidden();
+            set => SetStoreHidden(value);
+        }
+
+        public bool GrantedManually
+        {
+            get => GetGrantedManually();
+            set => SetGrantedManually(value);
+        }
+
+        public bool AutoStack
+        {
+            get => GetAutoStack();
+            set => SetAutoStack(value);
+        }
+
+        public uint PurchaseLimit
+        {
+            get => GetPurchaseLimit();
+            set => SetPurchaseLimit(value);
+        }
+
+        public bool UseDropLimit
+        {
+            get => GetUseDropLimit();
+            set => SetUseDropLimit(value);
+        }
+
+        public uint DropLimit
+        {
+            get => GetDropLimit();
+            set => SetDropLimit(value);
+        }
+
+        public uint DropInterval
+        {
+            get => GetDropInterval();
+            set => SetDropInterval(value);
+        }
+
+        public bool UseDropWindow
+        {
+            get => GetUseDropWindow();
+            set => SetUseDropWindow(value);
+        }
+
+        public uint DropWindow
+        {
+            get => GetDropWindow();
+            set => SetDropWindow(value);
+        }
+
+        public uint DropMaxPerWindow
+        {
+            get => GetDropMaxPerWindow();
+            set => SetDropMaxPerWindow(value);
+        }
+
+        public bool UseBundlePrice
+        {
+            get => GetUseBundlePrice();
+            set => SetUseBundlePrice(value);
+        }
+
         #endregion
 
         #region Inspector Serialized Fields
         
-        [Header("Steam Inventory Item Data")]
-        [SerializeField] private uint _appId;
-        [SerializeField] private ulong _itemDefId;
-        [SerializeField] private ItemType _type;
-        [SerializeField] private string _name;
-        [SerializeField, TextArea] private string _description;
-        [SerializeField] private string _displayType;
-        [SerializeField] private Url _iconUrl;
-        [SerializeField] private Url _iconUrlLarge;
-        [SerializeField] private Color32 _backgroundColor;
-        [SerializeField] private Color32 _nameColor;
-        [SerializeField] private bool _marketable;
-        [SerializeField] private bool _tradable;
-        [SerializeField] private Bundle _bundle;
-        [SerializeField] private Promo _promo;
-        [SerializeField] private SteamDateTime _dropStartTime;
-        [SerializeField] private Exchange _exchange;
-        [SerializeField] private Price _price;
+        [Header("Basic Item Data")]
+        [SerializeField, Tooltip("Steam Application ID for this item.")]
+        private uint _appId;
+        [SerializeField, Tooltip("Unique identifier for this item definition.")]
+        private ulong _itemDefId;
+        [SerializeField, Tooltip("Classification type of the item (e.g., Cosmetic, Tool, Consumable).")]
+        private ItemType _type;
+        [SerializeField, Tooltip("Display name of the item.")]
+        private string _name;
+        [SerializeField, TextArea, Tooltip("Detailed description of the item.")]
+        private string _description;
+        
+        [Header("Visual & Display")]
+        [SerializeField, Tooltip("Category name displayed in the inventory.")]
+        private string _displayType;
+        [SerializeField, Tooltip("URL to the item's standard icon image.")]
+        private Url _iconUrl;
+        [SerializeField, Tooltip("URL to the item's large icon image.")]
+        private Url _iconUrlLarge;
+        [SerializeField, Tooltip("Color of the item's name in inventory.")]
+        private Color32 _nameColor;
+        [SerializeField, Tooltip("Background color of the item in inventory.")]
+        private Color32 _backgroundColor;
+        
+        [Header("Market & Trading")]
+        [SerializeField, Tooltip("Whether this item can be traded between users.")]
+        private bool _tradable;
+        [SerializeField, Tooltip("Whether this item can be sold on the Steam Community Market.")]
+        private bool _marketable;
+        
+        [Header("Pricing")]
+        [SerializeField, Tooltip("Price information for the item.")]
+        private Price _price;
+        [SerializeField, Tooltip("If true, uses bundle price instead of individual item price.")]
+        private bool _useBundlePrice;
+        
+        [Header("Bundles & Promos")]
+        [SerializeField, Tooltip("Bundle configuration if this item contains other items.")]
+        private Bundle _bundle;
+        [SerializeField, Tooltip("Promotional settings associated with this item.")]
+        private Promo _promo;
+        
+        [Header("Drop System")]
+        [SerializeField, Tooltip("Timestamp when this item starts dropping to users.")]
+        private SteamDateTime _dropStartTime;
+        [SerializeField, Tooltip("Whether to enforce a drop limit for this item.")]
+        private bool _useDropLimit;
+        [SerializeField, Tooltip("Maximum number of this item that can be obtained by a user.")]
+        private uint _dropLimit;
+        [SerializeField, Tooltip("Time in seconds between consecutive item drops.")]
+        private uint _dropInterval;
+        [SerializeField, Tooltip("Whether to limit drops within a specific time window.")]
+        private bool _useDropWindow;
+        [SerializeField, Tooltip("Duration of the drop window in seconds.")]
+        private uint _dropWindow;
+        [SerializeField, Tooltip("Maximum drops allowed within the drop window.")]
+        private uint _dropMaxPerWindow;
+        
+        [Header("Exchange System")]
+        [SerializeField, Tooltip("Configuration for trading/exchanging this item with other items.")]
+        private Exchange _exchange;
+        
+        [Header("Visibility & Restrictions")]
+        [SerializeField, Tooltip("Whether this item is hidden from the inventory UI.")]
+        private bool _hidden;
+        [SerializeField, Tooltip("Whether this item is hidden from the in-game store.")]
+        private bool _storeHidden;
+        [SerializeField, Tooltip("Whether this item was granted manually to users.")]
+        private bool _grantedManually;
+        [SerializeField, Tooltip("Whether this item is only available in-game and not on the market.")]
+        private bool _gameOnly;
+        
+        [Header("Stack Management")]
+        [SerializeField, Tooltip("Whether items automatically stack in the inventory.")]
+        private bool _autoStack;
+        
+        [Header("Purchase Limits")]
+        [SerializeField, Tooltip("Maximum number of this item a user can purchase.")]
+        private uint _purchaseLimit;
 
         #endregion
         
@@ -216,6 +355,58 @@ namespace SteamToys.Runtime.InventorySystem
         public virtual Price GetPrice() => _price;
         
         public virtual void SetPrice(Price value) => _price = value;
+
+        public virtual bool GetGameOnly() => _gameOnly;
+        
+        public virtual void SetGameOnly(bool value) => _gameOnly = value;
+
+        public virtual bool GetHidden() => _hidden;
+        
+        public virtual void SetHidden(bool value) => _hidden = value;
+
+        public virtual bool GetStoreHidden() => _storeHidden;
+        
+        public virtual void SetStoreHidden(bool value) => _storeHidden = value;
+
+        public virtual bool GetGrantedManually() => _grantedManually;
+        
+        public virtual void SetGrantedManually(bool value) => _grantedManually = value;
+
+        public virtual bool GetAutoStack() => _autoStack;
+        
+        public virtual void SetAutoStack(bool value) => _autoStack = value;
+
+        public virtual uint GetPurchaseLimit() => _purchaseLimit;
+        
+        public virtual void SetPurchaseLimit(uint value) => _purchaseLimit = value;
+
+        public virtual bool GetUseDropLimit() => _useDropLimit;
+        
+        public virtual void SetUseDropLimit(bool value) => _useDropLimit = value;
+
+        public virtual uint GetDropLimit() => _dropLimit;
+        
+        public virtual void SetDropLimit(uint value) => _dropLimit = value;
+
+        public virtual uint GetDropInterval() => _dropInterval;
+        
+        public virtual void SetDropInterval(uint value) => _dropInterval = value;
+
+        public virtual bool GetUseDropWindow() => _useDropWindow;
+        
+        public virtual void SetUseDropWindow(bool value) => _useDropWindow = value;
+
+        public virtual uint GetDropWindow() => _dropWindow;
+        
+        public virtual void SetDropWindow(uint value) => _dropWindow = value;
+
+        public virtual uint GetDropMaxPerWindow() => _dropMaxPerWindow;
+        
+        public virtual void SetDropMaxPerWindow(uint value) => _dropMaxPerWindow = value;
+
+        public virtual bool GetUseBundlePrice() => _useBundlePrice;
+        
+        public virtual void SetUseBundlePrice(bool value) => _useBundlePrice = value;
 
         #endregion
 

@@ -1,4 +1,5 @@
 ﻿using SteamToys.Runtime.InventorySystem;
+using SteamToys.Runtime.InventorySystem.Converters;
 using UnityEngine;
 
 namespace SteamToys.Tests.Tests
@@ -44,8 +45,8 @@ namespace SteamToys.Tests.Tests
 
         public override string GetTag(string tagName) =>
             tagName switch {
-                "rarity" => Rarity.ToString(),
-                "quality" => Quality.ToString(),
+                "rarity" => Rarity.ToString().ToSnakeCase(),
+                "quality" => Quality.ToString().ToSnakeCase(),
                 _ => throw new System.ArgumentException($"Tag '{tagName}' not found.")
             };
 
