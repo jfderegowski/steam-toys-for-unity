@@ -1,0 +1,47 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ec11f0d338ee4e45b4cab552a96f1c04, type: 3}
+  m_Name: TestItem
+  m_EditorClassIdentifier: fefek5.SteamToys.Tests::SteamToys.Tests.Tests.TestItem
+  _appId: 0
+  _itemDefId: 0
+  _type: 0
+  _name: 
+  _description: 
+  _displayType: 
+  _iconUrl:
+    _value: 
+  _iconUrlLarge:
+    _value: 
+  _backgroundColor:
+    serializedVersion: 2
+    rgba: 0
+  _nameColor:
+    serializedVersion: 2
+    rgba: 0
+  _marketable: 0
+  _tradable: 0
+  _bundle:
+    _elements: []
+  _promo:
+    _rules: []
+  _dropStartTime:
+    _ticks: 0
+    _hasValue: 0
+  _exchange:
+    _recipes: []
+  _price:
+    _regularPrices: []
+    _promotions: []
+  references:
+    version: 2
+    RefIds: []

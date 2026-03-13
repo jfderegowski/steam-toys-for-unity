@@ -1,0 +1,10 @@
+{
+  "name": "com.fefek5.steam-toys",
+  "version": "0.1.0",
+  "displayName": "Steam Toys for Unity",
+  "description": "Utility package with Steam Toys helpers for Unity projects.",
+  "unity": "2019.4",
+  "keywords": ["steam", "tools", "utilities"],
+  "category": "Tools"
+}
+
