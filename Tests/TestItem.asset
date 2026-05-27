@@ -12,36 +12,57 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ec11f0d338ee4e45b4cab552a96f1c04, type: 3}
   m_Name: TestItem
   m_EditorClassIdentifier: fefek5.SteamToys.Tests::SteamToys.Tests.Tests.TestItem
-  _appId: 0
+  _appId: 2
   _itemDefId: 0
   _type: 0
-  _name: 
-  _description: 
+  _name: Sword
+  _description: Good wor fight!
   _displayType: 
   _iconUrl:
     _value: 
   _iconUrlLarge:
     _value: 
-  _backgroundColor:
-    serializedVersion: 2
-    rgba: 0
   _nameColor:
     serializedVersion: 2
-    rgba: 0
-  _marketable: 0
+    rgba: 7749912
+  _backgroundColor:
+    serializedVersion: 2
+    rgba: 4281019321
   _tradable: 0
-  _bundle:
-    _elements: []
-  _promo:
-    _rules: []
-  _dropStartTime:
-    _ticks: 0
-    _hasValue: 0
-  _exchange:
-    _recipes: []
+  _marketable: 0
   _price:
     _regularPrices: []
     _promotions: []
+  _useBundlePrice: 0
+  _bundle:
+    _elements: []
+  _promo:
+    _rules:
+    - rid: 4348500623050670278
+  _dropStartTime:
+    _ticks: 639090129581523940
+    _hasValue: 1
+  _useDropLimit: 0
+  _dropLimit: 0
+  _dropInterval: 0
+  _useDropWindow: 0
+  _dropWindow: 0
+  _dropMaxPerWindow: 0
+  _exchange:
+    _recipes: []
+  _hidden: 0
+  _storeHidden: 0
+  _grantedManually: 0
+  _gameOnly: 0
+  _autoStack: 0
+  _purchaseLimit: 0
+  _tags:
+    Rarity: 0
+    Quality: 3
   references:
     version: 2
-    RefIds: []
+    RefIds:
+    - rid: 4348500623050670278
+      type: {class: OwnsPromoRule, ns: SteamToys.Runtime.InventorySystem, asm: fefek5.SteamToys.Runtime}
+      data:
+        _appId: 480
