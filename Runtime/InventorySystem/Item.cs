@@ -417,22 +417,32 @@ namespace SteamToys.Runtime.InventorySystem
         #endregion
     }
 
-    public class Item<TTags> : Item where TTags : Tags, new()
+    public class Item<TTags> : Item where TTags : NewTagsLogic.Tags, new()
     {
         [SerializeField] private TTags _tags;
+
+        public TTags TagsData
+        {
+            get
+            {
+                EnsureTagsInitialized();
+
+                return _tags;
+            }
+        }
 
         public override string GetTags()
         {
             EnsureTagsInitialized();
-            
-            return _tags.GetTags();
+
+            return _tags.GetTagsString();
         }
 
         public override void SetTags(string value)
         {
             EnsureTagsInitialized();
-            
-            _tags.SetTags(value);
+
+            _tags.SetTagsString(value);
         }
 
         private void EnsureTagsInitialized() => _tags ??= new TTags();

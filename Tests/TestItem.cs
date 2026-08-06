@@ -1,17 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
 using SteamToys.Runtime.InventorySystem;
-using SteamToys.Runtime.InventorySystem.Converters;
 using SteamToys.Runtime.InventorySystem.NewTagsLogic;
 using UnityEngine;
-using Tags = SteamToys.Runtime.InventorySystem.Tags;
+using Tags = SteamToys.Runtime.InventorySystem.NewTagsLogic.Tags;
 
 namespace SteamToys.Tests.Tests
 {
-    [System.Serializable]
+    [Serializable]
     public class TestItemTags : Tags
     {
-        public enum RarityType
+        public enum Rarity
         {
             Common,
             Uncommon,
@@ -26,7 +25,7 @@ namespace SteamToys.Tests.Tests
             Unusual
         }
 
-        public enum QualityType
+        public enum Quality
         {
             Normal,
             Genuine,
@@ -41,37 +40,11 @@ namespace SteamToys.Tests.Tests
             Completed
         }
 
-        public RarityType Rarity;
-        public QualityType Quality;
+        public Tag<Rarity> RarityTag = new Tag<Rarity>();
+        public Tag<Quality> QualityTag = new Tag<Quality>();
 
-        public override string[] GetTagNames() =>
-            new[] { "rarity", "quality" };
-
-        public override string GetTag(string tagName) =>
-            tagName switch {
-                "rarity" => Rarity.ToString().ToSnakeCase(),
-                "quality" => Quality.ToString().ToSnakeCase(),
-                _ => throw new System.ArgumentException($"Tag '{tagName}' not found.")
-            };
-
-        public override string SetTag(string tagName, string tagValue)
-        {
-            switch (tagName)
-            {
-                case "rarity":
-                    if (!System.Enum.TryParse(tagValue, out RarityType rarity))
-                        throw new System.ArgumentException($"Invalid value '{tagValue}' for tag 'rarity'.");
-                    Rarity = rarity;
-                    return tagValue;
-                case "quality":
-                    if (!System.Enum.TryParse(tagValue, out QualityType quality))
-                        throw new System.ArgumentException($"Invalid value '{tagValue}' for tag 'quality'.");
-                    Quality = quality;
-                    return tagValue;
-                default:
-                    throw new System.ArgumentException($"Tag '{tagName}' not found.");
-            }
-        }
+        public override HashSet<Tag> GetTags() =>
+            new HashSet<Tag> { RarityTag, QualityTag };
     }
 
     [CreateAssetMenu(fileName = "TestItem", menuName = "SteamToys/Inventory/TestItem", order = 1)]
@@ -104,7 +77,7 @@ namespace SteamToys.Tests.Tests
     public class ExampleTagCondition : Tag<ConditionType> { }
 
     [Serializable]
-    public class ExampleTags : SteamToys.Runtime.InventorySystem.NewTagsLogic.Tags
+    public class ExampleTags : Tags
     {
         public Tag<RarityType> Rarity;
         public Tag<ConditionType> Condition;

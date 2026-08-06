@@ -21,34 +21,26 @@ namespace SteamToys.Editor.InventorySystem.PropertyDrawers.NewTagsLogic
             return CreateSteamPreview(property);
         }
 
-        /// <summary>
-        /// Builds the Steam preview line for a <see cref="Tag"/> property and keeps it
-        /// in sync with the serialized data. Reused by the concrete tag drawers so the
-        /// preview looks the same wherever a tag is edited.
-        /// </summary>
         public static VisualElement CreateSteamPreview(SerializedProperty property)
         {
             var trackedProperty = property.Copy();
 
             var preview = new Label {
-                name = "steamTagPreview",
                 style = {
                     fontSize = 10,
                     unityFontStyleAndWeight = FontStyle.Italic,
-                    unityTextAlign = TextAnchor.MiddleLeft
+                    marginLeft = 0
                 }
             };
 
             Refresh();
 
-            // Rebuild the text whenever the tag (or any of its fields) changes.
             preview.TrackPropertyValue(trackedProperty, _ => Refresh());
 
             return preview;
 
             void Refresh()
             {
-                // [SerializeReference] field left null – no tag to send.
                 if (trackedProperty.boxedValue is not Tag tag)
                 {
                     preview.text = "no tag assigned";
@@ -58,7 +50,6 @@ namespace SteamToys.Editor.InventorySystem.PropertyDrawers.NewTagsLogic
                     return;
                 }
 
-                // Steam expects tags as name:value pairs.
                 preview.text = $"{tag.GetName()}:{tag.GetValue()}";
                 preview.tooltip = $"Sent to Steam as name:value ({tag.GetValueType().Name})";
                 preview.style.color = _previewColor;
