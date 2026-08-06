@@ -40,53 +40,15 @@ namespace SteamToys.Tests.Tests
             Completed
         }
 
-        public Tag<Rarity> RarityTag = new Tag<Rarity>();
-        public Tag<Quality> QualityTag = new Tag<Quality>();
+        public Tag<Rarity> RarityTag = new();
+        public Tag<Quality> QualityTag = new();
 
-        public override HashSet<Tag> GetTags() =>
-            new HashSet<Tag> { RarityTag, QualityTag };
+        public override HashSet<Tag> GetTags() => new() { RarityTag, QualityTag };
     }
 
     [CreateAssetMenu(fileName = "TestItem", menuName = "SteamToys/Inventory/TestItem", order = 1)]
     public class TestItem : Item<TestItemTags>
     {
-        [Header("New Tags Testign")]
-        [SerializeField] private ExampleTags _exampleTags;
-    }
-  
-    public enum RarityType
-    {
-        Common,
-        Uncommon,
-        Rare,
-        Epic,
-        Legendary
-    }
-    
-    public enum ConditionType
-    {
-        New,
-        Used,
-        Refurbished
-    }
-    
-    [Serializable]
-    public class ExampleTagRarity : Tag<RarityType> { }
-    
-    [Serializable]
-    public class ExampleTagCondition : Tag<ConditionType> { }
-
-    [Serializable]
-    public class ExampleTags : Tags
-    {
-        public Tag<RarityType> Rarity;
-        public Tag<ConditionType> Condition;
-        public ExampleTagRarity ExampleRarity;
-        public ExampleTagCondition ExampleCondition;
         
-        public override HashSet<Tag> GetTags()
-        {
-            return new HashSet<Tag> { Rarity, Condition, ExampleRarity, ExampleCondition };
-        }
     }
 }

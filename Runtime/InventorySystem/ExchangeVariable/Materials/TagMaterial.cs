@@ -4,7 +4,7 @@ using UnityEngine;
 namespace SteamToys.Runtime.InventorySystem.ExchangeVariable.Materials
 {
     [Serializable]
-    public class TagMaterial<TTags> : Material where TTags : Tags
+    public class TagMaterial<TTags> : Material where TTags : NewTagsLogic.Tags
     {
         public TTags Tags
         {
@@ -36,7 +36,7 @@ namespace SteamToys.Runtime.InventorySystem.ExchangeVariable.Materials
             if (Tags == null)
                 return string.Empty;
 
-            var tagsStr = Tags.GetTags();
+            var tagsStr = Tags.GetTagsString();
             if (string.IsNullOrWhiteSpace(tagsStr))
                 return string.Empty;
 
