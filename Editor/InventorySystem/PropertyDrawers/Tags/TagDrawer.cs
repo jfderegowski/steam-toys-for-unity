@@ -1,10 +1,10 @@
-using SteamToys.Runtime.InventorySystem.NewTagsLogic;
+using SteamToys.Runtime.InventorySystem;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace SteamToys.Editor.InventorySystem.PropertyDrawers.NewTagsLogic
+namespace SteamToys.Editor.InventorySystem.PropertyDrawers
 {
     /// <summary>
     /// Drawer for <see cref="Tag"/> – read-only preview of the name/value pair

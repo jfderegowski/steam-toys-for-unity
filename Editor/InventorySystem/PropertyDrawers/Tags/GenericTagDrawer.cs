@@ -1,12 +1,12 @@
-using SteamToys.Runtime.InventorySystem.NewTagsLogic;
+using SteamToys.Runtime.InventorySystem;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine.UIElements;
 
-namespace SteamToys.Editor.InventorySystem.PropertyDrawers.NewTagsLogic
+namespace SteamToys.Editor.InventorySystem.PropertyDrawers
 {
     /// <summary>
-    /// Drawer for <see cref="Tag{TEnum}"/> – draws the enum value as a single row,
+    /// Drawer for <see cref="Tag"/> – draws the enum value as a single row,
     /// labelled with the tag name instead of the array element index, followed by
     /// the Steam preview line rendered by <see cref="TagDrawer"/>.
     /// </summary>

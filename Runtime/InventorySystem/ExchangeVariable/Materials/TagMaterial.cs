@@ -4,7 +4,7 @@ using UnityEngine;
 namespace SteamToys.Runtime.InventorySystem.ExchangeVariable.Materials
 {
     [Serializable]
-    public class TagMaterial<TTags> : Material where TTags : NewTagsLogic.Tags
+    public class TagMaterial<TTags> : Material where TTags : Tags
     {
         public TTags Tags
         {

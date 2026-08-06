@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using SteamToys.Runtime.InventorySystem;
-using SteamToys.Runtime.InventorySystem.NewTagsLogic;
 using UnityEngine;
-using Tags = SteamToys.Runtime.InventorySystem.NewTagsLogic.Tags;
 
 namespace SteamToys.Tests.Tests
 {

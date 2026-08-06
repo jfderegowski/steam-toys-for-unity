@@ -417,7 +417,7 @@ namespace SteamToys.Runtime.InventorySystem
         #endregion
     }
 
-    public class Item<TTags> : Item where TTags : NewTagsLogic.Tags, new()
+    public class Item<TTags> : Item where TTags : Tags, new()
     {
         [SerializeField] private TTags _tags;
 
