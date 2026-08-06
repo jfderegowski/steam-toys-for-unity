@@ -1,8 +1,6 @@
-using System;
 using Newtonsoft.Json;
 using SteamToys.Runtime.InventorySystem.Converters;
 using SteamToys.Runtime.InventorySystem.ExchangeVariable;
-using SteamToys.Runtime.InventorySystem.NewTagsLogic;
 using UnityEngine;
 
 namespace SteamToys.Runtime.InventorySystem
@@ -438,8 +436,5 @@ namespace SteamToys.Runtime.InventorySystem
         }
 
         private void EnsureTagsInitialized() => _tags ??= new TTags();
-        
-        [Header("New Tags Testign")]
-        [SerializeField] private ExampleTags _exampleTags;
     }
 }

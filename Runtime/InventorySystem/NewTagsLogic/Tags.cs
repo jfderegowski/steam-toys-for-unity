@@ -1,24 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using SteamToys.Runtime.InventorySystem.Converters;
 
 namespace SteamToys.Runtime.InventorySystem.NewTagsLogic
 {
-    public enum RarityType
-    {
-        Common,
-        Uncommon,
-        Rare,
-        Epic,
-        Legendary
-    }
-    
-    public enum ConditionType
-    {
-        New,
-        Used,
-        Refurbished
-    }
-
     [Serializable]
     public abstract class Tag
     {
@@ -26,7 +11,7 @@ namespace SteamToys.Runtime.InventorySystem.NewTagsLogic
 
         public abstract string GetValue();
 
-        public virtual Type GetValueType() => typeof(string);
+        public abstract Type GetValueType();
     }
     
     [Serializable]
@@ -36,9 +21,9 @@ namespace SteamToys.Runtime.InventorySystem.NewTagsLogic
 
         public sealed override Type GetValueType() => typeof(TEnum);
 
-        public override string GetName() => typeof(TEnum).Name;
+        public override string GetName() => typeof(TEnum).Name.ToSnakeCase();
 
-        public override string GetValue() => Value.ToString();
+        public override string GetValue() => Value.ToString().ToSnakeCase();
     }
 
     [Serializable]
@@ -70,26 +55,6 @@ namespace SteamToys.Runtime.InventorySystem.NewTagsLogic
             }
 
             return null;
-        }
-    }
-
-    [Serializable]
-    public class ExampleTagRarity : Tag<RarityType> { }
-    
-    [Serializable]
-    public class ExampleTagCondition : Tag<ConditionType> { }
-
-    [Serializable]
-    public class ExampleTags : Tags
-    {
-        public Tag<RarityType> Rarity;
-        public Tag<ConditionType> Condition;
-        public ExampleTagRarity ExampleRarity;
-        public ExampleTagCondition ExampleCondition;
-        
-        public override HashSet<Tag> GetTags()
-        {
-            return new HashSet<Tag> { Rarity, Condition };
         }
     }
 }

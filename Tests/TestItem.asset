@@ -57,8 +57,17 @@ MonoBehaviour:
   _autoStack: 0
   _purchaseLimit: 0
   _tags:
-    Rarity: 0
-    Quality: 3
+    Rarity: 2
+    Quality: 1
+  _exampleTags:
+    Rarity:
+      Value: 0
+    Condition:
+      Value: 1
+    ExampleRarity:
+      Value: 0
+    ExampleCondition:
+      Value: 0
   references:
     version: 2
     RefIds:
