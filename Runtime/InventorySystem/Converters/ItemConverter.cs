@@ -9,7 +9,7 @@ namespace SteamToys.Runtime.InventorySystem.Converters
     /// Custom JSON converter for <see cref="Item"/> that produces
     /// the exact format expected by the Steam Inventory Service.
     /// </summary>
-    public class SteamInventoryItemConverter : JsonConverter<Item>
+    public class ItemConverter : JsonConverter<Item>
     {
         public override bool CanRead => false;
 
@@ -30,6 +30,9 @@ namespace SteamToys.Runtime.InventorySystem.Converters
 
             // description
             WriteIfNotEmpty(writer, "description", value.Description);
+
+            // display_type
+            WriteIfNotEmpty(writer, "display_type", value.DisplayType);
 
             // name_color — written as hex without alpha, e.g. "FF0000"
             if (!IsDefaultColor(value.NameColor))

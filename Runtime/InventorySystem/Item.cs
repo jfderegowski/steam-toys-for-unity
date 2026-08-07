@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace SteamToys.Runtime.InventorySystem
 {
-    [JsonConverter(typeof(SteamInventoryItemConverter))]
+    [JsonConverter(typeof(ItemConverter))]
     public abstract class Item : ScriptableObject
     {
         #region Properties
