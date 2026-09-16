@@ -1,7 +1,11 @@
 {
     "name": "fefek5.SteamToys.Runtime",
     "rootNamespace": "SteamToys.Runtime",
-    "references": [],
+    "references": [
+        "com.rlabrecque.steamworks.net",
+        "fefek5.SingletonSystem.Runtime",
+        "com.fefek5.toys.Runtime"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

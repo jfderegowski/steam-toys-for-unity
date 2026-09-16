@@ -105,19 +105,21 @@ namespace SteamToys.Runtime.InventorySystem.Converters
             WriteUintIfNotZero(writer, "purchase_limit", value.PurchaseLimit);
 
             // use_drop_limit
-            WriteBoolIfTrue(writer, "use_drop_limit", value.UseDropLimit);
+            WriteBoolIfTrue(writer, "use_drop_limit", value.DropLimit.hasValue);
 
             // drop_limit
-            WriteUintIfNotZero(writer, "drop_limit", value.DropLimit);
+            if (value.DropLimit.hasValue)
+                WriteUintIfNotZero(writer, "drop_limit", value.DropLimit.value);
 
             // drop_interval
             WriteUintIfNotZero(writer, "drop_interval", value.DropInterval);
 
             // use_drop_window
-            WriteBoolIfTrue(writer, "use_drop_window", value.UseDropWindow);
+            WriteBoolIfTrue(writer, "use_drop_window", value.DropWindow.hasValue);
 
             // drop_window
-            WriteUintIfNotZero(writer, "drop_window", value.DropWindow);
+            if (value.DropWindow.hasValue)
+                WriteUintIfNotZero(writer, "drop_window", value.DropWindow.value);
 
             // drop_max_per_window
             WriteUintIfNotZero(writer, "drop_max_per_window", value.DropMaxPerWindow);

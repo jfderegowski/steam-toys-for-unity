@@ -1,3 +1,4 @@
+using fefek5.Toys.Runtime;
 using Newtonsoft.Json;
 using SteamToys.Runtime.InventorySystem.Converters;
 using SteamToys.Runtime.InventorySystem.ExchangeVariable;
@@ -154,13 +155,7 @@ namespace SteamToys.Runtime.InventorySystem
             set => SetPurchaseLimit(value);
         }
 
-        public bool UseDropLimit
-        {
-            get => GetUseDropLimit();
-            set => SetUseDropLimit(value);
-        }
-
-        public uint DropLimit
+        public HasValue<uint> DropLimit
         {
             get => GetDropLimit();
             set => SetDropLimit(value);
@@ -172,13 +167,7 @@ namespace SteamToys.Runtime.InventorySystem
             set => SetDropInterval(value);
         }
 
-        public bool UseDropWindow
-        {
-            get => GetUseDropWindow();
-            set => SetUseDropWindow(value);
-        }
-
-        public uint DropWindow
+        public HasValue<uint> DropWindow
         {
             get => GetDropWindow();
             set => SetDropWindow(value);
@@ -245,16 +234,12 @@ namespace SteamToys.Runtime.InventorySystem
         [Header("Drop System")]
         [SerializeField, Tooltip("Timestamp when this item starts dropping to users.")]
         private SteamDateTime _dropStartTime;
-        [SerializeField, Tooltip("Whether to enforce a drop limit for this item.")]
-        private bool _useDropLimit;
-        [SerializeField, Tooltip("Maximum number of this item that can be obtained by a user.")]
-        private uint _dropLimit;
+        [SerializeField, Tooltip("Maximum number of this item that can be obtained by a user. Enforced only when set.")]
+        private HasValue<uint> _dropLimit;
         [SerializeField, Tooltip("Time in seconds between consecutive item drops.")]
         private uint _dropInterval;
-        [SerializeField, Tooltip("Whether to limit drops within a specific time window.")]
-        private bool _useDropWindow;
-        [SerializeField, Tooltip("Duration of the drop window in seconds.")]
-        private uint _dropWindow;
+        [SerializeField, Tooltip("Duration of the drop window in seconds. Drops are limited to the window only when set.")]
+        private HasValue<uint> _dropWindow;
         [SerializeField, Tooltip("Maximum drops allowed within the drop window.")]
         private uint _dropMaxPerWindow;
         
@@ -380,25 +365,17 @@ namespace SteamToys.Runtime.InventorySystem
         
         public virtual void SetPurchaseLimit(uint value) => _purchaseLimit = value;
 
-        public virtual bool GetUseDropLimit() => _useDropLimit;
-        
-        public virtual void SetUseDropLimit(bool value) => _useDropLimit = value;
+        public virtual HasValue<uint> GetDropLimit() => _dropLimit;
 
-        public virtual uint GetDropLimit() => _dropLimit;
-        
-        public virtual void SetDropLimit(uint value) => _dropLimit = value;
+        public virtual void SetDropLimit(HasValue<uint> value) => _dropLimit = value;
 
         public virtual uint GetDropInterval() => _dropInterval;
-        
+
         public virtual void SetDropInterval(uint value) => _dropInterval = value;
 
-        public virtual bool GetUseDropWindow() => _useDropWindow;
-        
-        public virtual void SetUseDropWindow(bool value) => _useDropWindow = value;
+        public virtual HasValue<uint> GetDropWindow() => _dropWindow;
 
-        public virtual uint GetDropWindow() => _dropWindow;
-        
-        public virtual void SetDropWindow(uint value) => _dropWindow = value;
+        public virtual void SetDropWindow(HasValue<uint> value) => _dropWindow = value;
 
         public virtual uint GetDropMaxPerWindow() => _dropMaxPerWindow;
         

@@ -12,6 +12,12 @@ namespace SteamToys.Runtime.InventorySystem
             set => SetTagsString(value);
         }
 
+        public string this[string tagName]
+        {
+            get => GetValue(tagName);
+            set => SetValue(tagName, value);
+        }
+
         public abstract HashSet<Tag> GetTags();
 
         public TEnum GetValue<TEnum>() where TEnum : Enum
@@ -106,6 +112,16 @@ namespace SteamToys.Runtime.InventorySystem
 
                 SetValue(tagName, tagValue);
             }
+        }
+
+        public override string ToString() => GetTagsString();
+
+        public static explicit operator string(Tags tags)
+        {
+            if (tags is null)
+                throw new ArgumentNullException(nameof(tags));
+
+            return tags.GetTagsString();
         }
     }
 }

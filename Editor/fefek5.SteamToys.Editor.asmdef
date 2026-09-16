@@ -2,7 +2,9 @@
     "name": "fefek5.SteamToys.Editor",
     "rootNamespace": "SteamToys.Editor",
     "references": [
-        "fefek5.SteamToys.Runtime"
+        "fefek5.SteamToys.Runtime",
+        "fefek5.SingletonSystem.Runtime",
+        "com.rlabrecque.steamworks.net"
     ],
     "includePlatforms": [
         "Editor"
