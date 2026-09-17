@@ -220,9 +220,9 @@ namespace SteamToys.Runtime.Core
 
             SteamClient.SetWarningMessageHook(_warningMessageHook ??= SteamAPIDebugTextHook);
 
-            // The previous session unregistered every callback when it shut down, so each new one
-            // has to hook them up again.
-            SteamStats.RegisterCallbacks();
+            // The previous session unregistered every callback when it shut down, and a stats
+            // warning from before this one would keep the next warning silent, so stats start over.
+            SteamStats.OnSessionStarted();
 
             // Worth naming the app: the ID comes from steam_appid.txt in the working directory,
             // which is easy to have pointing somewhere other than the project's own setting.

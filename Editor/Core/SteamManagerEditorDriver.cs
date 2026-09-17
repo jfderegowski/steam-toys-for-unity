@@ -1,3 +1,6 @@
+using System;
+using System.IO;
+using System.Text;
 using SteamToys.Runtime;
 using SteamToys.Runtime.Core;
 using UnityEditor;
@@ -63,13 +66,7 @@ namespace SteamToys.Editor.Core
         {
             if (SteamSession.IsRunning)
             {
-                // Drops the session and nothing else - closing the editor is left to you. Whether
-                // Steam clears the in-game status appears to depend on how the process ends, and
-                // calling SteamAPI_Shutdown beforehand may be exactly what costs Steam the signal
-                // it watches for, so the two are separated here to tell them apart.
-                SteamSession.EditModeEnabled = false;
-
-                SteamSession.Sync();
+                Disconnect();
 
                 return;
             }
@@ -93,6 +90,109 @@ namespace SteamToys.Editor.Core
             // In play mode the game owns the session; shutting it down from here would break it.
             return !Application.isPlaying;
         }
+
+        /// <summary>
+        /// Disconnecting restarts the editor, because Steam drops the in-game status only once the
+        /// process that connected has exited.
+        /// <para>
+        /// The replacement editor must not be started by this process. Steam also tracks every
+        /// process a tracked one starts, detached or not, so an editor relaunched from here would
+        /// carry the status straight over. WMI starts it instead, from a host of its own.
+        /// </para>
+        /// </summary>
+        private static void Disconnect()
+        {
+            if (!EditorUtility.DisplayDialog(
+                    "Disconnect From Steam",
+                    "Steam shows this editor as in-game until its process exits, so disconnecting restarts the " +
+                    "editor.\n\nModified scenes are saved first, with the usual prompt.",
+                    "Restart", "Cancel"))
+                return;
+
+            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+                return;
+
+            // Before anything is torn down, so that a failure leaves the session as it was.
+            if (!ScheduleRelaunch())
+                return;
+
+            SteamSession.EditModeEnabled = false;
+
+            SteamSession.Stop();
+
+            EditorApplication.Exit(0);
+        }
+
+        /// <summary>
+        /// Leaves behind a hidden PowerShell, outside this process tree, that waits for the editor to
+        /// exit and then opens the project again. Returns false, with the reason logged, if it could
+        /// not be started.
+        /// </summary>
+        private static bool ScheduleRelaunch()
+        {
+            var projectPath = Directory.GetParent(Application.dataPath).FullName;
+
+            // Only the project path is carried over: the rest of the command line can hold one-off
+            // launch state, such as the Hub's session tokens.
+            var relaunch =
+                $"Wait-Process -Id {System.Diagnostics.Process.GetCurrentProcess().Id} -ErrorAction SilentlyContinue\n" +
+                $"Start-Process -FilePath {PowerShellString(EditorApplication.applicationPath)} " +
+                $"-ArgumentList {PowerShellString($"-projectPath \"{projectPath}\"")} " +
+                $"-WorkingDirectory {PowerShellString(projectPath)}";
+
+            // Win32_Process.Create runs the command from WmiPrvSE, which is what keeps it out of
+            // Steam's reach. ShowWindow 0 spares the console window it would otherwise flash.
+            // An encoded command writes errors and progress to stderr as XML, so progress is
+            // silenced and the error is written out as plain text for the log.
+            var broker =
+                "$ProgressPreference = 'SilentlyContinue'\n" +
+                "try {\n" +
+                "    $startup = New-CimInstance -ClassName Win32_ProcessStartup -ClientOnly -Property @{ ShowWindow = [uint16]0 }\n" +
+                "    $result = Invoke-CimMethod -ErrorAction Stop -ClassName Win32_Process -MethodName Create -Arguments @{ " +
+                $"CommandLine = {PowerShellString("powershell.exe " + PowerShellArguments(relaunch))}; " +
+                "ProcessStartupInformation = $startup }\n" +
+                "    exit $result.ReturnValue\n" +
+                "} catch {\n" +
+                "    [Console]::Error.WriteLine($_)\n" +
+                "    exit 1\n" +
+                "}";
+
+            var startInfo = new System.Diagnostics.ProcessStartInfo("powershell.exe", PowerShellArguments(broker))
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardError = true
+            };
+
+            using var process = System.Diagnostics.Process.Start(startInfo);
+
+            if (!process.WaitForExit(30000))
+            {
+                process.Kill();
+
+                Debug.LogError("[SteamToys] Scheduling the editor restart timed out, so the session stays up.");
+
+                return false;
+            }
+
+            if (process.ExitCode != 0)
+            {
+                Debug.LogError(
+                    $"[SteamToys] Could not schedule the editor restart (exit code {process.ExitCode}), " +
+                    $"so the session stays up.\n{process.StandardError.ReadToEnd()}");
+
+                return false;
+            }
+
+            return true;
+        }
+
+        // Encoded, so the script needs no quoting beyond its own string literals.
+        private static string PowerShellArguments(string script) =>
+            "-NoProfile -NonInteractive -EncodedCommand " +
+            Convert.ToBase64String(Encoding.Unicode.GetBytes(script));
+
+        private static string PowerShellString(string value) => $"'{value.Replace("'", "''")}'";
 
         #endregion
 

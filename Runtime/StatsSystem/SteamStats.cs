@@ -124,17 +124,24 @@ namespace SteamToys.Runtime.StatsSystem
         }
 
         /// <summary>
-        /// Hooks the stat callbacks up for a new session. Called by <see cref="SteamSession"/> each
-        /// time it starts, because shutting a session down unregisters every callback on the
-        /// Steamworks.NET side while the objects in these fields live on looking untouched.
+        /// Prepares stats for a new session. Called by <see cref="SteamSession"/> each time it
+        /// starts.
         /// <para>
-        /// The old objects are disposed rather than dropped: after a session that never shut down
-        /// cleanly they may still be registered, and would otherwise go on firing alongside the
-        /// new ones.
+        /// The warning is re-armed, so that losing this session gets reported just like the first
+        /// time around rather than staying silenced by an old warning.
+        /// </para>
+        /// <para>
+        /// The callbacks are hooked up again, because shutting a session down unregisters every
+        /// callback on the Steamworks.NET side while the objects in these fields live on looking
+        /// untouched. The old objects are disposed rather than dropped: after a session that never
+        /// shut down cleanly they may still be registered, and would otherwise go on firing
+        /// alongside the new ones.
         /// </para>
         /// </summary>
-        internal static void RegisterCallbacks()
+        internal static void OnSessionStarted()
         {
+            _warnedNotInitialized = false;
+
             _statsReceivedCallback?.Dispose();
             _statsStoredCallback?.Dispose();
 
