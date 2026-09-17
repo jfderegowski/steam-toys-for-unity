@@ -18,7 +18,7 @@ namespace SteamToys.Editor.PropertyDrawers
         public override VisualElement CreatePropertyGUI(SerializedProperty property)
         {
             // Namespace SteamToys.Editor.SteamSettings shadows the class name here.
-            var steamSettings = SteamToys.Runtime.SteamSettings.Instance;
+            var steamSettings = Runtime.Core.SteamSettings.Instance;
 
             var appIdProperty = property.FindPropertyRelative("m_AppId");
 

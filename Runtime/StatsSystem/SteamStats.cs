@@ -1,12 +1,7 @@
-#if !(UNITY_STANDALONE_WIN || UNITY_STANDALONE_LINUX || UNITY_STANDALONE_OSX || UNITY_ANDROID || STEAMWORKS_WIN || STEAMWORKS_LIN_OSX)
-    #define DISABLESTEAMWORKS
-#endif
-
 using System;
-using UnityEngine;
-#if !DISABLESTEAMWORKS
+using SteamToys.Runtime.Core;
 using Steamworks;
-#endif
+using UnityEngine;
 
 namespace SteamToys.Runtime.StatsSystem
 {
@@ -14,22 +9,14 @@ namespace SteamToys.Runtime.StatsSystem
     /// The stat calls that belong to no single stat: committing the pending writes and resetting
     /// everything stored for the user.
     /// <para>
-    /// The game owns the Steamworks lifecycle. This package never calls <c>SteamAPI.Init</c>,
-    /// <c>SteamAPI.RunCallbacks</c> or <c>SteamAPI.Shutdown</c>; it only checks whether the API is
-    /// up and says so clearly when it is not.
+    /// The Steamworks session itself belongs to <see cref="SteamManager"/>. Stats only check
+    /// <see cref="SteamManager.SteamInitialized"/> and say so clearly when it is false.
     /// </para>
     /// <see href="https://partner.steamgames.com/doc/features/achievements/stats_guide"/>
     /// </summary>
     public static class SteamStats
     {
         #region Events
-
-#if DISABLESTEAMWORKS
-        // Both events are raised from the Steamworks branch further down, so on a platform
-        // without Steamworks they are declared but never invoked, which is exactly what CS0067
-        // reports. The public surface stays the same on every platform on purpose.
-        #pragma warning disable CS0067
-#endif
 
         /// <summary>
         /// Raised when Steam delivered the stats of the user. Current Steamworks versions
@@ -41,47 +28,31 @@ namespace SteamToys.Runtime.StatsSystem
 
         /// <summary>
         /// Raised once Steam answered a <see cref="StoreStats"/> attempt, carrying whether it was
-        /// accepted. Reaching the game requires the game to be pumping
-        /// <c>SteamAPI.RunCallbacks</c>.
+        /// accepted. Reaching the game requires the session to be pumped, which
+        /// <see cref="SteamManager"/> does every frame and the editor driver does outside play mode.
         /// </summary>
         public static event Action<bool> OnStatsStored;
-
-#if DISABLESTEAMWORKS
-        #pragma warning restore CS0067
-#endif
 
         #endregion
 
         #region Properties
 
         /// <summary>
-        /// True when the Steamworks API is initialized, which is what makes a stat call safe:
-        /// the raw <c>SteamUserStats</c> calls throw rather than fail when the API is down.
+        /// True while <see cref="SteamManager.SteamInitialized"/>, which is what makes a stat call
+        /// safe: the raw <c>SteamUserStats</c> calls throw rather than fail when the API is down.
         /// </summary>
-        public static bool IsAvailable
-        {
-            get
-            {
-#if DISABLESTEAMWORKS
-                return false;
-#else
-                return CallbackDispatcher.IsInitialized;
-#endif
-            }
-        }
+        public static bool Initialized => SteamManager.SteamInitialized;
 
         #endregion
 
         #region Private Fields
 
-        private static bool _warnedUnavailable;
+        private static bool _warnedNotInitialized;
 
-#if !DISABLESTEAMWORKS
         // Held in fields on purpose: Steamworks.NET requires a live reference, or the garbage
         // collector takes the registration away.
         private static Callback<UserStatsReceived_t> _statsReceivedCallback;
         private static Callback<UserStatsStored_t> _statsStoredCallback;
-#endif
 
         #endregion
 
@@ -96,15 +67,13 @@ namespace SteamToys.Runtime.StatsSystem
         /// </summary>
         public static bool StoreStats()
         {
-            if (!EnsureAvailable(null))
+            if (!EnsureInitialized(null))
                 return false;
 
-#if !DISABLESTEAMWORKS
             if (SteamUserStats.StoreStats())
                 return true;
 
             Debug.LogWarning("Steam turned down the request to store the stats. This usually means the stats for the current user are not loaded yet, or the running app ID does not match the one the stats are configured for.");
-#endif
 
             return false;
         }
@@ -120,75 +89,65 @@ namespace SteamToys.Runtime.StatsSystem
         /// </summary>
         public static bool ResetAllStats(bool achievementsToo = false)
         {
-            if (!EnsureAvailable(null))
+            if (!EnsureInitialized(null))
                 return false;
 
-#if !DISABLESTEAMWORKS
             if (SteamUserStats.ResetAllStats(achievementsToo))
                 return true;
 
             Debug.LogWarning("Steam turned down the request to reset the stats.");
-#endif
 
             return false;
         }
 
         /// <summary>
-        /// True when stat calls can be made, and the place where the callbacks get registered
-        /// once the API is up. Warns only the first time it fails, because stats are written as
-        /// often as every frame and a warning per call would flood the console.
+        /// True when stat calls can be made. Warns only the first time it fails, because stats are
+        /// written as often as every frame and a warning per call would flood the console.
         /// </summary>
-        internal static bool EnsureAvailable(UnityEngine.Object context)
+        internal static bool EnsureInitialized(UnityEngine.Object context)
         {
-            if (IsAvailable)
-            {
-#if !DISABLESTEAMWORKS
-                EnsureCallbacks();
-#endif
-
+            if (Initialized)
                 return true;
-            }
 
-            if (_warnedUnavailable)
+            if (_warnedNotInitialized)
                 return false;
 
-            _warnedUnavailable = true;
+            _warnedNotInitialized = true;
 
-#if DISABLESTEAMWORKS
-            Debug.LogWarning("Steamworks is not available on this platform, so Steam stats keep their values locally only.", context);
-#else
-            Debug.LogWarning("Steam stats are unavailable because the Steamworks API is not initialized. The game is responsible for calling SteamAPI.Init, and SteamAPI.RunCallbacks every frame, before using stats. Values are kept locally until then.", context);
-#endif
+            Debug.LogWarning("Steam stats are not initialized because no Steam session is running. " +
+                             "Add a SteamManager to the game, or outside play mode turn " +
+                             "on \"Window/Steam Toys/Connect To Steam\"; if that is already done, " +
+                             "the SteamToys error logged when the session failed to start says why. " +
+                             "Values are kept locally until then.", context);
 
             return false;
         }
 
-        // Steamworks.NET clears its own dispatcher when entering play mode with domain reload
-        // disabled, so the stale callbacks and the warning flag from the previous session have to
-        // go with it.
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void ResetStaticState()
-        {
-            _warnedUnavailable = false;
-
-#if !DISABLESTEAMWORKS
-            _statsReceivedCallback = null;
-            _statsStoredCallback = null;
-#endif
-        }
-
-#if !DISABLESTEAMWORKS
         /// <summary>
-        /// Registers the stat callbacks the first time they are needed. They cannot be created
-        /// before the API is initialized, which is why this is lazy instead of running on load.
+        /// Hooks the stat callbacks up for a new session. Called by <see cref="SteamSession"/> each
+        /// time it starts, because shutting a session down unregisters every callback on the
+        /// Steamworks.NET side while the objects in these fields live on looking untouched.
+        /// <para>
+        /// The old objects are disposed rather than dropped: after a session that never shut down
+        /// cleanly they may still be registered, and would otherwise go on firing alongside the
+        /// new ones.
+        /// </para>
         /// </summary>
-        private static void EnsureCallbacks()
+        internal static void RegisterCallbacks()
         {
-            if (_statsReceivedCallback != null)
-                return;
+            _statsReceivedCallback?.Dispose();
+            _statsStoredCallback?.Dispose();
 
             _statsReceivedCallback = Callback<UserStatsReceived_t>.Create(OnUserStatsReceived);
             _statsStoredCallback = Callback<UserStatsStored_t>.Create(OnUserStatsStored);
+        }
+
+        // Entering play mode with domain reload disabled keeps this alive from the previous run,
+        // and that run's warning should not silence the next one.
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStaticState()
+        {
+            _warnedNotInitialized = false;
         }
 
         private static void OnUserStatsReceived(UserStatsReceived_t callback)
@@ -214,6 +173,5 @@ namespace SteamToys.Runtime.StatsSystem
 
             OnStatsStored?.Invoke(stored);
         }
-#endif
     }
 }

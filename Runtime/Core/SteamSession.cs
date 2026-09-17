@@ -1,15 +1,16 @@
 using System;
+using SteamToys.Runtime.StatsSystem;
 using Steamworks;
 using UnityEngine;
 
-namespace SteamToys.Runtime
+namespace SteamToys.Runtime.Core
 {
     /// <summary>
     /// The one place that talks to the Steamworks API. Every call here is idempotent, so a caller
     /// never has to know what happened before it.
     /// <para>
-    /// The session belongs to a <see cref="SteamManager"/>: it runs while an enabled manager owns
-    /// it, and in the editor only while the menu toggle is on as well. Each lifecycle event calls
+    /// In play mode and in a build the session belongs to the <see cref="SteamManager"/> singleton;
+    /// fully in edit mode it follows the menu toggle instead. Each lifecycle event calls
     /// <see cref="Sync"/> and nothing else, which is why none of them need to agree on the order
     /// Unity happens to run them in.
     /// </para>
@@ -37,27 +38,22 @@ namespace SteamToys.Runtime
         public static bool IsRunning => CallbackDispatcher.IsInitialized;
 
         /// <summary>
-        /// True while a <see cref="SteamManager"/> holds the session.
-        /// </summary>
-        public static bool HasOwner => _owner;
-
-        /// <summary>
-        /// Whether the session should be up at this moment: an enabled manager has to own it, and
-        /// outside play mode the editor toggle has to be on as well.
+        /// Whether the session should be up at this moment: while the game runs a manager has to
+        /// own it, and fully in edit mode the editor toggle has to be on.
         /// </summary>
         public static bool ShouldRun
         {
             get
             {
-                if (!_owner)
-                    return false;
-
 #if UNITY_EDITOR
-                if (!Application.isPlaying)
+                // "Fully" matters at both ends of play mode. The edit session ends as soon as play
+                // is requested, before Steamworks.NET resets its dispatcher on the way in, and the
+                // play session is kept until play mode has torn down, so the two never overlap.
+                if (!Application.isPlaying && !UnityEditor.EditorApplication.isPlayingOrWillChangePlaymode)
                     return EditModeEnabled;
 #endif
 
-                return true;
+                return _owner;
             }
         }
 
@@ -105,19 +101,23 @@ namespace SteamToys.Runtime
         #region Ownership
 
         /// <summary>
-        /// Hands the session to a manager. The last one to be enabled wins, matching how the
-        /// singleton itself settles duplicates.
+        /// Hands the session to a manager. The first one wins, matching how the singleton itself
+        /// settles duplicates: the copy it destroys still initializes on the way out, and must not
+        /// take the session with it.
         /// </summary>
         internal static void Claim(SteamManager owner)
         {
+            if (_owner && _owner != owner)
+                return;
+
             _owner = owner;
 
             Sync();
         }
 
         /// <summary>
-        /// Takes the session away from a manager that is being disabled or destroyed. Ignores
-        /// managers that never held it, so a stray copy cannot shut down a live session.
+        /// Takes the session away from a manager that is being disposed. Ignores managers that
+        /// never held it, so a stray copy cannot shut down a live session.
         /// </summary>
         internal static void Release(SteamManager owner)
         {
@@ -219,6 +219,10 @@ namespace SteamToys.Runtime
             }
 
             SteamClient.SetWarningMessageHook(_warningMessageHook ??= SteamAPIDebugTextHook);
+
+            // The previous session unregistered every callback when it shut down, so each new one
+            // has to hook them up again.
+            SteamStats.RegisterCallbacks();
 
             // Worth naming the app: the ID comes from steam_appid.txt in the working directory,
             // which is easy to have pointing somewhere other than the project's own setting.

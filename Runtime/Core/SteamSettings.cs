@@ -1,10 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using Runtime;
-using SteamToys.Runtime.Core;
 using Steamworks;
 
-namespace SteamToys.Runtime
+namespace SteamToys.Runtime.Core
 {
     [Serializable]
     public struct ProjectAppIdRef

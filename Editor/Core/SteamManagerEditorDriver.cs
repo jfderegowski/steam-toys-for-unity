@@ -1,9 +1,10 @@
 using SteamToys.Runtime;
+using SteamToys.Runtime.Core;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 
-namespace SteamToys.Editor
+namespace SteamToys.Editor.Core
 {
     /// <summary>
     /// Runs the Steam session while the editor is not playing: the two menu toggles, the tick that
@@ -32,20 +33,10 @@ namespace SteamToys.Editor
             AssemblyReloadEvents.beforeAssemblyReload += SteamSession.Stop;
             EditorApplication.quitting += SteamSession.Stop;
 
-            // A static constructor runs while Unity is still loading, which is too early to be
-            // creating objects, so pick the session back up on the first editor tick instead.
-            EditorApplication.delayCall += Restore;
-        }
-
-        /// <summary>
-        /// Reconnects after an editor start or a domain reload, if the toggle was left on.
-        /// </summary>
-        private static void Restore()
-        {
-            if (SteamSession.EditModeEnabled)
-                EnsureOwner();
-
-            SteamSession.Sync();
+            // Reconnects after an editor start or a domain reload if the toggle was left on. A
+            // static constructor runs while Unity is still loading the domain, which is no place to
+            // be starting a native API, so this waits for the first editor tick.
+            EditorApplication.delayCall += SteamSession.Sync;
         }
 
         private static void Pump()
@@ -60,33 +51,9 @@ namespace SteamToys.Editor
 
         private static void OnPlayModeStateChanged(PlayModeStateChange change)
         {
-            // Leaving play mode takes the owner with it, so edit mode needs one of its own back.
-            if (change == PlayModeStateChange.EnteredEditMode && SteamSession.EditModeEnabled)
-                EnsureOwner();
-
-            // Every phase, not a chosen one: Sync only acts on a difference, and which phase the
-            // owner actually changes in depends on the project's Enter Play Mode settings.
+            // Every phase, not a chosen one: Sync only acts on a difference, and ShouldRun already
+            // tells which side of the transition the editor is on.
             SteamSession.Sync();
-        }
-
-        /// <summary>
-        /// Makes sure something owns the session in edit mode. A manager already present in an open
-        /// scene is used as it is; otherwise the driver adds one of its own, kept out of the scene
-        /// file so that connecting to Steam never edits whatever happens to be open.
-        /// </summary>
-        private static void EnsureOwner()
-        {
-            if (SteamSession.HasOwner)
-                return;
-
-            // A manager that exists but has not claimed yet still counts, or reconnecting early in
-            // a domain reload would leave a second one behind.
-            if (Object.FindFirstObjectByType<SteamManager>())
-                return;
-
-            var gameObject = new GameObject(nameof(SteamManager)) { hideFlags = HideFlags.DontSave };
-
-            gameObject.AddComponent<SteamManager>();
         }
 
         #region Connect To Steam
@@ -108,8 +75,6 @@ namespace SteamToys.Editor
             }
 
             SteamSession.EditModeEnabled = true;
-
-            EnsureOwner();
 
             SteamSession.Sync();
 

@@ -7,7 +7,7 @@ namespace SteamToys.Editor.SteamSettings
         [MenuItem("Window/Steam Toys/Steam Settings")]
         public static void OpenSteamSettings()
         {
-            EditorUtility.OpenPropertyEditor(Runtime.SteamSettings.Instance);
+            EditorUtility.OpenPropertyEditor(Runtime.Core.SteamSettings.Instance);
         }
     }
 }

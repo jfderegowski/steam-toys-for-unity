@@ -1,12 +1,6 @@
-#if !(UNITY_STANDALONE_WIN || UNITY_STANDALONE_LINUX || UNITY_STANDALONE_OSX || UNITY_ANDROID || STEAMWORKS_WIN || STEAMWORKS_LIN_OSX)
-    #define DISABLESTEAMWORKS
-#endif
-
 using System;
-using UnityEngine;
-#if !DISABLESTEAMWORKS
 using Steamworks;
-#endif
+using UnityEngine;
 
 namespace SteamToys.Runtime.StatsSystem
 {
@@ -105,25 +99,13 @@ namespace SteamToys.Runtime.StatsSystem
             ApplyValue(DefaultValue);
         }
 
-        protected override bool TryGetFromSteam(out float value)
-        {
-#if DISABLESTEAMWORKS
-            value = default;
-
-            return false;
-#else
-            return SteamUserStats.GetStat(ApiName, out value);
-#endif
-        }
+        protected override bool TryGetFromSteam(out float value) => SteamUserStats.GetStat(ApiName, out value);
 
         protected override bool TryWriteToSteam()
         {
             if (_pendingSessionLength <= 0d)
                 return true;
 
-#if DISABLESTEAMWORKS
-            return false;
-#else
             if (!SteamUserStats.UpdateAvgRateStat(ApiName, _pendingCount, _pendingSessionLength))
                 return false;
 
@@ -135,7 +117,6 @@ namespace SteamToys.Runtime.StatsSystem
                 ApplyValue(average);
 
             return true;
-#endif
         }
 
         // Unreachable through the public API, since TrySetValue turns direct writes down and

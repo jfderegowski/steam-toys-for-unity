@@ -82,8 +82,8 @@ namespace SteamToys.Runtime.StatsSystem
         #endregion
 
         /// <summary>
-        /// True when this stat can talk to Steam. Logs why when it cannot, so a game that never
-        /// called <c>SteamAPI.Init</c> gets one clear warning instead of an
+        /// True when this stat can talk to Steam. Logs why when it cannot, so a game without a
+        /// running Steam session gets one clear warning instead of an
         /// <see cref="InvalidOperationException"/> thrown from inside the Steamworks binding,
         /// which is what the raw <c>SteamUserStats</c> calls do when the API is down.
         /// </summary>
@@ -96,7 +96,7 @@ namespace SteamToys.Runtime.StatsSystem
                 return false;
             }
 
-            return SteamStats.EnsureAvailable(this);
+            return SteamStats.EnsureInitialized(this);
         }
 
         #region Object Overrides

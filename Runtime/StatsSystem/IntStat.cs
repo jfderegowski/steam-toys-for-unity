@@ -1,12 +1,6 @@
-#if !(UNITY_STANDALONE_WIN || UNITY_STANDALONE_LINUX || UNITY_STANDALONE_OSX || UNITY_ANDROID || STEAMWORKS_WIN || STEAMWORKS_LIN_OSX)
-    #define DISABLESTEAMWORKS
-#endif
-
 using System;
-using UnityEngine;
-#if !DISABLESTEAMWORKS
 using Steamworks;
-#endif
+using UnityEngine;
 
 namespace SteamToys.Runtime.StatsSystem
 {
@@ -30,25 +24,9 @@ namespace SteamToys.Runtime.StatsSystem
         /// <summary>Moves the value up by one, the common case for a counter.</summary>
         public bool Increment() => Add(1);
 
-        protected override bool TryGetFromSteam(out int value)
-        {
-#if DISABLESTEAMWORKS
-            value = default;
+        protected override bool TryGetFromSteam(out int value) => SteamUserStats.GetStat(ApiName, out value);
 
-            return false;
-#else
-            return SteamUserStats.GetStat(ApiName, out value);
-#endif
-        }
-
-        protected override bool TryWriteToSteam()
-        {
-#if DISABLESTEAMWORKS
-            return false;
-#else
-            return SteamUserStats.SetStat(ApiName, RuntimeValue);
-#endif
-        }
+        protected override bool TryWriteToSteam() => SteamUserStats.SetStat(ApiName, RuntimeValue);
 
         protected override bool ValidateChange(int current, int desired, out int corrected)
         {

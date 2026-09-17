@@ -1,11 +1,5 @@
-#if !(UNITY_STANDALONE_WIN || UNITY_STANDALONE_LINUX || UNITY_STANDALONE_OSX || UNITY_ANDROID || STEAMWORKS_WIN || STEAMWORKS_LIN_OSX)
-    #define DISABLESTEAMWORKS
-#endif
-
-using UnityEngine;
-#if !DISABLESTEAMWORKS
 using Steamworks;
-#endif
+using UnityEngine;
 
 namespace SteamToys.Runtime.StatsSystem
 {
@@ -32,25 +26,9 @@ namespace SteamToys.Runtime.StatsSystem
         /// </summary>
         public bool RaiseTo(float value) => value > GetValue() && TrySetValue(value);
 
-        protected override bool TryGetFromSteam(out float value)
-        {
-#if DISABLESTEAMWORKS
-            value = default;
+        protected override bool TryGetFromSteam(out float value) => SteamUserStats.GetStat(ApiName, out value);
 
-            return false;
-#else
-            return SteamUserStats.GetStat(ApiName, out value);
-#endif
-        }
-
-        protected override bool TryWriteToSteam()
-        {
-#if DISABLESTEAMWORKS
-            return false;
-#else
-            return SteamUserStats.SetStat(ApiName, RuntimeValue);
-#endif
-        }
+        protected override bool TryWriteToSteam() => SteamUserStats.SetStat(ApiName, RuntimeValue);
 
         protected override bool ValidateChange(float current, float desired, out float corrected)
         {
