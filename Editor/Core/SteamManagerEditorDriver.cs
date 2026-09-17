@@ -1,10 +1,12 @@
 using System;
 using System.IO;
 using System.Text;
+using SteamToys.Editor.SteamSettings;
 using SteamToys.Runtime;
 using SteamToys.Runtime.Core;
 using UnityEditor;
 using UnityEditor.SceneManagement;
+using UnityEditor.Toolbars;
 using UnityEngine;
 
 namespace SteamToys.Editor.Core
@@ -265,6 +267,50 @@ namespace SteamToys.Editor.Core
             Application.OpenURL("steam://exit");
 
             EditorApplication.Exit(0);
+        }
+
+        #endregion
+
+        #region Toolbar
+
+        private const string ToolbarPath = "Steam Toys";
+
+        /// <summary>
+        /// Puts the "Window/Steam Toys" menu on the left of the main toolbar, as a dropdown holding
+        /// the same entries. Where the toolbar shows it is a preference of its own from there on,
+        /// so this only decides where it starts out.
+        /// </summary>
+        [MainToolbarElement(ToolbarPath, defaultDockPosition = MainToolbarDockPosition.Left, defaultDockIndex = 20)]
+        private static MainToolbarElement CreateToolbarDropdown() =>
+            new MainToolbarDropdown(new MainToolbarContent(ToolbarPath, "Window/Steam Toys"), ShowToolbarMenu);
+
+        private static void ShowToolbarMenu(Rect rect)
+        {
+            var menu = new GenericMenu();
+
+            // Each entry asks the menu's own validate function whether it may be used, so the
+            // dropdown cannot end up offering something the menu refuses.
+            AddToolbarItem(menu, ConnectPath, ToggleConnectValidate(), ToggleConnect);
+            AddToolbarItem(menu, RunClientPath, ToggleClientValidate(), ToggleClient);
+            AddToolbarItem(menu, SteamSettingsMenuItems.SettingsPath, true, SteamSettingsMenuItems.OpenSteamSettings);
+
+            menu.DropDown(rect);
+        }
+
+        /// <summary>
+        /// Adds one menu entry to the dropdown under the name it carries in the menu. The checkmark
+        /// is read back from the menu rather than worked out again: the validate function has just
+        /// run, which is what sets it.
+        /// </summary>
+        private static void AddToolbarItem(
+            GenericMenu menu, string path, bool enabled, GenericMenu.MenuFunction action)
+        {
+            var label = new GUIContent(path.Substring(path.LastIndexOf('/') + 1));
+
+            if (enabled)
+                menu.AddItem(label, Menu.GetChecked(path), action);
+            else
+                menu.AddDisabledItem(label, Menu.GetChecked(path));
         }
 
         #endregion
