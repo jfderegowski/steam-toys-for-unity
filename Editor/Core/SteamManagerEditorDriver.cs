@@ -280,9 +280,27 @@ namespace SteamToys.Editor.Core
         /// the same entries. Where the toolbar shows it is a preference of its own from there on,
         /// so this only decides where it starts out.
         /// </summary>
-        [MainToolbarElement(ToolbarPath, defaultDockPosition = MainToolbarDockPosition.Left, defaultDockIndex = 20)]
+        [MainToolbarElement(ToolbarPath, defaultDockPosition = MainToolbarDockPosition.Left)]
         private static MainToolbarElement CreateToolbarDropdown() =>
             new MainToolbarDropdown(new MainToolbarContent(ToolbarPath, "Window/Steam Toys"), ShowToolbarMenu);
+
+        /// <summary>
+        /// Says where to switch the dropdown on. Unity leaves a toolbar element that arrived with a
+        /// package switched off until it is picked from the toolbar's own menu, and someone who has
+        /// never opened that menu has no way of knowing the dropdown is there at all.
+        /// <para>
+        /// Not one of the dropdown's own entries on purpose: whoever reads it there has already
+        /// found what it points at.
+        /// </para>
+        /// </summary>
+        [MenuItem("Window/Steam Toys/Show Shortcut Button")]
+        private static void ShowShortcutButton() =>
+            EditorUtility.DisplayDialog(
+                "Show Shortcut Button",
+                "Unity keeps a toolbar element that came with a package switched off until you pick it " +
+                "yourself.\n\n" +
+                $"Right-click the main toolbar and tick \"{ToolbarPath}\". The toolbar remembers it from then on.",
+                "OK");
 
         private static void ShowToolbarMenu(Rect rect)
         {
