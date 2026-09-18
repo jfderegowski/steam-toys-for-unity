@@ -66,7 +66,13 @@ namespace SteamToys.Editor.PropertyDrawers
             void Refresh()
             {
                 var appId = appIdProperty.uintValue;
-                var choices = new List<ProjectAppIdRef>(steamSettings.PosibleAppIds);
+
+                // The settings asset may not be there yet (or its list may deserialize as null right
+                // after a script reload), and the popup still has to draw the current app id.
+                var possibleAppIds = steamSettings ? steamSettings.PosibleAppIds : null;
+                var choices = possibleAppIds == null
+                    ? new List<ProjectAppIdRef>()
+                    : new List<ProjectAppIdRef>(possibleAppIds);
                 var index = choices.FindIndex(appIdRef => appIdRef.AppId.m_AppId == appId);
 
                 if (index < 0)
