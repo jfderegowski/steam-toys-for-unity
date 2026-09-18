@@ -4,7 +4,8 @@
     "references": [
         "fefek5.SteamToys.Runtime",
         "fefek5.SingletonSystem.Runtime",
-        "com.rlabrecque.steamworks.net"
+        "com.rlabrecque.steamworks.net",
+        "com.fefek5.toys.Editor"
     ],
     "includePlatforms": [
         "Editor"

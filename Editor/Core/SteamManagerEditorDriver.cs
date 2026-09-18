@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Text;
+using fefek5.Toys.Editor.Icons;
 using SteamToys.Editor.SteamSettings;
 using SteamToys.Runtime;
 using SteamToys.Runtime.Core;
@@ -282,8 +283,15 @@ namespace SteamToys.Editor.Core
         /// </summary>
         [MainToolbarElement(ToolbarPath, defaultDockPosition = MainToolbarDockPosition.Left)]
         private static MainToolbarElement CreateToolbarDropdown() =>
-            new MainToolbarDropdown(new MainToolbarContent(ToolbarPath, "Window/Steam Toys"), ShowToolbarMenu);
-
+            new MainToolbarDropdown(
+                new MainToolbarContent(
+                    ToolbarPath,
+                    EditorIconsDatabase.GetIcon<Texture2D>("icon_logo_steam_32"),
+                    "Window/Steam Toys"
+                ),
+                ShowToolbarMenu
+            );
+        
         /// <summary>
         /// Says where to switch the dropdown on. Unity leaves a toolbar element that arrived with a
         /// package switched off until it is picked from the toolbar's own menu, and someone who has

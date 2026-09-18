@@ -55,8 +55,11 @@ namespace SteamToys.Editor.PropertyDrawers
                 Refresh();
             });
 
-            appIdField.TrackPropertyValue(appIdProperty, _ => Refresh());
-            appIdField.TrackSerializedObjectValue(new SerializedObject(steamSettings), _ => Refresh());
+            // One track, on the SerializedObject the property is already drawn from. An element may
+            // only ever track a single one, and a second SerializedObject over the same asset counts
+            // as another. Object-level rather than property-level because the popup's choices come
+            // from PosibleAppIds, a sibling field, so an edit there has to redraw it too.
+            appIdField.TrackSerializedObjectValue(property.serializedObject, _ => Refresh());
 
             return root;
 

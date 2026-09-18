@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b18c021a99f74444b97fa221f6b71e4d, type: 3}
+  m_Name: EditorIconsDatabase
+  m_EditorClassIdentifier: com.fefek5.toys.Editor::fefek5.Toys.Editor.Icons.EditorIconsDatabase
+  _icons:
+  - path: icon_logo_steam_1024
+    texture: {fileID: 2800000, guid: 483a538ff4916844abc3072d33d66688, type: 3}
+    sprite: {fileID: 0}
+  - path: icon_logo_steam_128
+    texture: {fileID: 2800000, guid: 7cbeae6a621f8ad4bbd2003190bfd88f, type: 3}
+    sprite: {fileID: 0}
+  - path: icon_logo_steam_16
+    texture: {fileID: 2800000, guid: 5e940cc2986c0e949a424c4d484f7d08, type: 3}
+    sprite: {fileID: 0}
+  - path: icon_logo_steam_256
+    texture: {fileID: 2800000, guid: 55423e252f6279945a349c5f75e9a486, type: 3}
+    sprite: {fileID: 0}
+  - path: icon_logo_steam_32
+    texture: {fileID: 2800000, guid: df9f3e9d28dab714bb889fd750f3f672, type: 3}
+    sprite: {fileID: 0}
+  - path: icon_logo_steam_512
+    texture: {fileID: 2800000, guid: af48feefad75ed246962c6a451551cde, type: 3}
+    sprite: {fileID: 0}
+  - path: icon_logo_steam_64
+    texture: {fileID: 2800000, guid: e956e68997156734cb4b99151f48517e, type: 3}
+    sprite: {fileID: 0}
