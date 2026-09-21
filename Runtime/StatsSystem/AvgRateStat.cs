@@ -27,6 +27,29 @@ namespace SteamToys.Runtime.StatsSystem
         /// <summary>Session length, in seconds, that Steam has not accepted yet.</summary>
         public double PendingSessionLength => _pendingSessionLength;
 
+        /// <summary>
+        /// How much play the average covers, matching Window on the partner site. A mirror only: Steam
+        /// applies the window itself and the game never reads it.
+        /// <para>
+        /// It is in seconds, because <see cref="AddSession"/> reports session lengths in seconds and
+        /// Valve's examples keep the window in the unit of the session length. Averaging over the last
+        /// 20 hours of play takes 72000, while 20 would cover the last 20 seconds.
+        /// </para>
+        /// </summary>
+        public float WindowSize
+        {
+            get => GetWindowSize();
+            set => SetWindowSize(value);
+        }
+
+        #endregion
+
+        #region Inspector Serialized Fields
+
+        [Header("Average (mirror of the partner site)")]
+        [SerializeField, Tooltip("How much play the average covers, matching Window on the partner site. In seconds, the unit AddSession reports session lengths in: 3600 averages over the last hour of play.")]
+        private float _windowSize;
+
         #endregion
 
         #region Runtime State
@@ -45,6 +68,14 @@ namespace SteamToys.Runtime.StatsSystem
             _pendingCount = 0f;
             _pendingSessionLength = 0d;
         }
+
+        #region Getters and Setters
+
+        public virtual float GetWindowSize() => _windowSize;
+
+        public virtual void SetWindowSize(float value) => _windowSize = value;
+
+        #endregion
 
         /// <summary>
         /// Reports a slice of play: how much of the counted thing happened

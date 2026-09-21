@@ -58,11 +58,5 @@ namespace SteamToys.Runtime.StatsSystem
 
             return true;
         }
-
-        [ContextMenu("Sync")]
-        public void Sync()
-        {
-            TryPullFromSteam();
-        }
     }
 }

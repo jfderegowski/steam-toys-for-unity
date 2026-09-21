@@ -1,0 +1,63 @@
+# Changelog
+
+All notable changes to this package will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+
+- Current Value and Steam Value at the top of the stat inspector: the value cached in the asset,
+  marked while it is still the default, and the one the Steam client holds for the signed-in
+  user, read without touching the cache. The Steam value needs a Steam session.
+- Value buttons under them: Set Value (Add Session on an average rate stat), Push Value To
+  Steam, which also stores the changed stats on the Steam servers, and Pull Value From Steam.
+- `SteamStat.IsSynced`, false while the cached value is still the default the stat starts with.
+
+### Changed
+
+- The stat inspector draws its buttons with `InspectorButtonElement` from Toys for Unity.
+
+### Removed
+
+- `IntStat.Sync` and its Sync context menu. Pull Value From Steam in the inspector does the same,
+  and so does `TryPullFromSteam` in code.
+
+## [0.2.0] - 2026-09-21
+
+### Added
+
+- `SteamAppCache`, an editor-only reader for the Steam client's `appcache` folder.
+  `TryGetStatSchema` returns the stats of an app as configured and published on the partner
+  site, from the copy the client downloaded (`appcache/stats/UserGameStatsSchema_<appid>.bin`),
+  without a Steam session, a login or network access.
+- A Steam section in the stat inspector that compares the asset with the same stat on Steam:
+  type, default value, min value, max value, max change, increment only and, for average rate
+  stats, window size. Optional settings are compared ticked or not, so a ticked max change of
+  0 differs from none on Steam.
+  - Pull Stat Settings From Steam copies the settings Steam has into the asset, with undo.
+  - Edit on Steam opens the partner site page the stats of the app are edited on.
+- `AvgRateStat.WindowSize`, mirroring Window on the partner site. It is in seconds, the unit
+  `AddSession` reports session lengths in.
+
+### Fixed
+
+- `SteamStatEditor` draws for `IntStat`, `FloatStat` and `AvgRateStat`. It was registered for
+  the abstract `SteamStat` alone, so none of them used it.
+
+## [0.1.0] - 2026-09-18
+
+### Added
+
+- `SteamSession`, the one place that starts, pumps and stops the Steamworks API, and the
+  `SteamManager` singleton that owns it while the game runs.
+- `SteamSettings` with the App ID of the project, drawn by `ProjectAppIdAttribute` as a popup
+  of the possible App IDs that also writes `steam_appid.txt`.
+- The `Window/Steam Toys` menu: Connect To Steam outside play mode, Run Steam and Steam
+  Settings, plus a main toolbar dropdown with the same entries.
+- Stats: `IntStat`, `FloatStat` and `AvgRateStat` assets that mirror the constraints configured
+  on the partner site, and `SteamStats` for storing and resetting them.
+- Inventory: assets for Steam Inventory item definitions with their JSON converters, and an
+  item editor with a JSON preview.

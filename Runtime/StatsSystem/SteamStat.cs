@@ -32,6 +32,12 @@ namespace SteamToys.Runtime.StatsSystem
         /// <summary>Which kind of stat this asset represents.</summary>
         public abstract SteamStatType StatType { get; }
 
+        /// <summary>
+        /// False while the cached value is still the default the stat starts with, until the first
+        /// read from Steam or the first write.
+        /// </summary>
+        public abstract bool IsSynced { get; }
+
         #endregion
 
         #region Inspector Serialized Fields
@@ -274,6 +280,8 @@ namespace SteamToys.Runtime.StatsSystem
         #region Steam
 
         public sealed override Type GetValueType() => typeof(TValue);
+
+        public sealed override bool IsSynced => _synced;
 
         public override string GetValueString() => _runtimeValue.ToString(null, CultureInfo.InvariantCulture);
 
