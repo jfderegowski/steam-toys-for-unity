@@ -28,6 +28,8 @@ namespace SteamToys.Runtime.InventorySystem
             get => GetQuantity();
             set => SetQuantity(value);
         }
+        
+        public bool HasItem => Item;
 
         [SerializeField] private Item _item;
         [SerializeField] private uint _quantity;

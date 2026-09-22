@@ -7,23 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-09-22
+
 ### Added
 
-- Current Value and Steam Value at the top of the stat inspector: the value cached in the asset,
-  marked while it is still the default, and the one the Steam client holds for the signed-in
-  user, read without touching the cache. The Steam value needs a Steam session.
-- Value buttons under them: Set Value (Add Session on an average rate stat), Push Value To
-  Steam, which also stores the changed stats on the Steam servers, and Pull Value From Steam.
-- `SteamStat.IsSynced`, false while the cached value is still the default the stat starts with.
+- `BundleElement.HasItem`, false while the element has no item assigned.
 
-### Changed
+### Fixed
 
-- The stat inspector draws its buttons with `InspectorButtonElement` from Toys for Unity.
-
-### Removed
-
-- `IntStat.Sync` and its Sync context menu. Pull Value From Steam in the inspector does the same,
-  and so does `TryPullFromSteam` in code.
+- The item inspector draws when its bundle has an element with no item assigned, such as one
+  just added to the list. `BundleElementConverter.ToString` threw a `NullReferenceException`
+  on it while building the JSON preview, which stopped the whole inspector. Such elements are
+  left out of the bundle string.
 
 ## [0.2.0] - 2026-09-21
 
@@ -41,6 +36,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Edit on Steam opens the partner site page the stats of the app are edited on.
 - `AvgRateStat.WindowSize`, mirroring Window on the partner site. It is in seconds, the unit
   `AddSession` reports session lengths in.
+- Current Value and Steam Value at the top of the stat inspector: the value cached in the asset,
+  marked while it is still the default, and the one the Steam client holds for the signed-in
+  user, read without touching the cache. The Steam value needs a Steam session.
+- Value buttons under them: Set Value (Add Session on an average rate stat), Push Value To
+  Steam, which also stores the changed stats on the Steam servers, and Pull Value From Steam.
+- `SteamStat.IsSynced`, false while the cached value is still the default the stat starts with.
+
+### Changed
+
+- The stat inspector draws its buttons with `InspectorButtonElement` from Toys for Unity.
+
+### Removed
+
+- `IntStat.Sync` and its Sync context menu. Pull Value From Steam in the inspector does the same,
+  and so does `TryPullFromSteam` in code.
 
 ### Fixed
 

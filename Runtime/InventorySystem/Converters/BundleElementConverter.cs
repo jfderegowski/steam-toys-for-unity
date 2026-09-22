@@ -37,13 +37,10 @@ namespace SteamToys.Runtime.InventorySystem.Converters
         /// Converts a <see cref="BundleElement"/> to the Steam element format.
         /// Example output: <c>"100x1"</c>
         /// </summary>
-        public static string ToString(BundleElement element)
-        {
-            if (element == null)
-                return string.Empty;
-
-            return $"{element.ItemDefId}{QUANTITY_SEPARATOR}{element.Quantity}";
-        }
+        public static string ToString(BundleElement element) => 
+            element is not { HasItem: true } 
+                ? string.Empty 
+                : $"{element.ItemDefId}{QUANTITY_SEPARATOR}{element.Quantity}";
 
         /// <summary>
         /// Parses a single Steam bundle entry (e.g. <c>"100x1"</c>) into a <see cref="BundleElement"/>.

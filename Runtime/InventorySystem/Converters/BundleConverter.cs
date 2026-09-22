@@ -1,5 +1,6 @@
 using System;
 using System.Text;
+using fefek5.Toys.Runtime.Extensions;
 using Newtonsoft.Json;
 
 namespace SteamToys.Runtime.InventorySystem.Converters
@@ -47,17 +48,22 @@ namespace SteamToys.Runtime.InventorySystem.Converters
             if (bundle == null || bundle.Count == 0)
                 return string.Empty;
 
-            var sb = new StringBuilder();
-
-            for (int i = 0; i < bundle.Count; i++)
+            var stringBuilder = new StringBuilder();
+            
+            foreach (var element in bundle)
             {
-                if (i > 0)
-                    sb.Append(ENTRY_SEPARATOR);
-
-                sb.Append(BundleElementConverter.ToString(bundle[i]));
+                var entry = BundleElementConverter.ToString(element);
+                
+                if (entry.IsBlank())
+                    continue;
+                
+                if (stringBuilder.Length > 0)
+                    stringBuilder.Append(ENTRY_SEPARATOR);
+                
+                stringBuilder.Append(entry);
             }
 
-            return sb.ToString();
+            return stringBuilder.ToString();
         }
 
         /// <summary>
