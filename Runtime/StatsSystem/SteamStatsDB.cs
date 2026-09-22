@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using Runtime;
 using SteamToys.Runtime.Core;
 using Steamworks;
 using UnityEngine;
@@ -6,15 +8,20 @@ using UnityEngine;
 namespace SteamToys.Runtime.StatsSystem
 {
     /// <summary>
-    /// The stat calls that belong to no single stat: committing the pending writes and resetting
-    /// everything stored for the user.
+    /// The stats of the game gathered in one asset, together with the stat calls that belong to no
+    /// single stat: committing the pending writes and resetting everything stored for the user.
+    /// <para>
+    /// The stats it holds are sub-assets of it, created, compared with Steam and removed from its
+    /// inspector, which "Window/Steam Toys/Steam Stats DB" opens. A stat can still be an asset of
+    /// its own; the DB only knows the ones inside it.
+    /// </para>
     /// <para>
     /// The Steamworks session itself belongs to <see cref="SteamManager"/>. Stats only check
     /// <see cref="SteamManager.SteamInitialized"/> and say so clearly when it is false.
     /// </para>
     /// <see href="https://partner.steamgames.com/doc/features/achievements/stats_guide"/>
     /// </summary>
-    public static class SteamStats
+    public class SteamStatsDB : SingletonObject<SteamStatsDB>
     {
         #region Events
 
@@ -43,6 +50,16 @@ namespace SteamToys.Runtime.StatsSystem
         /// </summary>
         public static bool Initialized => SteamManager.SteamInitialized;
 
+        /// <summary>The stats held by this asset, in the order they were added.</summary>
+        public IReadOnlyList<SteamStat> Stats => _stats;
+
+        #endregion
+
+        #region Inspector Serialized Fields
+
+        [SerializeField, Tooltip("The stats held by this asset, all of them sub-assets of it. Managed from its inspector.")]
+        private List<SteamStat> _stats = new();
+
         #endregion
 
         #region Private Fields
@@ -55,6 +72,59 @@ namespace SteamToys.Runtime.StatsSystem
         private static Callback<UserStatsStored_t> _statsStoredCallback;
 
         #endregion
+
+        #region Stats
+
+        /// <summary>
+        /// The stat of this asset with the given API Name, or null when it holds none. A linear
+        /// search, so keep the result rather than looking it up every frame.
+        /// </summary>
+        public SteamStat Get(string apiName)
+        {
+            foreach (var stat in _stats)
+            {
+                if (stat && stat.ApiName == apiName)
+                    return stat;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Finds the stat of this asset with the given API Name, as long as it is a
+        /// <typeparamref name="TStat"/>.
+        /// </summary>
+        public bool TryGet<TStat>(string apiName, out TStat stat) where TStat : SteamStat
+        {
+            stat = Get(apiName) as TStat;
+
+            return stat;
+        }
+
+        /// <summary>
+        /// Reads the value of every stat of this asset from Steam into its local cache, e.g. after
+        /// <see cref="ResetAllStats"/>. Returns false when Steam is unreachable or refused any of
+        /// the reads.
+        /// </summary>
+        public bool PullAllFromSteam()
+        {
+            if (!EnsureInitialized(this))
+                return false;
+
+            var pulled = true;
+
+            foreach (var stat in _stats)
+            {
+                if (stat)
+                    pulled &= stat.TryPullFromSteam();
+            }
+
+            return pulled;
+        }
+
+        #endregion
+
+        #region Steam
 
         /// <summary>
         /// Sends every changed stat to Steam for permanent storage. Call it at a natural boundary,
@@ -83,8 +153,8 @@ namespace SteamToys.Runtime.StatsSystem
         /// achievements with them. This wipes real progress, so it is meant for testing.
         /// <para>
         /// Stats that already read their value keep serving it from their cache; call
-        /// <see cref="SteamStat.TryPullFromSteam"/> on the ones you care about to pick the reset
-        /// values up.
+        /// <see cref="PullAllFromSteam"/>, or <see cref="SteamStat.TryPullFromSteam"/> on a stat
+        /// outside the DB, to pick the reset values up.
         /// </para>
         /// </summary>
         public static bool ResetAllStats(bool achievementsToo = false)
@@ -126,6 +196,11 @@ namespace SteamToys.Runtime.StatsSystem
         /// <summary>
         /// Prepares stats for a new session. Called by <see cref="SteamSession"/> each time it
         /// starts.
+        /// <para>
+        /// Static, like everything the session touches, and never reaching for
+        /// <see cref="SingletonObject{T}.Instance"/>: in the editor that creates the asset, which
+        /// merely connecting to Steam must not do.
+        /// </para>
         /// <para>
         /// The warning is re-armed, so that losing this session gets reported just like the first
         /// time around rather than staying silenced by an old warning.
@@ -180,5 +255,7 @@ namespace SteamToys.Runtime.StatsSystem
 
             OnStatsStored?.Invoke(stored);
         }
+
+        #endregion
     }
 }

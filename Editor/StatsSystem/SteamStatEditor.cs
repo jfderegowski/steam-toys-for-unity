@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using fefek5.Toys.Editor.VisualElements;
 using SteamToys.Editor.Core;
@@ -23,16 +24,7 @@ namespace SteamToys.Editor.StatsSystem
     [CustomEditor(typeof(SteamStat), true)]
     public class SteamStatEditor : UnityEditor.Editor
     {
-        private const string EditOnSteamUrl = "https://partner.steamgames.com/apps/stats/{0}";
-
-        // The serialized fields of SteamStat, SteamStat<TValue> and AvgRateStat.
-        private const string ApiNameField = "_apiName";
-        private const string DefaultValueField = "_defaultValue";
-        private const string MinValueField = "_minValue";
-        private const string MaxValueField = "_maxValue";
-        private const string MaxChangeField = "_maxChange";
-        private const string IncrementOnlyField = "_incrementOnly";
-        private const string WindowSizeField = "_windowSize";
+        internal const string EditOnSteamUrl = "https://partner.steamgames.com/apps/stats/{0}";
 
         public override VisualElement CreateInspectorGUI()
         {
@@ -44,9 +36,85 @@ namespace SteamToys.Editor.StatsSystem
             var scriptField = root.Q<PropertyField>("PropertyField:m_Script");
 
             root.Insert(scriptField == null ? 0 : root.IndexOf(scriptField) + 1, CreateValueSection());
+            root.Insert(0, CreateDuplicateNotice());
             root.Add(CreateSteamSection());
 
+            // A stat of the DB is named after its API Name once the field is left rather than while
+            // typing: renaming writes the DB and imports it again.
+            root.Q<PropertyField>($"PropertyField:{StatSettings.ApiNameField}")?.RegisterCallback<FocusOutEvent>(_ =>
+            {
+                if (target is SteamStat stat && stat)
+                    SteamStatsDBEditor.SyncSubAssetName(stat);
+            });
+
             return root;
+        }
+
+        /// <summary>
+        /// Says which other stat assets use the same API Name, and so read and write the same stat on
+        /// Steam. Only a notice: a second asset for one stat can be deliberate.
+        /// <para>
+        /// Checked again once typing has paused, because it looks through every stat asset of the project.
+        /// </para>
+        /// </summary>
+        private VisualElement CreateDuplicateNotice()
+        {
+            var notice = new HelpBox { messageType = HelpBoxMessageType.Info, style = { display = DisplayStyle.None } };
+
+            var apiName = serializedObject.FindProperty(StatSettings.ApiNameField);
+            var check = notice.schedule.Execute(Check);
+
+            notice.TrackPropertyValue(apiName, _ => check.ExecuteLater(500));
+
+            return notice;
+
+            void Check()
+            {
+                // Gone when a stat of the DB was removed while its inspector was open.
+                if (target is not SteamStat stat || !stat)
+                    return;
+
+                var duplicates = FindOtherStatsWithApiName(stat);
+
+                notice.style.display = duplicates.Count == 0 ? DisplayStyle.None : DisplayStyle.Flex;
+                notice.text = $"Another stat asset uses the API Name '{stat.ApiName}', so both read and write the " +
+                              $"same stat on Steam:\n{string.Join("\n", duplicates)}";
+            }
+        }
+
+        /// <summary>
+        /// The other stat assets of the project with the API Name of <paramref name="stat"/>, by path,
+        /// with a stat of the DB followed by its name.
+        /// </summary>
+        private static List<string> FindOtherStatsWithApiName(SteamStat stat)
+        {
+            var duplicates = new List<string>();
+
+            if (string.IsNullOrWhiteSpace(stat.ApiName))
+                return duplicates;
+
+            // Searched class by class, which finds sub-assets and classes games derive from stats alike.
+            var paths = new SortedSet<string>();
+
+            foreach (var type in TypeCache.GetTypesDerivedFrom<SteamStat>())
+            {
+                if (type.IsAbstract || type.IsGenericTypeDefinition)
+                    continue;
+
+                foreach (var guid in AssetDatabase.FindAssets($"t:{type.Name}"))
+                    paths.Add(AssetDatabase.GUIDToAssetPath(guid));
+            }
+
+            foreach (var path in paths)
+            {
+                foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(path))
+                {
+                    if (asset is SteamStat other && other != stat && other.ApiName == stat.ApiName)
+                        duplicates.Add(AssetDatabase.IsSubAsset(other) ? $"{path} > {other.name}" : path);
+                }
+            }
+
+            return duplicates;
         }
 
         private VisualElement CreateValueSection()
@@ -113,7 +181,7 @@ namespace SteamToys.Editor.StatsSystem
                 steam.SetValueWithoutNotify(ReadSteamValue(stat));
 
                 // Setting works offline too, but these two only mean anything with Steam to talk to.
-                var canSync = SteamStats.Initialized && !string.IsNullOrWhiteSpace(stat.ApiName);
+                var canSync = SteamStatsDB.Initialized && !string.IsNullOrWhiteSpace(stat.ApiName);
 
                 push.SetEnabled(canSync);
                 pull.SetEnabled(canSync);
@@ -123,7 +191,7 @@ namespace SteamToys.Editor.StatsSystem
             {
                 // Handing the value to the client is not enough: it reaches the servers once stored.
                 if (stat.TryPushToSteam())
-                    SteamStats.StoreStats();
+                    SteamStatsDB.StoreStats();
             }
         }
 
@@ -137,7 +205,7 @@ namespace SteamToys.Editor.StatsSystem
                 return "no API Name";
 
             // The raw calls throw rather than fail while the API is down.
-            if (!SteamStats.Initialized)
+            if (!SteamStatsDB.Initialized)
                 return "not connected to Steam";
 
             // Float and average rate stats both read through the float overload.
@@ -163,19 +231,7 @@ namespace SteamToys.Editor.StatsSystem
 
         private VisualElement CreateSteamSection()
         {
-            var apiName = serializedObject.FindProperty(ApiNameField);
-            var defaultValue = serializedObject.FindProperty(DefaultValueField);
-            var minValue = serializedObject.FindProperty(MinValueField);
-            var maxValue = serializedObject.FindProperty(MaxValueField);
-            var maxChange = serializedObject.FindProperty(MaxChangeField);
-            var incrementOnly = serializedObject.FindProperty(IncrementOnlyField);
-
-            // Only an AvgRateStat has one.
-            var windowSize = serializedObject.FindProperty(WindowSizeField);
-
-            // Int stats hold ints and the other two floats, which are compared at float precision so
-            // that e.g. 0.1 on Steam matches 0.1 in the asset.
-            var isFloat = defaultValue.propertyType == SerializedPropertyType.Float;
+            var apiName = serializedObject.FindProperty(StatSettings.ApiNameField);
 
             var section = new VisualElement { style = { marginTop = 12 } };
 
@@ -189,26 +245,17 @@ namespace SteamToys.Editor.StatsSystem
             var header = new ComparisonRow(string.Empty);
 
             header.SetHeader("Asset", "Steam");
-
-            var typeRow = new ComparisonRow("Type");
-            var defaultRow = new ComparisonRow("Default Value");
-            var minRow = new ComparisonRow("Min Value");
-            var maxRow = new ComparisonRow("Max Value");
-            var maxChangeRow = new ComparisonRow("Max Change");
-            var incrementOnlyRow = new ComparisonRow("Increment Only");
-            var windowSizeRow = new ComparisonRow("Window Size")
-            {
-                style = { display = windowSize == null ? DisplayStyle.None : DisplayStyle.Flex }
-            };
-
             table.Add(header);
-            table.Add(typeRow);
-            table.Add(defaultRow);
-            table.Add(minRow);
-            table.Add(maxRow);
-            table.Add(maxChangeRow);
-            table.Add(incrementOnlyRow);
-            table.Add(windowSizeRow);
+
+            // Only an AvgRateStat has a window, and only the rows the stat has get made.
+            var hasWindowSize = serializedObject.FindProperty(StatSettings.WindowSizeField) != null;
+            var rows = new Dictionary<StatSetting, ComparisonRow>();
+
+            foreach (StatSetting setting in Enum.GetValues(typeof(StatSetting)))
+            {
+                if (setting != StatSetting.WindowSize || hasWindowSize)
+                    table.Add(rows[setting] = new ComparisonRow(StatSettings.GetLabel(setting)));
+            }
 
             section.Add(table);
 
@@ -251,11 +298,15 @@ namespace SteamToys.Editor.StatsSystem
 
             void Refresh()
             {
+                // Gone when a stat of the DB was removed while its inspector was open.
+                if (!target)
+                    return;
+
                 serializedObject.UpdateIfRequiredOrScript();
 
-                var settings = Runtime.Core.SteamSettings.Instance;
+                var lookup = StatSettings.FindSchema("this stat");
 
-                appId = settings ? settings.AppId : AppId_t.Invalid;
+                appId = lookup.AppId;
                 steamStat = null;
 
                 editButton.SetEnabled(appId != AppId_t.Invalid);
@@ -269,36 +320,17 @@ namespace SteamToys.Editor.StatsSystem
                     return;
                 }
 
-                if (appId == AppId_t.Invalid)
+                if (lookup.Schema is not { } schema)
                 {
-                    SetStatus(HelpBoxMessageType.Info, "Choose the App ID in Window/Steam Toys/Steam Settings to compare this stat with Steam.");
+                    SetStatus(lookup.MessageType, lookup.Message);
 
                     return;
                 }
-
-                if (SteamAppCache.SteamPath == null)
-                {
-                    SetStatus(HelpBoxMessageType.Warning, "Steam is not installed on this machine, so there is nothing to compare this stat with.");
-
-                    return;
-                }
-
-                if (!SteamAppCache.TryGetStatSchema(appId, out var schema))
-                {
-                    SetStatus(HelpBoxMessageType.Info,
-                        $"No stat schema of app {appId} could be read on this machine. The Steam client downloads it " +
-                        "when the game connects to Steam, e.g. through Window/Steam Toys/Connect To Steam.");
-
-                    return;
-                }
-
-                var source = $"Schema version {schema.Version} of app {appId}, downloaded " +
-                             $"{schema.DownloadedAt.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)}.";
 
                 if (!schema.Stats.TryGetValue(apiName.stringValue, out var steam))
                 {
                     SetStatus(HelpBoxMessageType.Warning,
-                        $"Steam has no stat '{apiName.stringValue}'. Add it with Edit on Steam and publish the change.\n{source}");
+                        $"Steam has no stat '{apiName.stringValue}'. Add it with Edit on Steam and publish the change.\n{lookup.Message}");
 
                     return;
                 }
@@ -306,20 +338,18 @@ namespace SteamToys.Editor.StatsSystem
                 steamStat = steam;
                 table.style.display = DisplayStyle.Flex;
 
-                var statType = ((SteamStat)target).StatType;
-                var typeMatches = typeRow.Set(statType.ToString(), steam.Type.ToString(), statType == steam.Type);
+                var typeMatches = true;
+                var otherMatches = true;
 
-                // & rather than &&, so that every row is filled in. Settings are compared as written, ticked
-                // or not: a ticked max change of 0 differs from none on Steam, even though the runtime treats
-                // both as no limit.
-                var otherMatches =
-                    defaultRow.Set(ReadNumber(defaultValue), steam.Default ?? 0, isFloat) &
-                    minRow.Set(ReadOptional(minValue), steam.Min, isFloat) &
-                    maxRow.Set(ReadOptional(maxValue), steam.Max, isFloat) &
-                    maxChangeRow.Set(ReadOptional(maxChange), steam.MaxChange, isFloat) &
-                    incrementOnlyRow.Set(incrementOnly.boolValue.ToString(), steam.IncrementOnly.ToString(),
-                        incrementOnly.boolValue == steam.IncrementOnly) &
-                    (windowSize == null || windowSizeRow.Set(windowSize.floatValue, steam.WindowSize, true));
+                foreach (var comparison in StatSettings.Compare(StatSettings.Read(serializedObject), StatSettings.Read(steam)))
+                {
+                    rows[comparison.Setting].Set(comparison.Asset, comparison.Steam, comparison.Matches);
+
+                    if (comparison.Setting == StatSetting.Type)
+                        typeMatches = comparison.Matches;
+                    else
+                        otherMatches &= comparison.Matches;
+                }
 
                 // The type is the class of the asset, which no value copied into it can change.
                 pullButton.SetEnabled(typeMatches && !otherMatches);
@@ -327,11 +357,11 @@ namespace SteamToys.Editor.StatsSystem
                 if (!typeMatches)
                     SetStatus(HelpBoxMessageType.Warning,
                         $"Steam has this stat as {steam.Type}, and the type comes from the class of the asset, " +
-                        $"so Pull cannot change it: use a {GetAssetName(steam.Type)} asset instead.\n{source}");
+                        $"so Pull cannot change it: use a {StatSettings.GetAssetName(steam.Type)} asset instead.\n{lookup.Message}");
                 else if (!otherMatches)
-                    SetStatus(HelpBoxMessageType.Warning, $"The settings of this stat differ from Steam.\n{source}");
+                    SetStatus(HelpBoxMessageType.Warning, $"The settings of this stat differ from Steam.\n{lookup.Message}");
                 else
-                    SetStatus(HelpBoxMessageType.Info, $"This stat matches Steam.\n{source}");
+                    SetStatus(HelpBoxMessageType.Info, $"This stat matches Steam.\n{lookup.Message}");
             }
 
             void SetStatus(HelpBoxMessageType type, string text)
@@ -345,54 +375,10 @@ namespace SteamToys.Editor.StatsSystem
                 if (steamStat is not { } steam)
                     return;
 
-                serializedObject.Update();
-
-                WriteNumber(defaultValue, steam.Default ?? 0);
-                WriteOptional(minValue, steam.Min);
-                WriteOptional(maxValue, steam.Max);
-                WriteOptional(maxChange, steam.MaxChange);
-                incrementOnly.boolValue = steam.IncrementOnly;
-
-                if (windowSize != null && steam.WindowSize is { } window)
-                    windowSize.floatValue = (float)window;
-
-                serializedObject.ApplyModifiedProperties();
+                StatSettings.CopyFrom(serializedObject, steam);
 
                 Refresh();
             }
-        }
-
-        private static string GetAssetName(SteamStatType type) => type switch
-        {
-            SteamStatType.Int => "Int Stat",
-            SteamStatType.Float => "Float Stat",
-            _ => "Avg Rate Stat"
-        };
-
-        private static double ReadNumber(SerializedProperty property) =>
-            property.propertyType == SerializedPropertyType.Float ? (double)property.floatValue : property.intValue;
-
-        // Reads a HasValue<T>, whose value only counts while hasValue is ticked.
-        private static double? ReadOptional(SerializedProperty property) =>
-            property.FindPropertyRelative("hasValue").boolValue
-                ? ReadNumber(property.FindPropertyRelative("value"))
-                : null;
-
-        private static void WriteNumber(SerializedProperty property, double value)
-        {
-            if (property.propertyType == SerializedPropertyType.Float)
-                property.floatValue = (float)value;
-            else
-                property.intValue = (int)Math.Clamp(Math.Round(value), int.MinValue, int.MaxValue);
-        }
-
-        // Unticks hasValue for a setting Steam leaves unset, and keeps the value in the asset as it was.
-        private static void WriteOptional(SerializedProperty property, double? value)
-        {
-            property.FindPropertyRelative("hasValue").boolValue = value.HasValue;
-
-            if (value.HasValue)
-                WriteNumber(property.FindPropertyRelative("value"), value.Value);
         }
 
         /// <summary>One line of the comparison: the setting, its value in the asset and on Steam, and whether they agree.</summary>
@@ -432,15 +418,6 @@ namespace SteamToys.Editor.StatsSystem
 
                 return matches;
             }
-
-            public bool Set(double? asset, double? steam, bool isFloat) =>
-                Set(Format(asset, isFloat), Format(steam, isFloat), asset.HasValue == steam.HasValue &&
-                    (!asset.HasValue || (isFloat ? (float)asset.Value == (float)steam.Value : asset.Value == steam.Value)));
-
-            private static string Format(double? value, bool isFloat) =>
-                value is not { } number ? "not set"
-                : isFloat ? ((float)number).ToString(CultureInfo.InvariantCulture)
-                : number.ToString(CultureInfo.InvariantCulture);
         }
     }
 }

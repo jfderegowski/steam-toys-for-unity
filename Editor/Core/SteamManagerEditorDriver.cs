@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Text;
 using fefek5.Toys.Editor.Icons;
+using SteamToys.Editor.StatsSystem;
 using SteamToys.Editor.SteamSettings;
 using SteamToys.Runtime;
 using SteamToys.Runtime.Core;
@@ -319,6 +320,7 @@ namespace SteamToys.Editor.Core
             AddToolbarItem(menu, ConnectPath, ToggleConnectValidate(), ToggleConnect);
             AddToolbarItem(menu, RunClientPath, ToggleClientValidate(), ToggleClient);
             AddToolbarItem(menu, SteamSettingsMenuItems.SettingsPath, true, SteamSettingsMenuItems.OpenSteamSettings);
+            AddToolbarItem(menu, SteamStatsDBEditor.MenuPath, true, SteamStatsDBEditor.Open);
 
             menu.DropDown(rect);
         }

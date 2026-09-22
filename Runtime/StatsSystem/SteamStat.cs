@@ -7,8 +7,9 @@ using UnityEngine;
 namespace SteamToys.Runtime.StatsSystem
 {
     /// <summary>
-    /// A single Steam user stat. One asset per stat: the asset mirrors one row of the
-    /// Stats Configuration page on the Steamworks partner site.
+    /// A single Steam user stat. One asset per stat, either of its own or a sub-asset of
+    /// <see cref="SteamStatsDB"/>: the asset mirrors one row of the Stats Configuration page on the
+    /// Steamworks partner site.
     /// <para>
     /// This non generic base is the polymorphic handle, so a field, list or inspector can hold
     /// stats of mixed value types. The typed behaviour lives in <see cref="SteamStat{TValue}"/>
@@ -69,13 +70,13 @@ namespace SteamToys.Runtime.StatsSystem
 
         /// <summary>
         /// Writes the pending state of this stat to Steam. The write only becomes permanent once
-        /// <see cref="SteamStats.StoreStats"/> succeeds.
+        /// <see cref="SteamStatsDB.StoreStats"/> succeeds.
         /// </summary>
         public abstract bool TryPushToSteam();
 
         /// <summary>
         /// Puts the stat back to its configured default. The reset that clears the values held on
-        /// the Steam servers is <see cref="SteamStats.ResetAllStats"/> instead.
+        /// the Steam servers is <see cref="SteamStatsDB.ResetAllStats"/> instead.
         /// </summary>
         public abstract void ResetToDefault();
 
@@ -102,7 +103,7 @@ namespace SteamToys.Runtime.StatsSystem
                 return false;
             }
 
-            return SteamStats.EnsureInitialized(this);
+            return SteamStatsDB.EnsureInitialized(this);
         }
 
         #region Object Overrides

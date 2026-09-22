@@ -120,7 +120,7 @@ namespace SteamToys.Runtime.StatsSystem
         /// <summary>
         /// Drops the session data that has not been reported and puts the local cache back to the
         /// default. The average held by Steam can only be cleared with
-        /// <see cref="SteamStats.ResetAllStats"/>.
+        /// <see cref="SteamStatsDB.ResetAllStats"/>.
         /// </summary>
         public override void ResetToDefault()
         {
