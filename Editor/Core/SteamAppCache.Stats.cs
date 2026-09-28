@@ -15,7 +15,7 @@ namespace SteamToys.Editor.Core
         private static readonly Dictionary<uint, (DateTime writeTime, StatSchema schema)> _statSchemas = new();
 
         /// <summary>
-        /// The stats of <paramref name="appId"/> as configured and published on the partner site, in
+        /// The stats and achievements of <paramref name="appId"/> as configured and published on the partner site, in
         /// the copy the Steam client downloaded: <c>appcache/stats/UserGameStatsSchema_&lt;appid&gt;.bin</c>.
         /// <para>
         /// The client checks for a newer version when the app connects to Steam, so a change published
@@ -74,13 +74,24 @@ namespace SteamToys.Editor.Core
                 throw new InvalidDataException($"The file holds no section for app {appId}.");
 
             var stats = new Dictionary<string, StatDefinition>(StringComparer.Ordinal);
+            var achievements = new Dictionary<string, AchievementDefinition>(StringComparer.Ordinal);
 
             if (app.TryGetValue("stats", out var statsSection) && statsSection is Dictionary<string, object> entries)
             {
                 foreach (var entry in entries.Values)
                 {
-                    // Achievements share the list, as entries of a type of their own.
-                    if (entry is not Dictionary<string, object> stat || !TryGetStatType(stat, out var type))
+                    if (entry is not Dictionary<string, object> stat)
+                        continue;
+
+                    // Achievements share the list, as entries holding their achievements in bits.
+                    if (stat.TryGetValue("bits", out var bits) && bits is Dictionary<string, object> achievementBits)
+                    {
+                        ReadAchievements(achievementBits, achievements);
+
+                        continue;
+                    }
+
+                    if (!TryGetStatType(stat, out var type))
                         continue;
 
                     var apiName = GetString(stat, "name");
@@ -101,7 +112,7 @@ namespace SteamToys.Editor.Core
                 }
             }
 
-            return new StatSchema((int)(GetNumber(app, "version") ?? 0), downloadedAt, stats);
+            return new StatSchema((int)(GetNumber(app, "version") ?? 0), downloadedAt, stats, achievements);
         }
 
         /// <summary>
@@ -173,7 +184,7 @@ namespace SteamToys.Editor.Core
         }
     }
 
-    /// <summary>The stats of one app, as the Steam client downloaded them.</summary>
+    /// <summary>The stats and achievements of one app, as the Steam client downloaded them.</summary>
     public sealed class StatSchema
     {
         /// <summary>The version Steam gave the schema; publishing changed stats or achievements raises it.</summary>
@@ -182,14 +193,20 @@ namespace SteamToys.Editor.Core
         /// <summary>When the client wrote the file, which it does only when it downloads a newer version.</summary>
         public DateTime DownloadedAt { get; }
 
-        /// <summary>The stats by API Name, compared exactly. Achievements are not included.</summary>
+        /// <summary>The stats by API Name, compared exactly.</summary>
         public IReadOnlyDictionary<string, StatDefinition> Stats { get; }
 
-        internal StatSchema(int version, DateTime downloadedAt, IReadOnlyDictionary<string, StatDefinition> stats)
+        /// <summary>The achievements by API Name, compared exactly.</summary>
+        public IReadOnlyDictionary<string, AchievementDefinition> Achievements { get; }
+
+        internal StatSchema(
+            int version, DateTime downloadedAt, IReadOnlyDictionary<string, StatDefinition> stats,
+            IReadOnlyDictionary<string, AchievementDefinition> achievements)
         {
             Version = version;
             DownloadedAt = downloadedAt;
             Stats = stats;
+            Achievements = achievements;
         }
     }
 

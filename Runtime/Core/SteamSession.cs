@@ -1,4 +1,5 @@
 using System;
+using SteamToys.Runtime.AchievementsSystem;
 using SteamToys.Runtime.StatsSystem;
 using Steamworks;
 using UnityEngine;
@@ -223,6 +224,7 @@ namespace SteamToys.Runtime.Core
             // The previous session unregistered every callback when it shut down, and a stats
             // warning from before this one would keep the next warning silent, so stats start over.
             SteamStatsDB.OnSessionStarted();
+            SteamAchievementsDB.OnSessionStarted();
 
             // Worth naming the app: the ID comes from steam_appid.txt in the working directory,
             // which is easy to have pointing somewhere other than the project's own setting.

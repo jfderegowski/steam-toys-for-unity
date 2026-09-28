@@ -86,6 +86,13 @@ namespace SteamToys.Runtime.StatsSystem
         /// </summary>
         public abstract string GetValueString();
 
+        /// <summary>
+        /// The value widened to a <c>double</c>, for code that works with stats of any value type,
+        /// such as the progress of an achievement. Reads like <c>Value</c>: the first read pulls
+        /// from Steam.
+        /// </summary>
+        public abstract double GetValueAsDouble();
+
         #endregion
 
         /// <summary>
@@ -285,6 +292,8 @@ namespace SteamToys.Runtime.StatsSystem
         public sealed override bool IsSynced => _synced;
 
         public override string GetValueString() => _runtimeValue.ToString(null, CultureInfo.InvariantCulture);
+
+        public sealed override double GetValueAsDouble() => Convert.ToDouble(GetValue(), CultureInfo.InvariantCulture);
 
         public sealed override bool TryPullFromSteam()
         {

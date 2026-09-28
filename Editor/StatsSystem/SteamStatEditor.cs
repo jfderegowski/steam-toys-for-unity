@@ -381,8 +381,11 @@ namespace SteamToys.Editor.StatsSystem
             }
         }
 
-        /// <summary>One line of the comparison: the setting, its value in the asset and on Steam, and whether they agree.</summary>
-        private sealed class ComparisonRow : VisualElement
+        /// <summary>
+        /// One line of the comparison: the setting, its value in the asset and on Steam, and whether they
+        /// agree. Shared with the achievement inspector.
+        /// </summary>
+        internal sealed class ComparisonRow : VisualElement
         {
             private readonly Label _asset;
             private readonly Label _steam;

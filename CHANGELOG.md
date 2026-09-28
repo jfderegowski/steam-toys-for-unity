@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-28
+
+### Added
+
+- Achievements: `SteamAchievement` assets that mirror Hidden and the progress stat of an
+  achievement configured on the partner site, the progress stat being a reference to a stat
+  asset.
+  - `IsAchieved` and `UnlockTime`, read from Steam once and then served from a local cache,
+    with `onAchievedChanged`.
+  - `Unlock` and `Clear`, which store the change right away unless told not to; storing is what
+    shows the notification.
+  - `IndicateProgress`, which shows the progress notification from the progress stat, and
+    `IndicateProgressOf(current, max)` for achievements without one.
+  - `Progress`, from 0 to 1, worked out from the progress stat.
+  - `GetDisplayName` and `GetDescription`, in the language of the user.
+  - An unlock triggered by the progress stat reaching its max value reaches the asset as well.
+- `SteamAchievementsDB`, a `SingletonObject` that holds the achievements as sub-assets, opened
+  from "Window/Steam Toys/Steam Achievements DB" and the toolbar dropdown. Its inspector works
+  like the one of the stats DB: a table of every achievement of the DB and of Steam with what
+  is wrong with each, Create From Steam, Add Achievement, the inspector of the selected
+  achievement, and Pull All From Steam, Store Stats and Clear All Achievements.
+- `SteamAchievementsDB.Get`, `TryGet<TAchievement>`, `Achievements`, `PullAllFromSteam`,
+  `ClearAllAchievements` and `OnAchievementStored`.
+- The achievement inspector: current state, Steam state and progress, Unlock, Clear, Indicate
+  Progress and Pull State From Steam, and a comparison with the achievement on Steam, with its
+  English display name and description, Pull Achievement Settings From Steam and Edit on
+  Steam.
+- `SteamAppCache` reads the achievements of the schema as well, into
+  `StatSchema.Achievements`.
+- `SteamStat.GetValueAsDouble`, the value of a stat of any value type.
+
 ## [0.3.0] - 2026-09-22
 
 ### Added
