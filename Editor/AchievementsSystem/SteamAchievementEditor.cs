@@ -206,8 +206,7 @@ namespace SteamToys.Editor.AchievementsSystem
         private static string DescribeProgress(SteamAchievement achievement)
         {
             var stat = achievement.ProgressStat;
-            var range = $"{achievement.ProgressMin.ToString(CultureInfo.InvariantCulture)} .. " +
-                        $"{achievement.ProgressMax.ToString(CultureInfo.InvariantCulture)}";
+            var range = $"{AchievementSettings.Format(achievement.ProgressMin)} .. {AchievementSettings.Format(achievement.ProgressMax)}";
 
             if (!stat.IsSynced)
                 return $"{stat.GetValueString()} of {range} (stat not synced yet)";

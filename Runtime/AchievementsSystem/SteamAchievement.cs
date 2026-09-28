@@ -56,15 +56,19 @@ namespace SteamToys.Runtime.AchievementsSystem
             set => SetProgressStat(value);
         }
 
-        /// <summary>The stat value the progress bar starts at.</summary>
-        public float ProgressMin
+        /// <summary>
+        /// The stat value the progress bar starts at. A <c>double</c>, like the value of a stat read
+        /// through <see cref="SteamStat.GetValueAsDouble"/>: Steam keeps the range in the type of the
+        /// stat, and a <c>float</c> would round an int range above 16777216.
+        /// </summary>
+        public double ProgressMin
         {
             get => GetProgressMin();
             set => SetProgressMin(value);
         }
 
         /// <summary>The stat value the progress bar ends at, and the achievement unlocks at.</summary>
-        public float ProgressMax
+        public double ProgressMax
         {
             get => GetProgressMax();
             set => SetProgressMax(value);
@@ -138,9 +142,9 @@ namespace SteamToys.Runtime.AchievementsSystem
         [SerializeField, Tooltip("The stat that fills the progress bar and unlocks the achievement on reaching Progress Max, matching Progress Stat on the partner site. Leave empty for an achievement without one.")]
         private SteamStat _progressStat;
         [SerializeField, Tooltip("The stat value the progress bar starts at, matching the min value of the progress stat on the partner site.")]
-        private float _progressMin;
+        private double _progressMin;
         [SerializeField, Tooltip("The stat value the progress bar ends at and the achievement unlocks at, matching the max value of the progress stat on the partner site.")]
-        private float _progressMax;
+        private double _progressMax;
 
         #endregion
 
@@ -182,13 +186,13 @@ namespace SteamToys.Runtime.AchievementsSystem
 
         public virtual void SetProgressStat(SteamStat value) => _progressStat = value;
 
-        public virtual float GetProgressMin() => _progressMin;
+        public virtual double GetProgressMin() => _progressMin;
 
-        public virtual void SetProgressMin(float value) => _progressMin = value;
+        public virtual void SetProgressMin(double value) => _progressMin = value;
 
-        public virtual float GetProgressMax() => _progressMax;
+        public virtual double GetProgressMax() => _progressMax;
 
-        public virtual void SetProgressMax(float value) => _progressMax = value;
+        public virtual void SetProgressMax(double value) => _progressMax = value;
 
         #endregion
 

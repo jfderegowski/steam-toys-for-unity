@@ -90,8 +90,8 @@ namespace SteamToys.Editor.AchievementsSystem
             return new AchievementValues(
                 achievement.FindProperty(HiddenField).boolValue,
                 stat.ApiName ?? string.Empty,
-                achievement.FindProperty(ProgressMinField).floatValue,
-                achievement.FindProperty(ProgressMaxField).floatValue);
+                achievement.FindProperty(ProgressMinField).doubleValue,
+                achievement.FindProperty(ProgressMaxField).doubleValue);
         }
 
         public static AchievementValues Read(AchievementDefinition steam) =>
@@ -101,8 +101,8 @@ namespace SteamToys.Editor.AchievementsSystem
 
         /// <summary>
         /// Every setting of the asset next to the one on Steam, in the order of the partner site page.
-        /// Either side may be missing, but not both. The progress range is compared at float precision,
-        /// the precision the asset holds it at.
+        /// Either side may be missing, but not both. The progress range is compared as
+        /// <see cref="Format"/> writes it.
         /// </summary>
         public static List<AchievementComparison> Compare(AchievementValues? asset, AchievementValues? steam)
         {
@@ -148,8 +148,8 @@ namespace SteamToys.Editor.AchievementsSystem
             // Kept as they were when there is no progress: they mean nothing without a stat.
             if (steam.ProgressStat != null)
             {
-                achievement.FindProperty(ProgressMinField).floatValue = (float)(steam.ProgressMin ?? 0);
-                achievement.FindProperty(ProgressMaxField).floatValue = (float)(steam.ProgressMax ?? 0);
+                achievement.FindProperty(ProgressMinField).doubleValue = steam.ProgressMin ?? 0;
+                achievement.FindProperty(ProgressMaxField).doubleValue = steam.ProgressMax ?? 0;
             }
 
             achievement.ApplyModifiedProperties();
@@ -201,7 +201,15 @@ namespace SteamToys.Editor.AchievementsSystem
                 yield return "Progress Max is not above Progress Min, so the progress bar has no range.";
         }
 
+        /// <summary>
+        /// A progress bound as text, which is also what the two sides are compared by. A whole number is
+        /// written out in full, since an int stat keeps its range exactly. A fraction can only come from
+        /// a float stat, which Steam keeps at float precision, so it is written at that precision: 0.1
+        /// typed into the asset then matches the 0.1 Steam read back as 0.100000001.
+        /// </summary>
         public static string Format(double? value) =>
-            value is { } number ? ((float)number).ToString(CultureInfo.InvariantCulture) : "none";
+            value is not { } number ? "none"
+            : number == Math.Floor(number) ? number.ToString("0", CultureInfo.InvariantCulture)
+            : ((float)number).ToString(CultureInfo.InvariantCulture);
     }
 }
