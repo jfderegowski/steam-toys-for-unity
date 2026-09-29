@@ -125,6 +125,30 @@ namespace SteamToys.Runtime.AchievementsSystem
             }
         }
 
+        /// <summary>
+        /// The icon shown once the achievement is unlocked, matching Achieved Icon on the partner
+        /// site. Downloaded from Steam in the editor into a PNG sprite in
+        /// <c>Assets/Resources/SteamAchievementsIcons</c>.
+        /// </summary>
+        public Sprite Icon
+        {
+            get => GetIcon();
+            set => SetIcon(value);
+        }
+
+        /// <summary>The icon shown while the achievement is locked, matching Unachieved Icon on the partner site.</summary>
+        public Sprite LockedIcon
+        {
+            get => GetLockedIcon();
+            set => SetLockedIcon(value);
+        }
+
+        /// <summary>
+        /// <see cref="Icon"/> or <see cref="LockedIcon"/>, whichever matches the state of the user.
+        /// Reads <see cref="IsAchieved"/>, so the first read pulls from Steam.
+        /// </summary>
+        public Sprite CurrentIcon => IsAchieved ? GetIcon() : GetLockedIcon();
+
         #endregion
 
         /// <summary>Raised after the cached state changed, with the new state.</summary>
@@ -145,6 +169,20 @@ namespace SteamToys.Runtime.AchievementsSystem
         private double _progressMin;
         [SerializeField, Tooltip("The stat value the progress bar ends at and the achievement unlocks at, matching the max value of the progress stat on the partner site.")]
         private double _progressMax;
+
+        [Header("Icons (downloaded from Steam)")]
+        [SerializeField, Tooltip("The icon shown once the achievement is unlocked. Pulling the settings from Steam downloads it into a PNG sprite in Assets/Resources/SteamAchievementsIcons.")]
+        private Sprite _icon;
+        [SerializeField, Tooltip("The icon shown while the achievement is locked. Pulling the settings from Steam downloads it into a PNG sprite in Assets/Resources/SteamAchievementsIcons.")]
+        private Sprite _lockedIcon;
+
+        // The file names Steam gave the icons that were downloaded, which change whenever an icon is
+        // replaced on the partner site. Tells the editor when to download them again, and only the
+        // editor reads them, through their serialized form, which the compiler cannot see.
+#pragma warning disable CS0169
+        [SerializeField, HideInInspector] private string _iconHash;
+        [SerializeField, HideInInspector] private string _lockedIconHash;
+#pragma warning restore CS0169
 
         #endregion
 
@@ -193,6 +231,14 @@ namespace SteamToys.Runtime.AchievementsSystem
         public virtual double GetProgressMax() => _progressMax;
 
         public virtual void SetProgressMax(double value) => _progressMax = value;
+
+        public virtual Sprite GetIcon() => _icon;
+
+        public virtual void SetIcon(Sprite value) => _icon = value;
+
+        public virtual Sprite GetLockedIcon() => _lockedIcon;
+
+        public virtual void SetLockedIcon(Sprite value) => _lockedIcon = value;
 
         #endregion
 

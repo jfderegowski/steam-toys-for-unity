@@ -135,6 +135,7 @@ namespace SteamToys.Editor.AchievementsSystem
             var touched = new List<SteamAchievement>();
             int created = 0, updated = 0;
             var missingStats = new SortedSet<string>(StringComparer.Ordinal);
+            var withIcons = new List<(SerializedObject, AchievementDefinition)>();
 
             foreach (var steam in definitions.OrderBy(definition => definition.ApiName, StringComparer.Ordinal))
             {
@@ -160,13 +161,20 @@ namespace SteamToys.Editor.AchievementsSystem
                     missingStats.Add(steam.ProgressStat);
 
                 touched.Add(achievement);
+                withIcons.Add((GetSerialized(achievement), steam));
             }
 
             serializedObject.ApplyModifiedProperties();
+
+            // After the list is applied: downloading imports the icons, and an import must not find the
+            // DB half written.
+            var icons = AchievementIcons.Download(_lookup.AppId, withIcons);
+
             Undo.CollapseUndoOperations(group);
             Save(target);
 
-            Debug.Log($"[SteamToys] Achievements DB: created {created} and updated {updated} from Steam" +
+            Debug.Log($"[SteamToys] Achievements DB: created {created} and updated {updated} from Steam, " +
+                      $"downloaded {icons} icons" +
                       (missingStats.Count == 0
                           ? "."
                           : $"; no stat asset has the API Name of the progress stats {string.Join(", ", missingStats)}, " +
@@ -191,7 +199,8 @@ namespace SteamToys.Editor.AchievementsSystem
             var achievementName = achievement.name;
 
             if (!EditorUtility.DisplayDialog("Remove Achievement",
-                    $"Remove '{achievementName}' from the achievements DB?\n\nFields that reference it lose it. Undo brings it back.",
+                    $"Remove '{achievementName}' from the achievements DB?\n\nFields that reference it lose it. Undo brings it back. " +
+                    $"Its icons stay in {AchievementIcons.Folder}.",
                     "Remove", "Cancel"))
                 return;
 
@@ -324,8 +333,8 @@ namespace SteamToys.Editor.AchievementsSystem
             _createButton = new InspectorButtonElement(CreateAllFromSteam, "Create From Steam")
             {
                 tooltip = "Makes an achievement for every achievement Steam has and the DB does not, and overwrites " +
-                          "the settings of the ones it has with what Steam has. Progress stats are found among the " +
-                          "stat assets by their API Name.",
+                          "the settings of the ones it has with what Steam has, downloading icons that changed. " +
+                          "Progress stats are found among the stat assets by their API Name.",
                 style = { flexGrow = 1 }
             };
 
@@ -638,6 +647,15 @@ namespace SteamToys.Editor.AchievementsSystem
 
             table.columns.Add(new Column
             {
+                name = "icon",
+                width = 24,
+                resizable = false,
+                makeCell = () => new Image { scaleMode = ScaleMode.ScaleToFit, style = { width = 18, height = 18, alignSelf = Align.Center, marginTop = 1 } },
+                bindCell = BindIcon
+            });
+
+            table.columns.Add(new Column
+            {
                 name = "apiName",
                 title = "API Name",
                 width = 150,
@@ -723,6 +741,13 @@ namespace SteamToys.Editor.AchievementsSystem
 
             image.image = icon == null ? null : EditorGUIUtility.IconContent(icon).image;
             image.tooltip = row.Problems.Count > 0 ? row.DescribeProblems() : row.Steam.HasValue ? "Matches Steam" : null;
+        }
+
+        private void BindIcon(VisualElement element, int index)
+        {
+            var achievement = _visibleRows[index].Achievement;
+
+            ((Image)element).sprite = achievement ? achievement.Icon : null;
         }
 
         private void BindApiName(VisualElement element, int index)

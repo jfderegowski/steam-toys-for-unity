@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Achievement icons: `SteamAchievement.Icon`, `LockedIcon` and `CurrentIcon`, sprites imported
+  from PNG files in `Assets/Resources/SteamAchievementsIcons`, named after the API Name
+  (`<ApiName>.png` and `<ApiName>_Locked.png`). The editor downloads them from the Steam CDN,
+  where the schema the Steam client downloaded names them, so a game has them without a Steam
+  session.
+  - Create From Steam in the achievements DB and Pull Achievement Settings From Steam in the
+    achievement inspector download the icons that changed on Steam. A file is written over in
+    place, so references to its sprite and its import settings survive a replaced icon.
+  - The comparison with Steam has Icon and Locked Icon rows, the achievement inspector shows
+    both icons, and the achievements DB table shows the icon of each achievement.
+  - Changing the API Name renames the icon files. Removing an achievement from the DB leaves
+    them in the folder.
+
 ## [0.4.0] - 2026-09-28
 
 ### Added

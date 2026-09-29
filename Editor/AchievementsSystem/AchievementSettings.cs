@@ -15,7 +15,9 @@ namespace SteamToys.Editor.AchievementsSystem
         Hidden,
         ProgressStat,
         ProgressMin,
-        ProgressMax
+        ProgressMax,
+        Icon,
+        LockedIcon
     }
 
     /// <summary>
@@ -33,12 +35,23 @@ namespace SteamToys.Editor.AchievementsSystem
         public readonly double? ProgressMin;
         public readonly double? ProgressMax;
 
-        public AchievementValues(bool hidden, string progressStat, double? progressMin, double? progressMax)
+        /// <summary>
+        /// The file name Steam gave each icon, or null when there is none: on the asset side, when no
+        /// icon has been downloaded.
+        /// </summary>
+        public readonly string Icon;
+
+        public readonly string LockedIcon;
+
+        public AchievementValues(
+            bool hidden, string progressStat, double? progressMin, double? progressMax, string icon, string lockedIcon)
         {
             Hidden = hidden;
             ProgressStat = progressStat;
             ProgressMin = progressMin;
             ProgressMax = progressMax;
+            Icon = icon;
+            LockedIcon = lockedIcon;
         }
     }
 
@@ -77,27 +90,51 @@ namespace SteamToys.Editor.AchievementsSystem
         private const string ProgressStatField = "_progressStat";
         private const string ProgressMinField = "_progressMin";
         private const string ProgressMaxField = "_progressMax";
+        internal const string IconField = "_icon";
+        internal const string IconHashField = "_iconHash";
+        internal const string LockedIconField = "_lockedIcon";
+        internal const string LockedIconHashField = "_lockedIconHash";
 
         public static string GetLabel(AchievementSetting setting) => ObjectNames.NicifyVariableName(setting.ToString());
 
         public static AchievementValues Read(SerializedObject achievement)
         {
             var stat = achievement.FindProperty(ProgressStatField).objectReferenceValue as SteamStat;
+            var hidden = achievement.FindProperty(HiddenField).boolValue;
+            var icon = ReadIconHash(achievement, IconField, IconHashField);
+            var lockedIcon = ReadIconHash(achievement, LockedIconField, LockedIconHashField);
 
             if (!stat)
-                return new AchievementValues(achievement.FindProperty(HiddenField).boolValue, null, null, null);
+                return new AchievementValues(hidden, null, null, null, icon, lockedIcon);
 
             return new AchievementValues(
-                achievement.FindProperty(HiddenField).boolValue,
+                hidden,
                 stat.ApiName ?? string.Empty,
                 achievement.FindProperty(ProgressMinField).doubleValue,
-                achievement.FindProperty(ProgressMaxField).doubleValue);
+                achievement.FindProperty(ProgressMaxField).doubleValue,
+                icon,
+                lockedIcon);
         }
 
         public static AchievementValues Read(AchievementDefinition steam) =>
             steam.ProgressStat == null
-                ? new AchievementValues(steam.Hidden, null, null, null)
-                : new AchievementValues(steam.Hidden, steam.ProgressStat, steam.ProgressMin ?? 0, steam.ProgressMax ?? 0);
+                ? new AchievementValues(steam.Hidden, null, null, null, NullIfEmpty(steam.Icon), NullIfEmpty(steam.IconGray))
+                : new AchievementValues(steam.Hidden, steam.ProgressStat, steam.ProgressMin ?? 0, steam.ProgressMax ?? 0,
+                    NullIfEmpty(steam.Icon), NullIfEmpty(steam.IconGray));
+
+        /// <summary>
+        /// The file name of the icon the asset downloaded, or null without an icon. An icon the asset
+        /// holds that was not downloaded, e.g. one dragged in by hand, has no file name and so reads as
+        /// differing from Steam.
+        /// </summary>
+        private static string ReadIconHash(SerializedObject achievement, string textureField, string hashField) =>
+            achievement.FindProperty(textureField).objectReferenceValue
+                ? NullIfEmpty(achievement.FindProperty(hashField).stringValue) ?? NotFromSteam
+                : null;
+
+        private const string NotFromSteam = "not from Steam";
+
+        private static string NullIfEmpty(string value) => string.IsNullOrEmpty(value) ? null : value;
 
         /// <summary>
         /// Every setting of the asset next to the one on Steam, in the order of the partner site page.
@@ -114,7 +151,9 @@ namespace SteamToys.Editor.AchievementsSystem
                 Text(AchievementSetting.Hidden, values => values.Hidden.ToString()),
                 Text(AchievementSetting.ProgressStat, values => values.ProgressStat ?? "none"),
                 Number(AchievementSetting.ProgressMin, values => values.ProgressMin),
-                Number(AchievementSetting.ProgressMax, values => values.ProgressMax)
+                Number(AchievementSetting.ProgressMax, values => values.ProgressMax),
+                Text(AchievementSetting.Icon, values => FormatIcon(values.Icon)),
+                Text(AchievementSetting.LockedIcon, values => FormatIcon(values.LockedIcon))
             };
 
             AchievementComparison Text(AchievementSetting setting, Func<AchievementValues, string> read) =>
@@ -207,6 +246,20 @@ namespace SteamToys.Editor.AchievementsSystem
         /// a float stat, which Steam keeps at float precision, so it is written at that precision: 0.1
         /// typed into the asset then matches the 0.1 Steam read back as 0.100000001.
         /// </summary>
+        /// <summary>
+        /// An icon as its file name without the extension, cut to a length that tells icons apart at a
+        /// glance and still fits a column: a 40 character SHA-1 would not.
+        /// </summary>
+        private static string FormatIcon(string fileName)
+        {
+            if (fileName is null or NotFromSteam)
+                return fileName ?? "none";
+
+            var hash = System.IO.Path.GetFileNameWithoutExtension(fileName);
+
+            return hash.Length > 10 ? hash.Substring(0, 10) : hash;
+        }
+
         public static string Format(double? value) =>
             value is not { } number ? "none"
             : number == Math.Floor(number) ? number.ToString("0", CultureInfo.InvariantCulture)

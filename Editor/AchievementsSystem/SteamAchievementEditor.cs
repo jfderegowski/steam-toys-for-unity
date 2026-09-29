@@ -42,8 +42,11 @@ namespace SteamToys.Editor.AchievementsSystem
             // Named after its API Name once the field is left, like a stat of the stats DB.
             root.Q<PropertyField>($"PropertyField:{AchievementSettings.ApiNameField}")?.RegisterCallback<FocusOutEvent>(_ =>
             {
-                if (target is SteamAchievement achievement && achievement)
-                    SteamAchievementsDBEditor.SyncSubAssetName(achievement);
+                if (target is not SteamAchievement achievement || !achievement)
+                    return;
+
+                SteamAchievementsDBEditor.SyncSubAssetName(achievement);
+                AchievementIcons.SyncNames(achievement);
             });
 
             return root;
@@ -127,6 +130,14 @@ namespace SteamToys.Editor.AchievementsSystem
             section.Add(steam);
             section.Add(progress);
 
+            var icons = new VisualElement { style = { flexDirection = FlexDirection.Row, marginTop = 4, marginBottom = 4 } };
+            var icon = CreateIconPreview("Icon");
+            var lockedIcon = CreateIconPreview("Locked Icon");
+
+            icons.Add(icon);
+            icons.Add(lockedIcon);
+            section.Insert(0, icons);
+
             var unlock = new InspectorButtonElement(() => achievement.Unlock(), "Unlock")
             {
                 tooltip = "Unlocks the achievement for the signed-in account and stores it on the Steam servers, " +
@@ -182,6 +193,10 @@ namespace SteamToys.Editor.AchievementsSystem
 
                 progress.style.display = achievement.HasProgress ? DisplayStyle.Flex : DisplayStyle.None;
 
+                icon.Q<Image>().sprite = achievement.Icon;
+                lockedIcon.Q<Image>().sprite = achievement.LockedIcon;
+                icons.style.display = achievement.Icon || achievement.LockedIcon ? DisplayStyle.Flex : DisplayStyle.None;
+
                 if (achievement.HasProgress)
                     progress.SetValueWithoutNotify(DescribeProgress(achievement));
 
@@ -192,6 +207,22 @@ namespace SteamToys.Editor.AchievementsSystem
                 indicate.SetEnabled(canSync && achievement.HasProgress);
                 pull.SetEnabled(canSync);
             }
+        }
+
+        /// <summary>One icon at the size Steam shows it, 64 pixels, with its name under it.</summary>
+        private static VisualElement CreateIconPreview(string label)
+        {
+            var preview = new VisualElement { style = { alignItems = Align.Center, marginRight = 8 } };
+
+            preview.Add(new Image
+            {
+                scaleMode = ScaleMode.ScaleToFit,
+                style = { width = 64, height = 64 }
+            });
+
+            preview.Add(new Label(label) { style = { fontSize = 10, opacity = 0.7f } });
+
+            return preview;
         }
 
         private static string DescribeState(bool achieved, DateTime? unlockTime) =>
@@ -286,8 +317,8 @@ namespace SteamToys.Editor.AchievementsSystem
 
             pullButton = new InspectorButtonElement(Pull, "Pull Achievement Settings From Steam")
             {
-                tooltip = "Copies the settings Steam has for this achievement into the asset. The progress stat is " +
-                          "found among the stat assets by its API Name.",
+                tooltip = "Copies the settings Steam has for this achievement into the asset, and downloads its icons " +
+                          "into sub-assets of it. The progress stat is found among the stat assets by its API Name.",
                 style = { flexGrow = 1 }
             };
 
@@ -392,7 +423,14 @@ namespace SteamToys.Editor.AchievementsSystem
                 if (steamAchievement is not { } steam)
                     return;
 
+                Undo.SetCurrentGroupName("Pull Achievement Settings From Steam");
+
+                var group = Undo.GetCurrentGroup();
+
                 AchievementSettings.CopyFrom(serializedObject, steam);
+                AchievementIcons.Download(appId, new[] { (serializedObject, steam) });
+
+                Undo.CollapseUndoOperations(group);
 
                 Refresh();
             }
