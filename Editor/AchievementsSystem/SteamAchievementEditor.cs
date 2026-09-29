@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using fefek5.Toys.Editor.Icons;
 using fefek5.Toys.Editor.VisualElements;
 using SteamToys.Editor.Core;
 using SteamToys.Editor.StatsSystem;
@@ -11,6 +12,7 @@ using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
+using Object = UnityEngine.Object;
 
 namespace SteamToys.Editor.AchievementsSystem
 {
@@ -35,6 +37,11 @@ namespace SteamToys.Editor.AchievementsSystem
             // Right under the Script field, which the default inspector puts first.
             var scriptField = root.Q<PropertyField>("PropertyField:m_Script");
 
+            // The icons get thumbnails at the top instead, which also take a sprite dragged onto them.
+            // Their Header goes with the first field, since Unity draws it as part of the field.
+            root.Q<PropertyField>($"PropertyField:{AchievementSettings.IconField}")?.RemoveFromHierarchy();
+            root.Q<PropertyField>($"PropertyField:{AchievementSettings.LockedIconField}")?.RemoveFromHierarchy();
+
             root.Insert(scriptField == null ? 0 : root.IndexOf(scriptField) + 1, CreateStateSection());
             root.Insert(0, CreateDuplicateNotice());
             root.Add(CreateSteamSection());
@@ -50,6 +57,68 @@ namespace SteamToys.Editor.AchievementsSystem
             });
 
             return root;
+        }
+
+        /// <summary>
+        /// The default icon of an achievement, from the editor icons of the package, in the sizes
+        /// <c>icon_achievement_16</c> to <c>icon_achievement_1024</c>.
+        /// </summary>
+        private const string DefaultIconName = "icon_achievement";
+
+        private static readonly int[] DefaultIconSizes = { 16, 32, 64, 128, 256, 512, 1024 };
+
+        /// <summary>
+        /// The thumbnail of the achievement in the Project window: its icon, or its locked icon when it
+        /// has only that, and the default achievement icon when it has neither.
+        /// <para>
+        /// Drawn through a blit because the textures are not readable, and a sprite may take only part
+        /// of its texture.
+        /// </para>
+        /// </summary>
+        public override Texture2D RenderStaticPreview(string assetPath, Object[] subAssets, int width, int height)
+        {
+            var achievement = (SteamAchievement)target;
+            var sprite = achievement.Icon ? achievement.Icon : achievement.LockedIcon;
+
+            if (sprite && sprite.texture)
+                return Render(sprite.texture, sprite.textureRect, width, height);
+
+            // The smallest size that still covers the thumbnail, so it is only ever scaled down.
+            var size = Array.Find(DefaultIconSizes, candidate => candidate >= Mathf.Max(width, height));
+
+            if (EditorIconsDatabase.TryGetIcon<Texture2D>($"{DefaultIconName}_{(size == 0 ? DefaultIconSizes[^1] : size)}", out var icon))
+                return Render(icon, new Rect(0, 0, icon.width, icon.height), width, height);
+
+            return base.RenderStaticPreview(assetPath, subAssets, width, height);
+        }
+
+        /// <summary>Draws <paramref name="rect"/> of <paramref name="texture"/> into a new readable texture of the given size.</summary>
+        private static Texture2D Render(Texture texture, Rect rect, int width, int height)
+        {
+            var scale = new Vector2(rect.width / texture.width, rect.height / texture.height);
+            var offset = new Vector2(rect.x / texture.width, rect.y / texture.height);
+
+            var rendered = RenderTexture.GetTemporary(width, height, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
+            var active = RenderTexture.active;
+
+            try
+            {
+                Graphics.Blit(texture, rendered, scale, offset);
+
+                RenderTexture.active = rendered;
+
+                var preview = new Texture2D(width, height, TextureFormat.RGBA32, false);
+
+                preview.ReadPixels(new Rect(0, 0, width, height), 0, 0);
+                preview.Apply();
+
+                return preview;
+            }
+            finally
+            {
+                RenderTexture.active = active;
+                RenderTexture.ReleaseTemporary(rendered);
+            }
         }
 
         /// <summary>
@@ -131,11 +200,9 @@ namespace SteamToys.Editor.AchievementsSystem
             section.Add(progress);
 
             var icons = new VisualElement { style = { flexDirection = FlexDirection.Row, marginTop = 4, marginBottom = 4 } };
-            var icon = CreateIconPreview("Icon");
-            var lockedIcon = CreateIconPreview("Locked Icon");
 
-            icons.Add(icon);
-            icons.Add(lockedIcon);
+            icons.Add(CreateIconField(serializedObject.FindProperty(AchievementSettings.IconField), "Icon"));
+            icons.Add(CreateIconField(serializedObject.FindProperty(AchievementSettings.LockedIconField), "Locked Icon"));
             section.Insert(0, icons);
 
             var unlock = new InspectorButtonElement(() => achievement.Unlock(), "Unlock")
@@ -193,10 +260,6 @@ namespace SteamToys.Editor.AchievementsSystem
 
                 progress.style.display = achievement.HasProgress ? DisplayStyle.Flex : DisplayStyle.None;
 
-                icon.Q<Image>().sprite = achievement.Icon;
-                lockedIcon.Q<Image>().sprite = achievement.LockedIcon;
-                icons.style.display = achievement.Icon || achievement.LockedIcon ? DisplayStyle.Flex : DisplayStyle.None;
-
                 if (achievement.HasProgress)
                     progress.SetValueWithoutNotify(DescribeProgress(achievement));
 
@@ -209,15 +272,38 @@ namespace SteamToys.Editor.AchievementsSystem
             }
         }
 
-        /// <summary>One icon at the size Steam shows it, 64 pixels, with its name under it.</summary>
-        private static VisualElement CreateIconPreview(string label)
+        /// <summary>
+        /// One icon as the texture slot of a material draws it: a 64 pixel thumbnail that pings the
+        /// sprite when clicked, opens it when double-clicked, and takes another one dragged onto it or
+        /// picked with its button. With its name under it.
+        /// <para>
+        /// Drawn with IMGUI, because the object field of UI Toolkit has no thumbnail form, while
+        /// <c>EditorGUI.ObjectField</c> turns into one for a sprite once it is taller than a line.
+        /// </para>
+        /// </summary>
+        private static VisualElement CreateIconField(SerializedProperty property, string label)
         {
+            const int size = 64;
+
             var preview = new VisualElement { style = { alignItems = Align.Center, marginRight = 8 } };
 
-            preview.Add(new Image
+            preview.Add(new IMGUIContainer(() =>
             {
-                scaleMode = ScaleMode.ScaleToFit,
-                style = { width = 64, height = 64 }
+                // Gone when an achievement of the DB was removed while its inspector was open.
+                if (!property.serializedObject.targetObject)
+                    return;
+
+                property.serializedObject.Update();
+
+                var rect = GUILayoutUtility.GetRect(size, size, GUILayout.Width(size), GUILayout.Height(size));
+
+                EditorGUI.ObjectField(rect, property, typeof(Sprite), GUIContent.none);
+
+                property.serializedObject.ApplyModifiedProperties();
+            })
+            {
+                tooltip = $"{property.displayName}: click to ping it in the Project window, double-click to open it.",
+                style = { width = size, height = size }
             });
 
             preview.Add(new Label(label) { style = { fontSize = 10, opacity = 0.7f } });

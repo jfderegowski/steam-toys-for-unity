@@ -13,6 +13,27 @@ MonoBehaviour:
   m_Name: EditorIconsDatabase
   m_EditorClassIdentifier: com.fefek5.toys.Editor::fefek5.Toys.Editor.Icons.EditorIconsDatabase
   _icons:
+  - path: icon_achievement_1024
+    texture: {fileID: 2800000, guid: dd2489b939a0da14c8b7e090b0170ff3, type: 3}
+    sprite: {fileID: 0}
+  - path: icon_achievement_128
+    texture: {fileID: 2800000, guid: ffbb9973f7cf6004cbb1151bec099f26, type: 3}
+    sprite: {fileID: 0}
+  - path: icon_achievement_16
+    texture: {fileID: 2800000, guid: 209d7446887d5e447bbd4d7ab8e4454d, type: 3}
+    sprite: {fileID: 0}
+  - path: icon_achievement_256
+    texture: {fileID: 2800000, guid: 03be435a927d49545aa13b09ff203162, type: 3}
+    sprite: {fileID: 0}
+  - path: icon_achievement_32
+    texture: {fileID: 2800000, guid: 728c78f4f5d846f4f82eb5dab70359b3, type: 3}
+    sprite: {fileID: 0}
+  - path: icon_achievement_512
+    texture: {fileID: 2800000, guid: dde6fd8e292d70042854f34be0e457b3, type: 3}
+    sprite: {fileID: 0}
+  - path: icon_achievement_64
+    texture: {fileID: 2800000, guid: aa093048cd93245479668409b93f031d, type: 3}
+    sprite: {fileID: 0}
   - path: icon_logo_steam_1024
     texture: {fileID: 2800000, guid: 483a538ff4916844abc3072d33d66688, type: 3}
     sprite: {fileID: 0}

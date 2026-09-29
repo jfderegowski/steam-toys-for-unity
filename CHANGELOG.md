@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     place, so references to its sprite and its import settings survive a replaced icon.
   - The comparison with Steam has Icon and Locked Icon rows, the achievement inspector shows
     both icons, and the achievements DB table shows the icon of each achievement.
+  - The Project window thumbnail of an achievement is its icon, or its locked icon when it has
+    only that.
   - Changing the API Name renames the icon files. Removing an achievement from the DB leaves
     them in the folder.
 
