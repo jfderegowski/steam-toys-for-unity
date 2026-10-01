@@ -354,6 +354,12 @@ namespace SteamToys.Editor.StatsSystem
             buttons.Add(_editButton);
             root.Add(buttons);
 
+            root.Add(new InspectorButtonElement(() => SteamworksJson.CopyStats(((SteamStatsDB)target).Stats), "Copy All As JSON")
+            {
+                tooltip = "Copies the settings of every stat of the DB as JSON for the Steam Toys web extension, which " +
+                          "pastes them into the Stats page of Steamworks."
+            });
+
             var filters = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, marginTop = 6 } };
 
             _problemsOnly = new Toggle { text = "Problems Only", style = { marginRight = 8 } };
@@ -645,6 +651,7 @@ namespace SteamToys.Editor.StatsSystem
             AddSettingColumn(table, StatSetting.MaxChange, "Max Change", 76);
             AddSettingColumn(table, StatSetting.IncrementOnly, "Increment Only", 94);
             AddSettingColumn(table, StatSetting.WindowSize, "Window", 60);
+            AddSettingColumn(table, StatSetting.DisplayName, "Display Name", 130);
 
             table.columns.Add(new Column
             {

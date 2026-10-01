@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using System.Text;
+using SteamToys.Runtime.Core;
 using SteamToys.Runtime.StatsSystem;
 using Steamworks;
 using UnityEngine;
@@ -33,6 +34,33 @@ namespace SteamToys.Runtime.AchievementsSystem
         {
             get => GetApiName();
             set => SetApiName(value);
+        }
+
+        /// <summary>
+        /// The English Display Name on the partner site. Configuration only: the game shows the name
+        /// in the language of the user, read through <see cref="GetDisplayName"/>.
+        /// </summary>
+        public string EnglishDisplayName
+        {
+            get => GetEnglishDisplayName();
+            set => SetEnglishDisplayName(value);
+        }
+
+        /// <summary>
+        /// The English Description on the partner site. Configuration only, like
+        /// <see cref="EnglishDisplayName"/>; the game reads <see cref="GetDescription"/>.
+        /// </summary>
+        public string EnglishDescription
+        {
+            get => GetEnglishDescription();
+            set => SetEnglishDescription(value);
+        }
+
+        /// <summary>Who may unlock the achievement, matching Set By on the partner site.</summary>
+        public SteamPermission Permission
+        {
+            get => GetPermission();
+            set => SetPermission(value);
         }
 
         /// <summary>
@@ -159,6 +187,12 @@ namespace SteamToys.Runtime.AchievementsSystem
         [Header("Steam Configuration")]
         [SerializeField, Tooltip("API Name of the achievement, copied verbatim from the Achievements page on the Steamworks partner site.")]
         private string _apiName;
+        [SerializeField, Tooltip("English Display Name on the partner site. Configuration only: the game reads the name in the language of the user from Steam.")]
+        private string _englishDisplayName;
+        [SerializeField, TextArea(2, 4), Tooltip("English Description on the partner site. Configuration only: the game reads the description in the language of the user from Steam.")]
+        private string _englishDescription;
+        [SerializeField, Tooltip("Who may unlock the achievement, matching Set By on the partner site. Client means the game itself.")]
+        private SteamPermission _permission;
         [SerializeField, Tooltip("Hides the achievement on the Community page until it is unlocked, matching Hidden on the partner site. A mirror only.")]
         private bool _hidden;
 
@@ -215,6 +249,18 @@ namespace SteamToys.Runtime.AchievementsSystem
         public virtual string GetApiName() => _apiName;
 
         public virtual void SetApiName(string value) => _apiName = value;
+
+        public virtual string GetEnglishDisplayName() => _englishDisplayName;
+
+        public virtual void SetEnglishDisplayName(string value) => _englishDisplayName = value;
+
+        public virtual string GetEnglishDescription() => _englishDescription;
+
+        public virtual void SetEnglishDescription(string value) => _englishDescription = value;
+
+        public virtual SteamPermission GetPermission() => _permission;
+
+        public virtual void SetPermission(SteamPermission value) => _permission = value;
 
         public virtual bool GetHidden() => _hidden;
 

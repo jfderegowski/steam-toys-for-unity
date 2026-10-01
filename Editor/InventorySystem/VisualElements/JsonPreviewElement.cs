@@ -17,6 +17,9 @@ namespace SteamToys.Editor.InventorySystem
         private const long COPIED_FEEDBACK_MS = 1200;
         private const string COPIED_TEXT = "Copied!";
 
+        // Longer JSON, such as achievements carrying their icons as base64, is cut in the log.
+        private const int MAX_LOGGED_LENGTH = 5000;
+
         private static readonly string[] MONOSPACE_FONT_NAMES = {
             "Consolas", "Menlo", "Monaco", "DejaVu Sans Mono", "Courier New"
         };
@@ -95,7 +98,11 @@ namespace SteamToys.Editor.InventorySystem
 
             EditorGUIUtility.systemCopyBuffer = json;
 
-            Debug.Log($"Copied to clipboard: (Select to show more) \n{json}");
+            var logged = json.Length > MAX_LOGGED_LENGTH
+                ? $"{json.Substring(0, MAX_LOGGED_LENGTH)}\n... ({json.Length - MAX_LOGGED_LENGTH} more characters on the clipboard)"
+                : json;
+
+            Debug.Log($"Copied to clipboard: (Select to show more) \n{logged}");
 
             // Pin the current width so the neighbouring buttons do not shift while the feedback shows.
             button.style.minWidth = button.resolvedStyle.width;

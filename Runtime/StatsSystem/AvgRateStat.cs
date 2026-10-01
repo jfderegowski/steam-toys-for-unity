@@ -127,7 +127,7 @@ namespace SteamToys.Runtime.StatsSystem
             _pendingCount = 0f;
             _pendingSessionLength = 0d;
 
-            ApplyValue(DefaultValue);
+            ApplyValue(StartValue);
         }
 
         protected override bool TryGetFromSteam(out float value) => SteamUserStats.GetStat(ApiName, out value);

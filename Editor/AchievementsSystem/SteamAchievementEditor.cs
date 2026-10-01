@@ -5,6 +5,7 @@ using System.Linq;
 using fefek5.Toys.Editor.Icons;
 using fefek5.Toys.Editor.VisualElements;
 using SteamToys.Editor.Core;
+using SteamToys.Editor.InventorySystem;
 using SteamToys.Editor.StatsSystem;
 using SteamToys.Runtime.AchievementsSystem;
 using Steamworks;
@@ -364,6 +365,27 @@ namespace SteamToys.Editor.AchievementsSystem
             return field;
         }
 
+        /// <summary>
+        /// The JSON the Steam Toys web extension pastes into the Achievements page of Steamworks, for this
+        /// achievement or every selected one, kept current as the asset changes. The icons show as their
+        /// size; the copy carries the files.
+        /// </summary>
+        private VisualElement CreateJsonPreview()
+        {
+            var preview = new JsonPreviewElement("Steamworks JSON");
+
+            preview.AddCopyAction("Copy",
+                "Copies this JSON, icons included, for the Steam Toys web extension, which pastes it into the " +
+                "Achievements page of Steamworks.",
+                () => SteamworksJson.GetAchievementsJson(targets.OfType<SteamAchievement>()));
+
+            preview.SetJson(SteamworksJson.PreviewAchievements(targets.OfType<SteamAchievement>()));
+            preview.TrackSerializedObjectValue(serializedObject,
+                _ => preview.SetJson(SteamworksJson.PreviewAchievements(targets.OfType<SteamAchievement>())));
+
+            return preview;
+        }
+
         private VisualElement CreateSteamSection()
         {
             var apiName = serializedObject.FindProperty(AchievementSettings.ApiNameField);
@@ -422,6 +444,7 @@ namespace SteamToys.Editor.AchievementsSystem
             buttons.Add(editButton);
 
             section.Add(buttons);
+            section.Add(CreateJsonPreview());
 
             Refresh();
 

@@ -358,6 +358,13 @@ namespace SteamToys.Editor.AchievementsSystem
             buttons.Add(_editButton);
             root.Add(buttons);
 
+            root.Add(new InspectorButtonElement(
+                () => SteamworksJson.CopyAchievements(((SteamAchievementsDB)target).Achievements), "Copy All As JSON")
+            {
+                tooltip = "Copies the settings and icons of every achievement of the DB as JSON for the Steam Toys web " +
+                          "extension, which pastes them into the Achievements page of Steamworks."
+            });
+
             var filters = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center, marginTop = 6 } };
 
             _problemsOnly = new Toggle { text = "Problems Only", style = { marginRight = 8 } };
@@ -764,9 +771,12 @@ namespace SteamToys.Editor.AchievementsSystem
             var label = (Label)element;
             var row = _visibleRows[index];
 
-            label.text = row.Steam?.DisplayName ?? string.Empty;
-            label.tooltip = row.Steam?.Description;
-            label.style.opacity = row.Achievement ? 1f : 0.55f;
+            BindSetting(label, row, AchievementSetting.DisplayName);
+
+            // The description has no column of its own, so it shows on hover unless the name differs.
+            var description = row.Settings.First(candidate => candidate.Setting == AchievementSetting.Description);
+
+            label.tooltip ??= row.Achievement ? description.Asset : description.Steam;
         }
 
         private static void BindSetting(Label label, Row row, AchievementSetting setting)

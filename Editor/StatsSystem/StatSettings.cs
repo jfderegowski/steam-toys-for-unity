@@ -18,7 +18,8 @@ namespace SteamToys.Editor.StatsSystem
         MaxValue,
         MaxChange,
         IncrementOnly,
-        WindowSize
+        WindowSize,
+        DisplayName
     }
 
     /// <summary>
@@ -32,7 +33,7 @@ namespace SteamToys.Editor.StatsSystem
         /// <summary>Int stats hold ints and the other two floats.</summary>
         public readonly bool IsFloat;
 
-        public readonly double Default;
+        public readonly double? Default;
         public readonly double? Min;
         public readonly double? Max;
         public readonly double? MaxChange;
@@ -43,9 +44,12 @@ namespace SteamToys.Editor.StatsSystem
 
         public readonly double? WindowSize;
 
+        /// <summary>Null when there is none, which an empty name in the asset also reads as.</summary>
+        public readonly string DisplayName;
+
         public StatValues(
-            SteamStatType type, bool isFloat, double defaultValue, double? min, double? max, double? maxChange,
-            bool incrementOnly, bool hasWindowSize, double? windowSize)
+            SteamStatType type, bool isFloat, double? defaultValue, double? min, double? max, double? maxChange,
+            bool incrementOnly, bool hasWindowSize, double? windowSize, string displayName)
         {
             Type = type;
             IsFloat = isFloat;
@@ -56,6 +60,7 @@ namespace SteamToys.Editor.StatsSystem
             IncrementOnly = incrementOnly;
             HasWindowSize = hasWindowSize;
             WindowSize = windowSize;
+            DisplayName = displayName;
         }
     }
 
@@ -118,6 +123,7 @@ namespace SteamToys.Editor.StatsSystem
         private const string MaxChangeField = "_maxChange";
         private const string IncrementOnlyField = "_incrementOnly";
         internal const string WindowSizeField = "_windowSize";
+        private const string DisplayNameField = "_displayName";
 
         public static string GetLabel(StatSetting setting) => ObjectNames.NicifyVariableName(setting.ToString());
 
@@ -171,19 +177,20 @@ namespace SteamToys.Editor.StatsSystem
 
             return new StatValues(
                 ((SteamStat)stat.targetObject).StatType,
-                defaultValue.propertyType == SerializedPropertyType.Float,
-                ReadNumber(defaultValue),
+                defaultValue.FindPropertyRelative("value").propertyType == SerializedPropertyType.Float,
+                ReadOptional(defaultValue),
                 ReadOptional(stat.FindProperty(MinValueField)),
                 ReadOptional(stat.FindProperty(MaxValueField)),
                 ReadOptional(stat.FindProperty(MaxChangeField)),
                 stat.FindProperty(IncrementOnlyField).boolValue,
                 windowSize != null,
-                windowSize?.floatValue);
+                windowSize?.floatValue,
+                NullIfEmpty(stat.FindProperty(DisplayNameField).stringValue));
         }
 
         public static StatValues Read(StatDefinition steam) =>
-            new(steam.Type, steam.Type != SteamStatType.Int, steam.Default ?? 0, steam.Min, steam.Max, steam.MaxChange,
-                steam.IncrementOnly, steam.Type == SteamStatType.AvgRate, steam.WindowSize);
+            new(steam.Type, steam.Type != SteamStatType.Int, steam.Default, steam.Min, steam.Max, steam.MaxChange,
+                steam.IncrementOnly, steam.Type == SteamStatType.AvgRate, steam.WindowSize, NullIfEmpty(steam.DisplayName));
 
         /// <summary>
         /// Every setting of the asset next to the one on Steam, in the order of the partner site page.
@@ -214,6 +221,8 @@ namespace SteamToys.Editor.StatsSystem
             if (reference.HasWindowSize)
                 comparisons.Add(Number(StatSetting.WindowSize, values => values.WindowSize));
 
+            comparisons.Add(Text(StatSetting.DisplayName, values => values.DisplayName ?? "none"));
+
             return comparisons;
 
             SettingComparison Text(StatSetting setting, Func<StatValues, string> read) =>
@@ -237,7 +246,7 @@ namespace SteamToys.Editor.StatsSystem
         {
             stat.Update();
 
-            WriteNumber(stat.FindProperty(DefaultValueField), steam.Default ?? 0);
+            WriteOptional(stat.FindProperty(DefaultValueField), steam.Default);
             WriteOptional(stat.FindProperty(MinValueField), steam.Min);
             WriteOptional(stat.FindProperty(MaxValueField), steam.Max);
             WriteOptional(stat.FindProperty(MaxChangeField), steam.MaxChange);
@@ -245,6 +254,8 @@ namespace SteamToys.Editor.StatsSystem
 
             if (stat.FindProperty(WindowSizeField) is { } windowSize && steam.WindowSize is { } window)
                 windowSize.floatValue = (float)window;
+
+            stat.FindProperty(DisplayNameField).stringValue = steam.DisplayName ?? string.Empty;
 
             stat.ApplyModifiedProperties();
         }
@@ -275,6 +286,8 @@ namespace SteamToys.Editor.StatsSystem
         private static bool AreEqual(double? a, double? b, bool isFloat) =>
             a.HasValue == b.HasValue &&
             (!a.HasValue || (isFloat ? (float)a.Value == (float)b.Value : a.Value == b.Value));
+
+        private static string NullIfEmpty(string value) => string.IsNullOrEmpty(value) ? null : value;
 
         private static double ReadNumber(SerializedProperty property) =>
             property.propertyType == SerializedPropertyType.Float ? (double)property.floatValue : property.intValue;

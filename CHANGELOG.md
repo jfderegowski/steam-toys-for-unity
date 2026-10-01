@@ -5,7 +5,7 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.5.0] - 2026-10-01
 
 ### Added
 
@@ -23,6 +23,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     only that.
   - Changing the API Name renames the icon files. Removing an achievement from the DB leaves
     them in the folder.
+- The rest of the partner site configuration, so a project can define stats and achievements
+  in full and send them to Steamworks with the Steam Toys web extension:
+  - `SteamStat.DisplayName`, `Permission` (Set By) and `Aggregated`.
+  - `SteamAchievement.EnglishDisplayName`, `EnglishDescription` and `Permission`. Named apart
+    from `GetDisplayName` and `GetDescription`, which still read the texts in the language of
+    the user from Steam.
+  - `SteamPermission`, the three Set By options of the partner site.
+  - The comparison with Steam and Pull From Steam cover the display names and the achievement
+    descriptions, and both DB tables show them. Set By and Aggregated are not compared yet: the
+    schema the Steam client downloads showed no trace of them, at least at their defaults.
+- A Steamworks JSON preview in the stat and achievement inspectors, for the selected assets, with
+  a Copy button, and Copy All As JSON in both DBs. They copy the settings, and for achievements
+  the icon files as base64, in the `steam-toys/1` format the Steam Toys web extension pastes into
+  the Stats and Achievements pages of Steamworks. The preview names each icon by its size instead
+  of showing its base64. Missing or duplicate API Names, settings with problems, and icons the
+  partner site would refuse stop the copy with a dialog; the rest are warnings in the Console.
+
+### Changed
+
+- `SteamStat<TValue>.DefaultValue` is a `HasValue<TValue>`, like Min Value and Max Value, so a
+  stat can leave Default Value empty the way the partner site does. Unset, the stat starts at 0.
+  Defaults saved before read as unset; tick Has Default Value again where one was not 0.
+- The Display Name column of the achievements DB shows the name in the asset rather than the
+  one on Steam, marked when the two differ, with the description on hover.
+- `JsonPreviewElement` logs at most 5000 characters of what it copied, so a copy carrying icons
+  does not flood the Console. The clipboard still gets all of it.
 
 ## [0.4.0] - 2026-09-28
 

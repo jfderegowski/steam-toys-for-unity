@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using System.Text;
 using fefek5.Toys.Runtime;
+using SteamToys.Runtime.Core;
 using UnityEngine;
 
 namespace SteamToys.Runtime.StatsSystem
@@ -30,6 +31,33 @@ namespace SteamToys.Runtime.StatsSystem
             set => SetApiName(value);
         }
 
+        /// <summary>
+        /// The Display Name of the stat on the partner site. Configuration only: the game never
+        /// reads it, it goes to the partner site through the Steam Toys web extension.
+        /// </summary>
+        public string DisplayName
+        {
+            get => GetDisplayName();
+            set => SetDisplayName(value);
+        }
+
+        /// <summary>Who may write the stat, matching Set By on the partner site.</summary>
+        public SteamPermission Permission
+        {
+            get => GetPermission();
+            set => SetPermission(value);
+        }
+
+        /// <summary>
+        /// Whether Steam keeps a global total of the stat across all players, matching Aggregated on
+        /// the partner site. Means nothing to an <see cref="SteamStatType.AvgRate"/> stat.
+        /// </summary>
+        public bool Aggregated
+        {
+            get => GetAggregated();
+            set => SetAggregated(value);
+        }
+
         /// <summary>Which kind of stat this asset represents.</summary>
         public abstract SteamStatType StatType { get; }
 
@@ -46,6 +74,12 @@ namespace SteamToys.Runtime.StatsSystem
         [Header("Steam Configuration")]
         [SerializeField, Tooltip("API Name of the stat, copied verbatim from the Stats Configuration page on the Steamworks partner site.")]
         private string _apiName;
+        [SerializeField, Tooltip("Display Name of the stat on the partner site. Configuration only: the game never reads it.")]
+        private string _displayName;
+        [SerializeField, Tooltip("Who may write the stat, matching Set By on the partner site. Client means the game itself.")]
+        private SteamPermission _permission;
+        [SerializeField, Tooltip("Keeps a global total of the stat across all players, matching Aggregated on the partner site. Means nothing to an Avg Rate stat.")]
+        private bool _aggregated;
 
         #endregion
 
@@ -54,6 +88,18 @@ namespace SteamToys.Runtime.StatsSystem
         public virtual string GetApiName() => _apiName;
 
         public virtual void SetApiName(string value) => _apiName = value;
+
+        public virtual string GetDisplayName() => _displayName;
+
+        public virtual void SetDisplayName(string value) => _displayName = value;
+
+        public virtual SteamPermission GetPermission() => _permission;
+
+        public virtual void SetPermission(SteamPermission value) => _permission = value;
+
+        public virtual bool GetAggregated() => _aggregated;
+
+        public virtual void SetAggregated(bool value) => _aggregated = value;
 
         #endregion
 
@@ -157,8 +203,11 @@ namespace SteamToys.Runtime.StatsSystem
             set => SetValue(value);
         }
 
-        /// <summary>The value the stat uses until Steam has been reached.</summary>
-        public TValue DefaultValue
+        /// <summary>
+        /// The value a new player starts with, matching Default Value on the partner site. Unset, like
+        /// an empty field there, it is 0; <see cref="StartValue"/> resolves it.
+        /// </summary>
+        public HasValue<TValue> DefaultValue
         {
             get => GetDefaultValue();
             set => SetDefaultValue(value);
@@ -198,8 +247,8 @@ namespace SteamToys.Runtime.StatsSystem
         #region Inspector Serialized Fields
 
         [Header("Value")]
-        [SerializeField, Tooltip("Value used until Steam is reached, matching Default Value on the partner site.")]
-        private TValue _defaultValue;
+        [SerializeField, Tooltip("Value a new player starts with and the value used until Steam is reached, matching Default Value on the partner site. Left unset, like an empty field there, it is 0.")]
+        private HasValue<TValue> _defaultValue;
 
         [Header("Constraints (mirror of the partner site)")]
         [SerializeField, Tooltip("Lowest accepted value, matching Min Value on the partner site. Enforced locally only when set.")]
@@ -223,11 +272,18 @@ namespace SteamToys.Runtime.StatsSystem
         /// <summary>The cached value, read without triggering a pull from Steam.</summary>
         protected TValue RuntimeValue => _runtimeValue;
 
+        /// <summary>
+        /// The value the stat holds until Steam is reached: <see cref="DefaultValue"/>, or 0 when it is
+        /// unset. Read here rather than through the implicit conversion of <see cref="HasValue{T}"/>,
+        /// which returns the value even while it is unticked.
+        /// </summary>
+        protected TValue StartValue => _defaultValue.hasValue ? _defaultValue.value : default;
+
         #endregion
 
         protected virtual void OnEnable()
         {
-            _runtimeValue = _defaultValue;
+            _runtimeValue = StartValue;
             _synced = false;
         }
 
@@ -263,9 +319,9 @@ namespace SteamToys.Runtime.StatsSystem
             return TryPushToSteam();
         }
 
-        public virtual TValue GetDefaultValue() => _defaultValue;
+        public virtual HasValue<TValue> GetDefaultValue() => _defaultValue;
 
-        public virtual void SetDefaultValue(TValue value) => _defaultValue = value;
+        public virtual void SetDefaultValue(HasValue<TValue> value) => _defaultValue = value;
 
         public virtual HasValue<TValue> GetMinValue() => _minValue;
 
@@ -328,7 +384,7 @@ namespace SteamToys.Runtime.StatsSystem
         public override void ResetToDefault()
         {
             // Skips ValidateChange on purpose: an increment only stat would reject its own default.
-            ApplyValue(_defaultValue);
+            ApplyValue(StartValue);
 
             TryPushToSteam();
         }
@@ -391,7 +447,7 @@ namespace SteamToys.Runtime.StatsSystem
         {
             var builder = new StringBuilder(base.ToString());
 
-            builder.Append(" (default ").Append(Format(_defaultValue));
+            builder.Append(" (default ").Append(_defaultValue.hasValue ? Format(_defaultValue.value) : "not set");
 
             if (_minValue.hasValue)
                 builder.Append(", min ").Append(Format(_minValue.value));

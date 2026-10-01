@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using fefek5.Toys.Editor.VisualElements;
 using SteamToys.Editor.Core;
+using SteamToys.Editor.InventorySystem;
 using SteamToys.Runtime.StatsSystem;
 using Steamworks;
 using UnityEditor;
@@ -287,6 +289,7 @@ namespace SteamToys.Editor.StatsSystem
             buttons.Add(editButton);
 
             section.Add(buttons);
+            section.Add(CreateJsonPreview());
 
             Refresh();
 
@@ -385,6 +388,24 @@ namespace SteamToys.Editor.StatsSystem
         /// One line of the comparison: the setting, its value in the asset and on Steam, and whether they
         /// agree. Shared with the achievement inspector.
         /// </summary>
+        /// <summary>
+        /// The JSON the Steam Toys web extension pastes into the Stats page of Steamworks, for this stat or
+        /// every selected one, kept current as the asset changes.
+        /// </summary>
+        private VisualElement CreateJsonPreview()
+        {
+            var preview = new JsonPreviewElement("Steamworks JSON");
+
+            preview.AddCopyAction("Copy",
+                "Copies this JSON for the Steam Toys web extension, which pastes it into the Stats page of Steamworks.",
+                () => SteamworksJson.GetStatsJson(targets.OfType<SteamStat>()));
+
+            preview.SetJson(SteamworksJson.PreviewStats(targets.OfType<SteamStat>()));
+            preview.TrackSerializedObjectValue(serializedObject, _ => preview.SetJson(SteamworksJson.PreviewStats(targets.OfType<SteamStat>())));
+
+            return preview;
+        }
+
         internal sealed class ComparisonRow : VisualElement
         {
             private readonly Label _asset;

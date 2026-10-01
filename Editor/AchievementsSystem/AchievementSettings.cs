@@ -12,6 +12,8 @@ namespace SteamToys.Editor.AchievementsSystem
     /// <summary>The settings an achievement mirrors from the partner site, in the order the page lists them.</summary>
     internal enum AchievementSetting
     {
+        DisplayName,
+        Description,
         Hidden,
         ProgressStat,
         ProgressMin,
@@ -27,6 +29,11 @@ namespace SteamToys.Editor.AchievementsSystem
     /// </summary>
     internal readonly struct AchievementValues
     {
+        /// <summary>The English texts, or null when there are none, which empty text in the asset also reads as.</summary>
+        public readonly string DisplayName;
+
+        public readonly string Description;
+
         public readonly bool Hidden;
 
         /// <summary>The API Name of the progress stat, or null when there is none.</summary>
@@ -44,8 +51,11 @@ namespace SteamToys.Editor.AchievementsSystem
         public readonly string LockedIcon;
 
         public AchievementValues(
-            bool hidden, string progressStat, double? progressMin, double? progressMax, string icon, string lockedIcon)
+            string displayName, string description, bool hidden, string progressStat, double? progressMin,
+            double? progressMax, string icon, string lockedIcon)
         {
+            DisplayName = displayName;
+            Description = description;
             Hidden = hidden;
             ProgressStat = progressStat;
             ProgressMin = progressMin;
@@ -86,6 +96,8 @@ namespace SteamToys.Editor.AchievementsSystem
 
         // The serialized fields of SteamAchievement.
         internal const string ApiNameField = "_apiName";
+        private const string DisplayNameField = "_englishDisplayName";
+        private const string DescriptionField = "_englishDescription";
         private const string HiddenField = "_hidden";
         private const string ProgressStatField = "_progressStat";
         private const string ProgressMinField = "_progressMin";
@@ -100,14 +112,18 @@ namespace SteamToys.Editor.AchievementsSystem
         public static AchievementValues Read(SerializedObject achievement)
         {
             var stat = achievement.FindProperty(ProgressStatField).objectReferenceValue as SteamStat;
+            var displayName = NullIfEmpty(achievement.FindProperty(DisplayNameField).stringValue);
+            var description = NullIfEmpty(achievement.FindProperty(DescriptionField).stringValue);
             var hidden = achievement.FindProperty(HiddenField).boolValue;
             var icon = ReadIconHash(achievement, IconField, IconHashField);
             var lockedIcon = ReadIconHash(achievement, LockedIconField, LockedIconHashField);
 
             if (!stat)
-                return new AchievementValues(hidden, null, null, null, icon, lockedIcon);
+                return new AchievementValues(displayName, description, hidden, null, null, null, icon, lockedIcon);
 
             return new AchievementValues(
+                displayName,
+                description,
                 hidden,
                 stat.ApiName ?? string.Empty,
                 achievement.FindProperty(ProgressMinField).doubleValue,
@@ -118,8 +134,10 @@ namespace SteamToys.Editor.AchievementsSystem
 
         public static AchievementValues Read(AchievementDefinition steam) =>
             steam.ProgressStat == null
-                ? new AchievementValues(steam.Hidden, null, null, null, NullIfEmpty(steam.Icon), NullIfEmpty(steam.IconGray))
-                : new AchievementValues(steam.Hidden, steam.ProgressStat, steam.ProgressMin ?? 0, steam.ProgressMax ?? 0,
+                ? new AchievementValues(NullIfEmpty(steam.DisplayName), NullIfEmpty(steam.Description), steam.Hidden,
+                    null, null, null, NullIfEmpty(steam.Icon), NullIfEmpty(steam.IconGray))
+                : new AchievementValues(NullIfEmpty(steam.DisplayName), NullIfEmpty(steam.Description), steam.Hidden,
+                    steam.ProgressStat, steam.ProgressMin ?? 0, steam.ProgressMax ?? 0,
                     NullIfEmpty(steam.Icon), NullIfEmpty(steam.IconGray));
 
         /// <summary>
@@ -148,6 +166,8 @@ namespace SteamToys.Editor.AchievementsSystem
 
             return new List<AchievementComparison>
             {
+                Text(AchievementSetting.DisplayName, values => values.DisplayName ?? "none"),
+                Text(AchievementSetting.Description, values => values.Description ?? "none"),
                 Text(AchievementSetting.Hidden, values => values.Hidden.ToString()),
                 Text(AchievementSetting.ProgressStat, values => values.ProgressStat ?? "none"),
                 Number(AchievementSetting.ProgressMin, values => values.ProgressMin),
@@ -178,6 +198,8 @@ namespace SteamToys.Editor.AchievementsSystem
         {
             achievement.Update();
 
+            achievement.FindProperty(DisplayNameField).stringValue = steam.DisplayName ?? string.Empty;
+            achievement.FindProperty(DescriptionField).stringValue = steam.Description ?? string.Empty;
             achievement.FindProperty(HiddenField).boolValue = steam.Hidden;
 
             var stat = steam.ProgressStat == null ? null : FindStat(steam.ProgressStat);
