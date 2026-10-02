@@ -188,8 +188,39 @@ namespace SteamToys.Editor.StatsSystem
 
             var touched = CreateFromSteam(_lookup.Schema.Stats.Values);
 
+            RemoveMissingOnSteam();
+
             // A stat Steam alone had is a stat of the DB now, and stays selected as one.
             Select(_selectedKey as SteamStat ?? touched.FirstOrDefault(stat => Equals(stat.ApiName, _selectedKey)));
+        }
+
+        /// <summary>
+        /// Offers to remove the stats Steam has no stat for, which Create From Steam would otherwise
+        /// leave in the DB. A stat without an API Name is left out: it is still being set up.
+        /// </summary>
+        private void RemoveMissingOnSteam()
+        {
+            var missing = GetListedStats()
+                .Where(stat => !string.IsNullOrWhiteSpace(stat.ApiName) && !_lookup.Schema.Stats.ContainsKey(stat.ApiName))
+                .ToList();
+
+            if (missing.Count == 0)
+                return;
+
+            if (!EditorUtility.DisplayDialog("Stats Missing On Steam",
+                    $"Steam has no stat for {missing.Count} stats of the DB:\n\n{ListNames(missing.Select(stat => stat.ApiName))}\n\n" +
+                    "Remove them from the stats DB? Fields that reference them lose them. Undo brings them back.",
+                    "Remove", "Keep"))
+                return;
+
+            RemoveStats(missing, "Remove Stats Missing On Steam");
+        }
+
+        internal static string ListNames(IEnumerable<string> names, int max = 20)
+        {
+            var list = names.ToList();
+
+            return string.Join("\n", list.Take(max)) + (list.Count > max ? $"\n... and {list.Count - max} more" : string.Empty);
         }
 
         private void RemoveStat(SteamStat stat)
@@ -201,7 +232,14 @@ namespace SteamToys.Editor.StatsSystem
                     "Remove", "Cancel"))
                 return;
 
-            Undo.SetCurrentGroupName($"Remove Stat {statName}");
+            RemoveStats(new[] { stat }, $"Remove Stat {statName}");
+
+            Select(null);
+        }
+
+        private void RemoveStats(IReadOnlyCollection<SteamStat> removed, string undoName)
+        {
+            Undo.SetCurrentGroupName(undoName);
 
             var group = Undo.GetCurrentGroup();
 
@@ -211,16 +249,17 @@ namespace SteamToys.Editor.StatsSystem
 
             for (var i = stats.arraySize - 1; i >= 0; i--)
             {
-                if (stats.GetArrayElementAtIndex(i).objectReferenceValue == stat)
+                if (stats.GetArrayElementAtIndex(i).objectReferenceValue is SteamStat stat && removed.Contains(stat))
                     DeleteElement(stats, i);
             }
 
             serializedObject.ApplyModifiedProperties();
-            Undo.DestroyObjectImmediate(stat);
+
+            foreach (var stat in removed)
+                Undo.DestroyObjectImmediate(stat);
+
             Undo.CollapseUndoOperations(group);
             Save(target);
-
-            Select(null);
         }
 
         /// <summary>
@@ -330,7 +369,8 @@ namespace SteamToys.Editor.StatsSystem
             _createButton = new InspectorButtonElement(CreateAllFromSteam, "Create From Steam")
             {
                 tooltip = "Makes a stat for every stat Steam has and the DB does not, and overwrites the settings " +
-                          "of the ones it has with what Steam has. A stat Steam has as another type is left alone.",
+                          "of the ones it has with what Steam has. A stat Steam has as another type is left alone. " +
+                          "Stats Steam does not have are listed afterwards, with a choice to remove them.",
                 style = { flexGrow = 1 }
             };
 
@@ -550,7 +590,7 @@ namespace SteamToys.Editor.StatsSystem
         {
             if (row.Steam is not { } steam)
             {
-                row.Add(HelpBoxMessageType.Warning, $"Steam has no stat '{row.ApiName}'. Add it with Edit on Steam and publish the change.");
+                row.Add(HelpBoxMessageType.Warning, $"Steam has no stat '{row.ApiName}'. Add it with Edit on Steam and publish the change, or let Create From Steam remove it.");
 
                 return;
             }

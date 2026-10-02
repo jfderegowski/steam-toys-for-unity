@@ -191,7 +191,34 @@ namespace SteamToys.Editor.AchievementsSystem
 
             var touched = CreateFromSteam(_lookup.Schema.Achievements.Values);
 
+            RemoveMissingOnSteam();
+
             Select(_selectedKey as SteamAchievement ?? touched.FirstOrDefault(achievement => Equals(achievement.ApiName, _selectedKey)));
+        }
+
+        /// <summary>
+        /// Offers to remove the achievements Steam has no achievement for, which Create From Steam would
+        /// otherwise leave in the DB. One without an API Name is left out: it is still being set up.
+        /// </summary>
+        private void RemoveMissingOnSteam()
+        {
+            var missing = GetListedAchievements()
+                .Where(achievement => !string.IsNullOrWhiteSpace(achievement.ApiName) &&
+                                      !_lookup.Schema.Achievements.ContainsKey(achievement.ApiName))
+                .ToList();
+
+            if (missing.Count == 0)
+                return;
+
+            if (!EditorUtility.DisplayDialog("Achievements Missing On Steam",
+                    $"Steam has no achievement for {missing.Count} achievements of the DB:\n\n" +
+                    $"{SteamStatsDBEditor.ListNames(missing.Select(achievement => achievement.ApiName))}\n\n" +
+                    "Remove them from the achievements DB? Fields that reference them lose them. Undo brings them back. " +
+                    $"Their icons stay in {AchievementIcons.Folder}.",
+                    "Remove", "Keep"))
+                return;
+
+            RemoveAchievements(missing, "Remove Achievements Missing On Steam");
         }
 
         private void RemoveAchievement(SteamAchievement achievement)
@@ -204,7 +231,14 @@ namespace SteamToys.Editor.AchievementsSystem
                     "Remove", "Cancel"))
                 return;
 
-            Undo.SetCurrentGroupName($"Remove Achievement {achievementName}");
+            RemoveAchievements(new[] { achievement }, $"Remove Achievement {achievementName}");
+
+            Select(null);
+        }
+
+        private void RemoveAchievements(IReadOnlyCollection<SteamAchievement> removed, string undoName)
+        {
+            Undo.SetCurrentGroupName(undoName);
 
             var group = Undo.GetCurrentGroup();
 
@@ -214,16 +248,17 @@ namespace SteamToys.Editor.AchievementsSystem
 
             for (var i = achievements.arraySize - 1; i >= 0; i--)
             {
-                if (achievements.GetArrayElementAtIndex(i).objectReferenceValue == achievement)
+                if (achievements.GetArrayElementAtIndex(i).objectReferenceValue is SteamAchievement achievement && removed.Contains(achievement))
                     DeleteElement(achievements, i);
             }
 
             serializedObject.ApplyModifiedProperties();
-            Undo.DestroyObjectImmediate(achievement);
+
+            foreach (var achievement in removed)
+                Undo.DestroyObjectImmediate(achievement);
+
             Undo.CollapseUndoOperations(group);
             Save(target);
-
-            Select(null);
         }
 
         /// <summary>
@@ -334,7 +369,8 @@ namespace SteamToys.Editor.AchievementsSystem
             {
                 tooltip = "Makes an achievement for every achievement Steam has and the DB does not, and overwrites " +
                           "the settings of the ones it has with what Steam has, downloading icons that changed. " +
-                          "Progress stats are found among the stat assets by their API Name.",
+                          "Progress stats are found among the stat assets by their API Name. Achievements Steam does not " +
+                          "have are listed afterwards, with a choice to remove them.",
                 style = { flexGrow = 1 }
             };
 
@@ -561,7 +597,7 @@ namespace SteamToys.Editor.AchievementsSystem
         {
             if (row.Steam is not { } steam)
             {
-                row.Add(HelpBoxMessageType.Warning, $"Steam has no achievement '{row.ApiName}'. Add it with Edit on Steam and publish the change.");
+                row.Add(HelpBoxMessageType.Warning, $"Steam has no achievement '{row.ApiName}'. Add it with Edit on Steam and publish the change, or let Create From Steam remove it.");
 
                 return;
             }

@@ -5,6 +5,14 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-10-02
+
+### Added
+
+- Create From Steam in the stats DB and the achievements DB lists the stats or achievements of
+  the DB that Steam does not have, and offers to remove them, as one undo step. Ones without an
+  API Name are left out.
+
 ## [0.5.0] - 2026-10-01
 
 ### Added
