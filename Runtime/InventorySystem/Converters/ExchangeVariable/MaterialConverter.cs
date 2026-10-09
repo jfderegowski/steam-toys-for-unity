@@ -9,7 +9,7 @@ namespace SteamToys.Runtime.InventorySystem.Converters.ExchangeVariable
     /// a single exchange material to/from the Steam format.
     /// <para>
     /// Item-based: <c>"itemdefidxquantity"</c>, e.g. <c>"100x1"</c>.
-    /// Tag-based: <c>"tagname:tagvaluexquantity"</c>, e.g. <c>"class:commonx1"</c>.
+    /// Tag-based: <c>"tagname:tagvalue*quantity"</c>, e.g. <c>"class:common*1"</c>.
     /// </para>
     /// </summary>
     public class MaterialConverter : JsonConverter<Material>

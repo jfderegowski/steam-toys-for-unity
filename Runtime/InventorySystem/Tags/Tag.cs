@@ -15,17 +15,7 @@ namespace SteamToys.Runtime.InventorySystem
 
         public abstract Type GetValueType();
 
-        public override string ToString() => ToSteamString();
-        
-        public virtual string ToSteamString() => $"{GetName()}:{GetValue()}";
-
-        /// <summary>
-        /// Reads a single Steam tag pair (e.g. <c>"quality:unique"</c>) into this instance.
-        /// The inverse of <see cref="ToSteamString"/>. Returns false and leaves the tag
-        /// untouched when the string is malformed, names a different tag, or carries a
-        /// value this tag cannot represent.
-        /// </summary>
-        public abstract bool FromSteamString(string value);
+        public override string ToString() => $"{GetName()}:{GetValue()}";
 
         public override bool Equals(object obj)
         {
@@ -33,10 +23,10 @@ namespace SteamToys.Runtime.InventorySystem
                 return false;
             
             if (obj is Tag tag)
-                return tag.ToSteamString() == ToSteamString();
+                return tag.ToString() == ToString();
             
             if (obj is string str)
-                return str == ToSteamString();
+                return str == ToString();
             
             return false;
         }
@@ -48,7 +38,7 @@ namespace SteamToys.Runtime.InventorySystem
             if (tag is null)
                 throw new ArgumentNullException(nameof(tag));
 
-            return tag.ToSteamString();
+            return tag.ToString();
         }
 
         public static bool operator ==(Tag tag, string value)
@@ -56,7 +46,7 @@ namespace SteamToys.Runtime.InventorySystem
             if (tag is null)
                 return value is null;
 
-            return tag.ToSteamString() == value;
+            return tag.ToString() == value;
         }
 
         public static bool operator !=(Tag tag, string value) => !(tag == value);
@@ -88,23 +78,6 @@ namespace SteamToys.Runtime.InventorySystem
             return true;
         }
 
-        public override bool FromSteamString(string value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-                return false;
-
-            var separatorIndex = value.IndexOf(':');
-            if (separatorIndex < 0)
-                return false;
-
-            // A tag only accepts its own pair, so "rarity:rare" is rejected by Tag<Quality>.
-            var tagName = value.Substring(0, separatorIndex).Trim();
-            if (tagName.ToSnakeCase() != GetName())
-                return false;
-
-            return SetValue(value.Substring(separatorIndex + 1).Trim());
-        }
-
         // Redeclared only to satisfy CS0660/CS0661 for the operators below; the value based
         // implementation lives in Tag.
         public override bool Equals(object obj) => base.Equals(obj);
@@ -119,7 +92,7 @@ namespace SteamToys.Runtime.InventorySystem
             return tag.Value;
         }
 
-        public static implicit operator Tag<TEnum>(TEnum value) => new Tag<TEnum> { Value = value };
+        public static implicit operator Tag<TEnum>(TEnum value) => new() { Value = value };
 
         // Lives here rather than on Tag: only the closed generic knows which enum to build.
         // Returns null when the string does not describe this tag.
@@ -128,9 +101,7 @@ namespace SteamToys.Runtime.InventorySystem
             if (value is null)
                 throw new ArgumentNullException(nameof(value));
 
-            var tag = new Tag<TEnum>();
-
-            return tag.FromSteamString(value) ? tag : null;
+            return FromSteamJson(value);
         }
 
         // Without this exact-match pair, comparing two tags is a CS0034 ambiguity: both
@@ -172,6 +143,30 @@ namespace SteamToys.Runtime.InventorySystem
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Reads a single Steam tag pair (e.g. <c>"quality:unique"</c>) into a new tag.
+        /// Returns null when the string is malformed, names a different tag, or carries a
+        /// value this enum cannot represent.
+        /// </summary>
+        public static Tag<TEnum> FromSteamJson(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return null;
+
+            var separatorIndex = value.IndexOf(':');
+            if (separatorIndex < 0)
+                return null;
+
+            var tag = new Tag<TEnum>();
+
+            // A tag only accepts its own pair, so "rarity:rare" is rejected by Tag<Quality>.
+            var tagName = value.Substring(0, separatorIndex).Trim();
+            if (tagName.ToSnakeCase() != tag.GetName())
+                return null;
+
+            return tag.SetValue(value.Substring(separatorIndex + 1).Trim()) ? tag : null;
         }
     }
 }

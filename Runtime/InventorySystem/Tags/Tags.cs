@@ -86,9 +86,7 @@ namespace SteamToys.Runtime.InventorySystem
                 if (tag == null)
                     continue;
 
-                var tagValue = tag.GetValue();
-                if (!string.IsNullOrEmpty(tagValue))
-                    result += $"{tag.GetName()}:{tagValue};";
+                result += tag + ";";
             }
 
             return result.TrimEnd(';');

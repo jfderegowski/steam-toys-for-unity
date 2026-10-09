@@ -31,7 +31,7 @@ namespace SteamToys.Runtime.InventorySystem.ExchangeVariable.Materials
 
         public override string ToSteamString()
         {
-            // Steam expects tag-based materials in the format "tagname:tagvaluexQuantity".
+            // Steam expects tag-based materials in the format "tagname:tagvalue*quantity".
             // Our Tags object can contain multiple tag pairs ("a:1;b:2"); use the first pair for exchange format.
             if (Tags == null)
                 return string.Empty;
@@ -45,7 +45,7 @@ namespace SteamToys.Runtime.InventorySystem.ExchangeVariable.Materials
             if (string.IsNullOrEmpty(firstPair))
                 return string.Empty;
 
-            return $"{firstPair}x{Quantity}";
+            return $"{firstPair}*{Quantity}";
         }
     }
 }

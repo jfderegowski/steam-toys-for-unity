@@ -4,13 +4,8 @@ using UnityEngine;
 namespace SteamToys.Runtime.InventorySystem.ExchangeVariable
 {
     [Serializable]
-    public class Material
+    public abstract class Material
     {
-        public virtual string ToSteamString()
-        {
-            Debug.Log($"aaa");
-            
-            throw new NotImplementedException("ToSteamString must be implemented in derived classes.");
-        }
+        public virtual string ToSteamString() => string.Empty;
     }
 }
