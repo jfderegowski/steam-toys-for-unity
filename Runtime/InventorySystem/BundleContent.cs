@@ -51,8 +51,8 @@ namespace SteamToys.Runtime.InventorySystem
     }
 
     [Serializable]
-    [JsonConverter(typeof(BundleContentsConverter))]
-    public class BundleContents : IList<BundleElement>
+    [JsonConverter(typeof(BundleContentConverter))]
+    public class BundleContent : IList<BundleElement>
     {
         [SerializeField] private List<BundleElement> _elements = new();
 
@@ -95,19 +95,19 @@ namespace SteamToys.Runtime.InventorySystem
         /// <summary>
         /// Adds a message for every entry Steam would reject in the contents of <paramref name="owner"/>.
         /// </summary>
-        public static void CollectSchemaWarnings(ItemDef owner, BundleContents contents, List<string> warnings)
+        public static void CollectSchemaWarnings(ItemDef owner, BundleContent content, List<string> warnings)
         {
             var amountName = owner is Bundle ? "quantity" : "weight";
 
-            if (contents == null || contents.Count == 0)
+            if (content == null || content.Count == 0)
             {
                 warnings.Add($"{owner.Type} has no contents.");
                 return;
             }
 
-            for (var i = 0; i < contents.Count; i++)
+            for (var i = 0; i < content.Count; i++)
             {
-                var element = contents[i];
+                var element = content[i];
 
                 if (element is not { HasItem: true })
                     warnings.Add($"Contents entry {i} has no item and is skipped.");

@@ -58,7 +58,7 @@ namespace SteamToys.Runtime.InventorySystem.ExchangeVariable
             for (int i = 0; i < _materials.Count; i++)
             {
                 if (i > 0)
-                    sb.Append(";");
+                    sb.Append(",");
 
                 var material = _materials[i];
                 

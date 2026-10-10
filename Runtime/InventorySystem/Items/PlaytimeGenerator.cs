@@ -25,7 +25,7 @@ namespace SteamToys.Runtime.InventorySystem
         /// <summary>
         /// Definitions this generator can drop, with their relative odds.
         /// </summary>
-        public BundleContents Contents
+        public BundleContent Content
         {
             get => GetContents();
             set => SetContents(value);
@@ -67,7 +67,7 @@ namespace SteamToys.Runtime.InventorySystem
 
         [Header("Generator")]
         [SerializeField, Tooltip("Definitions this generator can drop, with their relative odds.")]
-        private BundleContents _bundle = new();
+        private BundleContent _bundle = new();
         [SerializeField, Tooltip("Tag generators applied to every item this generator creates.")]
         private List<TagGenerator> _tagGenerators = new();
 
@@ -87,9 +87,9 @@ namespace SteamToys.Runtime.InventorySystem
 
         public override ItemType GetItemType() => ItemType.PlaytimeGenerator;
 
-        public virtual BundleContents GetContents() => _bundle;
+        public virtual BundleContent GetContents() => _bundle;
 
-        public virtual void SetContents(BundleContents value) => _bundle = value;
+        public virtual void SetContents(BundleContent value) => _bundle = value;
 
         public virtual List<TagGenerator> GetTagGenerators() => _tagGenerators;
 
@@ -119,7 +119,7 @@ namespace SteamToys.Runtime.InventorySystem
         {
             base.CollectSchemaWarnings(warnings);
 
-            BundleContents.CollectSchemaWarnings(this, Contents, warnings);
+            BundleContent.CollectSchemaWarnings(this, Content, warnings);
 
             if (DropMaxPerWindow > MAX_DROPS_PER_WINDOW)
                 warnings.Add($"Drop Max Per Window cannot exceed {MAX_DROPS_PER_WINDOW}.");
@@ -136,7 +136,7 @@ namespace SteamToys.Runtime.InventorySystem
         {
             base.WriteJsonProperties(writer);
 
-            writer.WriteBundleIfNotEmpty("bundle", Contents);
+            writer.WriteBundleIfNotEmpty("bundle", Content);
             writer.WriteItemDefIdsIfNotEmpty("tag_generators", TagGenerators);
 
             writer.WriteUintIfNotZero("drop_interval", DropInterval);
@@ -178,7 +178,7 @@ namespace SteamToys.Runtime.InventorySystem
         {
             EnsureTagsInitialized();
 
-            return _tags.GetTagsString();
+            return _tags.GetDefinitionTagsString();
         }
 
         public override void SetTags(string value)

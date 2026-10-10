@@ -3,21 +3,19 @@ using UnityEngine;
 
 namespace SteamToys.Runtime.InventorySystem.ExchangeVariable.Materials
 {
+    /// <summary>
+    /// Exchange material matching any item that carries one tag value, written as <c>"tagname:tagvalue*quantity"</c>,
+    /// e.g. <c>"rarity:legendary*3"</c>. Works for generated tags too, since it matches what items carry.
+    /// Subclass it per enum (e.g. <c>RarityMaterial : TagMaterial&lt;Rarity&gt;</c>) to offer it in recipes.
+    /// </summary>
     [Serializable]
-    public class TagMaterial<TTags> : Material where TTags : Tags
+    public class TagMaterial<TEnum> : Material where TEnum : Enum
     {
-        public TTags Tags
+        public Tag<TEnum> Tag
         {
-            get => GetTags();
-            set => SetTags(value);
+            get => GetTag();
+            set => SetTag(value);
         }
-
-        [SerializeField] private TTags _tags;
-        [SerializeField] private uint _quantity;
-        
-        public TTags GetTags() => _tags;
-        
-        public void SetTags(TTags value) => _tags = value;
 
         public uint Quantity
         {
@@ -25,27 +23,26 @@ namespace SteamToys.Runtime.InventorySystem.ExchangeVariable.Materials
             set => SetQuantity(value);
         }
 
+        [SerializeField] private Tag<TEnum> _tag = new();
+        [SerializeField] private uint _quantity = 1;
+
+        public Tag<TEnum> GetTag() => _tag;
+
+        public void SetTag(Tag<TEnum> value) => _tag = value;
+
         public uint GetQuantity() => _quantity;
 
         public void SetQuantity(uint value) => _quantity = value;
 
         public override string ToSteamString()
         {
-            // Steam expects tag-based materials in the format "tagname:tagvalue*quantity".
-            // Our Tags object can contain multiple tag pairs ("a:1;b:2"); use the first pair for exchange format.
-            if (Tags == null)
-                return string.Empty;
+            if (Tag is null)
+                throw new InvalidOperationException("Tag cannot be null for TagMaterial.");
 
-            var tagsStr = Tags.GetTagsString();
-            if (string.IsNullOrWhiteSpace(tagsStr))
-                return string.Empty;
+            if (Quantity == 0)
+                throw new InvalidOperationException("Quantity must be greater than zero for TagMaterial.");
 
-            // Use the first tag pair (separated by ';')
-            var firstPair = tagsStr.Split(new[] {';'}, StringSplitOptions.RemoveEmptyEntries)[0].Trim();
-            if (string.IsNullOrEmpty(firstPair))
-                return string.Empty;
-
-            return $"{firstPair}*{Quantity}";
+            return $"{Tag}*{Quantity}";
         }
     }
 }

@@ -27,7 +27,7 @@ namespace SteamToys.Tests.Tests
     public class TestItemTags : Tags
     {
         public Tag<Rarity> Rarity = new();
-        public Tag<Wear> Quality = new();
+        public GeneratedTag<Wear> Quality = new();
 
         public override HashSet<Tag> GetTags() => new() { Rarity, Quality };
     }

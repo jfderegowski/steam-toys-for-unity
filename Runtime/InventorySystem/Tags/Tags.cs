@@ -75,7 +75,17 @@ namespace SteamToys.Runtime.InventorySystem
             return false;
         }
 
-        public string GetTagsString()
+        /// <summary>
+        /// Every tag, generated ones included: the tags an item instance carries.
+        /// </summary>
+        public string GetTagsString() => BuildTagsString(true);
+
+        /// <summary>
+        /// The tags written to an ItemDef's <c>tags</c>: generated tags are left to their tag generator.
+        /// </summary>
+        public string GetDefinitionTagsString() => BuildTagsString(false);
+
+        private string BuildTagsString(bool includeGenerated)
         {
             var tags = GetTags();
 
@@ -83,7 +93,7 @@ namespace SteamToys.Runtime.InventorySystem
 
             foreach (var tag in tags)
             {
-                if (tag == null)
+                if (tag == null || (!includeGenerated && tag.IsGenerated))
                     continue;
 
                 result += tag + ";";

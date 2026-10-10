@@ -8,8 +8,8 @@ namespace SteamToys.Runtime.InventorySystem.Converters.ExchangeVariable
     /// Custom JSON converter for <see cref="Recipe"/> that serializes/deserializes
     /// a single exchange recipe to/from the Steam format.
     /// <para>
-    /// Materials within a recipe are separated by semicolons,
-    /// e.g. <c>"100x1;101x5;class:commonx3"</c>.
+    /// Materials within a recipe are separated by commas,
+    /// e.g. <c>"100x1,101x5,class:common*3"</c>.
     /// </para>
     /// <see href="https://partner.steamgames.com/doc/features/inventory/schema#ExchangeFormat"/>
     /// </summary>

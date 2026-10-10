@@ -72,12 +72,12 @@ namespace SteamToys.Runtime.InventorySystem.Converters
             writer.WriteValue(value.ToSteamString());
         }
 
-        public static void WriteBundleIfNotEmpty(this JsonWriter writer, string propertyName, BundleContents value)
+        public static void WriteBundleIfNotEmpty(this JsonWriter writer, string propertyName, BundleContent value)
         {
             if (value == null || value.Count == 0)
                 return;
 
-            writer.WriteIfNotEmpty(propertyName, BundleContentsConverter.ToString(value));
+            writer.WriteIfNotEmpty(propertyName, BundleContentConverter.ToString(value));
         }
 
         public static void WritePromoIfNotEmpty(this JsonWriter writer, string propertyName, Promo value)

@@ -6,7 +6,7 @@ using UnityEngine;
 namespace SteamToys.Runtime.InventorySystem
 {
     /// <summary>
-    /// ItemDef of type <c>bundle</c>: expands into all of its <see cref="Contents"/> when granted or bought.
+    /// ItemDef of type <c>bundle</c>: expands into all of its <see cref="Content"/> when granted or bought.
     /// Use <see cref="Bundle{TTags}"/> to give the created items tags.
     /// </summary>
     [CreateAssetMenu(fileName = "New Bundle", menuName = "SteamToys/Inventory/Bundle", order = 2)]
@@ -23,7 +23,7 @@ namespace SteamToys.Runtime.InventorySystem
         /// <summary>
         /// Definitions granted by this bundle, with how many of each.
         /// </summary>
-        public BundleContents Contents
+        public BundleContent Content
         {
             get => GetContents();
             set => SetContents(value);
@@ -56,7 +56,7 @@ namespace SteamToys.Runtime.InventorySystem
 
         [Header("Bundle")]
         [SerializeField, Tooltip("Definitions granted by this bundle, with how many of each.")]
-        private BundleContents _bundle = new();
+        private BundleContent _bundle = new();
         [SerializeField, Tooltip("Tag generators applied to every item this bundle creates.")]
         private List<TagGenerator> _tagGenerators = new();
 
@@ -72,9 +72,9 @@ namespace SteamToys.Runtime.InventorySystem
 
         public override ItemType GetItemType() => ItemType.Bundle;
 
-        public virtual BundleContents GetContents() => _bundle;
+        public virtual BundleContent GetContents() => _bundle;
 
-        public virtual void SetContents(BundleContents value) => _bundle = value;
+        public virtual void SetContents(BundleContent value) => _bundle = value;
 
         public virtual List<TagGenerator> GetTagGenerators() => _tagGenerators;
 
@@ -96,7 +96,7 @@ namespace SteamToys.Runtime.InventorySystem
         {
             base.CollectSchemaWarnings(warnings);
 
-            BundleContents.CollectSchemaWarnings(this, Contents, warnings);
+            BundleContent.CollectSchemaWarnings(this, Content, warnings);
 
             if (PurchaseBundleDiscount > MAX_DISCOUNT)
                 warnings.Add($"Purchase Bundle Discount is a percentage and cannot exceed {MAX_DISCOUNT}.");
@@ -113,7 +113,7 @@ namespace SteamToys.Runtime.InventorySystem
         {
             base.WriteJsonProperties(writer);
 
-            writer.WriteBundleIfNotEmpty("bundle", Contents);
+            writer.WriteBundleIfNotEmpty("bundle", Content);
             writer.WriteItemDefIdsIfNotEmpty("tag_generators", TagGenerators);
             writer.WriteBoolIfTrue("use_bundle_price", UseBundlePrice);
             writer.WriteUintIfNotZero("purchase_bundle_discount", PurchaseBundleDiscount);
@@ -141,7 +141,7 @@ namespace SteamToys.Runtime.InventorySystem
         {
             EnsureTagsInitialized();
 
-            return _tags.GetTagsString();
+            return _tags.GetDefinitionTagsString();
         }
 
         public override void SetTags(string value)

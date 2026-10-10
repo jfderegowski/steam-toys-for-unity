@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   takes its category and values from the same enum a `Tag<TEnum>` uses.
 - Inventory: `price_category`, `store_tags`, `store_images`, `purchase_bundle_discount`,
   `container_contents_generator` and `tag_generators`.
+- `GeneratedTag<TEnum>`, a tag a tag generator sets on each created item: it is left out of the
+  ItemDef's `tags` (`Tags.GetDefinitionTagsString`), but read from an item's tags like any
+  `Tag<TEnum>`. The inspector shows it as set by a tag generator, with no value to pick.
 - The item inspector warns about settings Steam would reject or ignore, such as a price together
   with a price category, or a drop start time without a manual promo.
 
@@ -25,6 +28,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   class of the asset, so it is no longer a field.
 - The bundle list is `BundleContents` (with `BundleContentsConverter`), since `Bundle` is now
   the ItemDef of type `bundle`. In generators its entries are weights.
+- `TagMaterial<TTags>` is `TagMaterial<TEnum>`, holding the one tag it matches. It took the
+  first pair of a whole tags class, which comes from a `HashSet` in no set order, so a class with
+  two tags could put either into the recipe. Subclass it per enum to offer it in recipes.
+- `exchange` separates recipes with `;` and the materials of a recipe with `,`, as Steam reads
+  it. They were swapped, so any exchange with more than one recipe or material was exported
+  wrong.
 - A playtime generator exports `drop_limit` of 0 when the drop limit is set, which stops its
   drops, instead of leaving it out.
 

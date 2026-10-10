@@ -6,7 +6,7 @@ using UnityEngine;
 namespace SteamToys.Runtime.InventorySystem
 {
     /// <summary>
-    /// ItemDef of type <c>generator</c>: grants one entry of its <see cref="Contents"/>, picked by weight.
+    /// ItemDef of type <c>generator</c>: grants one entry of its <see cref="Content"/>, picked by weight.
     /// Never sits in an inventory itself and should not be sold; sell a container <see cref="Item"/> and open it
     /// with this generator's exchange instead. Use <see cref="Generator{TTags}"/> to give the created items tags.
     /// </summary>
@@ -18,7 +18,7 @@ namespace SteamToys.Runtime.InventorySystem
         /// <summary>
         /// Definitions this generator can grant, with their relative odds.
         /// </summary>
-        public BundleContents Contents
+        public BundleContent Content
         {
             get => GetContents();
             set => SetContents(value);
@@ -36,7 +36,7 @@ namespace SteamToys.Runtime.InventorySystem
 
         [Header("Generator")]
         [SerializeField, Tooltip("Definitions this generator can grant, with their relative odds.")]
-        private BundleContents _bundle = new();
+        private BundleContent _bundle = new();
         [SerializeField, Tooltip("Tag generators applied to every item this generator creates.")]
         private List<TagGenerator> _tagGenerators = new();
 
@@ -46,9 +46,9 @@ namespace SteamToys.Runtime.InventorySystem
 
         public override ItemType GetItemType() => ItemType.Generator;
 
-        public virtual BundleContents GetContents() => _bundle;
+        public virtual BundleContent GetContents() => _bundle;
 
-        public virtual void SetContents(BundleContents value) => _bundle = value;
+        public virtual void SetContents(BundleContent value) => _bundle = value;
 
         public virtual List<TagGenerator> GetTagGenerators() => _tagGenerators;
 
@@ -62,7 +62,7 @@ namespace SteamToys.Runtime.InventorySystem
         {
             base.CollectSchemaWarnings(warnings);
 
-            BundleContents.CollectSchemaWarnings(this, Contents, warnings);
+            BundleContent.CollectSchemaWarnings(this, Content, warnings);
         }
 
         #endregion
@@ -73,7 +73,7 @@ namespace SteamToys.Runtime.InventorySystem
         {
             base.WriteJsonProperties(writer);
 
-            writer.WriteBundleIfNotEmpty("bundle", Contents);
+            writer.WriteBundleIfNotEmpty("bundle", Content);
             writer.WriteItemDefIdsIfNotEmpty("tag_generators", TagGenerators);
         }
 
@@ -99,7 +99,7 @@ namespace SteamToys.Runtime.InventorySystem
         {
             EnsureTagsInitialized();
 
-            return _tags.GetTagsString();
+            return _tags.GetDefinitionTagsString();
         }
 
         public override void SetTags(string value)
