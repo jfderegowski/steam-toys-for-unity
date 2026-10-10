@@ -4,7 +4,7 @@ using UnityEngine.UIElements;
 
 namespace SteamToys.Editor.InventorySystem
 {
-    [CustomEditor(typeof(Item), true), CanEditMultipleObjects]
+    [CustomEditor(typeof(ItemDef), true), CanEditMultipleObjects]
     public class ItemEditor : UnityEditor.Editor
     {
         public override VisualElement CreateInspectorGUI() => 

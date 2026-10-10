@@ -16,7 +16,7 @@ namespace SteamToys.Runtime.InventorySystem
         }
 
         [JsonProperty("items")]
-        public Item[] Items
+        public ItemDef[] Items
         {
             get => GetItems();
             set => SetItems(value);
@@ -27,7 +27,7 @@ namespace SteamToys.Runtime.InventorySystem
         #region Private Fields
         
         private uint _appId;
-        private Item[] _items;
+        private ItemDef[] _items;
 
         #endregion
 
@@ -37,9 +37,9 @@ namespace SteamToys.Runtime.InventorySystem
         
         public virtual void SetAppId(uint value) => _appId = value;
         
-        public virtual Item[] GetItems() => _items;
+        public virtual ItemDef[] GetItems() => _items;
         
-        public virtual void SetItems(Item[] value) => _items = value;
+        public virtual void SetItems(ItemDef[] value) => _items = value;
         
         #endregion
     }

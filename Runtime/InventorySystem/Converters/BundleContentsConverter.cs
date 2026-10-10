@@ -6,7 +6,7 @@ using Newtonsoft.Json;
 namespace SteamToys.Runtime.InventorySystem.Converters
 {
     /// <summary>
-    /// Custom JSON converter for <see cref="Bundle"/> that serializes/deserializes
+    /// Custom JSON converter for <see cref="BundleContents"/> that serializes/deserializes
     /// to/from the Steam Inventory Service bundle format.
     /// <para>
     /// Steam expects a semicolon-delimited string of <c>itemdefidxquantity</c> pairs,
@@ -14,11 +14,11 @@ namespace SteamToys.Runtime.InventorySystem.Converters
     /// </para>
     /// <see href="https://partner.steamgames.com/doc/features/inventory/schema#SpecifyBundles"/>
     /// </summary>
-    public class BundleConverter : JsonConverter<Bundle>
+    public class BundleContentsConverter : JsonConverter<BundleContents>
     {
         private const char ENTRY_SEPARATOR = ';';
 
-        public override void WriteJson(JsonWriter writer, Bundle value, JsonSerializer serializer)
+        public override void WriteJson(JsonWriter writer, BundleContents value, JsonSerializer serializer)
         {
             if (value == null || value.Count == 0)
             {
@@ -29,21 +29,21 @@ namespace SteamToys.Runtime.InventorySystem.Converters
             writer.WriteValue(ToString(value));
         }
 
-        public override Bundle ReadJson(JsonReader reader, Type objectType,
-            Bundle existingValue, bool hasExistingValue, JsonSerializer serializer)
+        public override BundleContents ReadJson(JsonReader reader, Type objectType,
+            BundleContents existingValue, bool hasExistingValue, JsonSerializer serializer)
         {
             if (reader.TokenType == JsonToken.Null)
-                return new Bundle();
+                return new BundleContents();
 
             var str = reader.Value as string ?? string.Empty;
             return FromString(str);
         }
 
         /// <summary>
-        /// Converts a <see cref="Bundle"/> to the Steam bundle string format.
+        /// Converts a <see cref="BundleContents"/> to the Steam bundle string format.
         /// Example output: <c>"100x1;101x5;102x3"</c>
         /// </summary>
-        public static string ToString(Bundle bundle)
+        public static string ToString(BundleContents bundle)
         {
             if (bundle == null || bundle.Count == 0)
                 return string.Empty;
@@ -67,11 +67,11 @@ namespace SteamToys.Runtime.InventorySystem.Converters
         }
 
         /// <summary>
-        /// Parses a Steam bundle string (e.g. <c>"100x1;101x5;102x3"</c>) into a <see cref="Bundle"/>.
+        /// Parses a Steam bundle string (e.g. <c>"100x1;101x5;102x3"</c>) into a <see cref="BundleContents"/>.
         /// </summary>
-        public static Bundle FromString(string value)
+        public static BundleContents FromString(string value)
         {
-            var bundle = new Bundle();
+            var bundle = new BundleContents();
 
             if (string.IsNullOrEmpty(value))
                 return bundle;

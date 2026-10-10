@@ -5,6 +5,29 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Inventory: one asset class per ItemDef `type`, each with only the schema properties that type
+  supports: `Item`, `Bundle`, `Generator`, `PlaytimeGenerator` and `TagGenerator<TEnum>`. The
+  first four work without code and have `<Type><TTags>` variants for tags; a tag generator
+  takes its category and values from the same enum a `Tag<TEnum>` uses.
+- Inventory: `price_category`, `store_tags`, `store_images`, `purchase_bundle_discount`,
+  `container_contents_generator` and `tag_generators`.
+- The item inspector warns about settings Steam would reject or ignore, such as a price together
+  with a price category, or a drop start time without a manual promo.
+
+### Changed
+
+- `Item` is the ItemDef of type `item`; the shared base is `ItemDef`, and `Inventory.Items`,
+  `BundleElement.Item` and the item inspector take any `ItemDef`. The `type` comes from the
+  class of the asset, so it is no longer a field.
+- The bundle list is `BundleContents` (with `BundleContentsConverter`), since `Bundle` is now
+  the ItemDef of type `bundle`. In generators its entries are weights.
+- A playtime generator exports `drop_limit` of 0 when the drop limit is set, which stops its
+  drops, instead of leaving it out.
+
 ## [0.5.1] - 2026-10-02
 
 ### Added

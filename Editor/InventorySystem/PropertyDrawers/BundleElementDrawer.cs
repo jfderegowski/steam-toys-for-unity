@@ -11,6 +11,11 @@ namespace SteamToys.Editor.InventorySystem.PropertyDrawers
     {
         private const string NO_ITEM_LABEL = "(None)";
 
+        private const string QUANTITY_LABEL = "x";
+        private const string QUANTITY_TOOLTIP = "How many are granted.";
+        private const string WEIGHT_LABEL = "weight";
+        private const string WEIGHT_TOOLTIP = "Relative odds of this entry being picked.";
+
         public override VisualElement CreatePropertyGUI(SerializedProperty property)
         {
             var itemProp = property.FindPropertyRelative("_item");
@@ -44,7 +49,7 @@ namespace SteamToys.Editor.InventorySystem.PropertyDrawers
             // Item object field – just the reference picker, no label
             var itemField = new ObjectField {
                 bindingPath = itemProp.propertyPath,
-                objectType = typeof(Item),
+                objectType = typeof(GrantableItemDef),
                 allowSceneObjects = false,
                 label = "",
                 style = {
@@ -67,7 +72,11 @@ namespace SteamToys.Editor.InventorySystem.PropertyDrawers
                 }
             };
 
-            var xLabel = new Label("x") {
+            // The same contents list holds quantities in a bundle and weights in a generator.
+            var isBundle = property.serializedObject.targetObject is Bundle;
+
+            var xLabel = new Label(isBundle ? QUANTITY_LABEL : WEIGHT_LABEL) {
+                tooltip = isBundle ? QUANTITY_TOOLTIP : WEIGHT_TOOLTIP,
                 style = {
                     marginRight = 2,
                     paddingRight = 0,
@@ -118,7 +127,7 @@ namespace SteamToys.Editor.InventorySystem.PropertyDrawers
 
         private static string BuildInfoText(Object itemObj)
         {
-            var item = itemObj as Item;
+            var item = itemObj as ItemDef;
             if (item == null)
                 return NO_ITEM_LABEL;
 

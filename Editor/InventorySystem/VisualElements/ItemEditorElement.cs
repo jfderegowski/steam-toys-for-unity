@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using SteamToys.Runtime.InventorySystem;
 using UnityEditor;
 using UnityEditor.UIElements;
@@ -6,7 +7,8 @@ using UnityEngine.UIElements;
 namespace SteamToys.Editor.InventorySystem
 {
     /// <summary>
-    /// Draws the whole <see cref="Item"/> inspector: the default inspector plus the JSON preview / copy buttons.
+    /// Draws the whole <see cref="ItemDef"/> inspector: the default inspector, the schema warnings and the
+    /// JSON preview / copy buttons.
     /// </summary>
     public class ItemEditorElement : VisualElement
     {
@@ -28,16 +30,22 @@ namespace SteamToys.Editor.InventorySystem
 
         #region Fields
 
-        private readonly Item _item;
+        private readonly ItemDef _item;
+        private readonly VisualElement _warnings;
         private readonly JsonPreviewElement _preview;
+        private readonly List<string> _warningMessages = new();
 
         #endregion
 
         public ItemEditorElement(SerializedObject serializedObject, UnityEditor.Editor editor)
         {
-            _item = serializedObject.targetObject as Item;
+            _item = serializedObject.targetObject as ItemDef;
 
             InspectorElement.FillDefaultInspector(this, serializedObject, editor);
+
+            _warnings = new VisualElement();
+            Add(_warnings);
+            RefreshWarnings();
 
             _preview = new JsonPreviewElement(PREVIEW_TITLE);
 
@@ -47,9 +55,31 @@ namespace SteamToys.Editor.InventorySystem
 
             Add(_preview);
 
-            // Keep the preview in sync while the item is being edited.
-            this.TrackSerializedObjectValue(serializedObject, _ => _preview.SetJson(GetItemJson()));
+            // Keep the preview and warnings in sync while the item is being edited.
+            this.TrackSerializedObjectValue(serializedObject, _ =>
+            {
+                RefreshWarnings();
+                _preview.SetJson(GetItemJson());
+            });
         }
+
+        #region Warnings
+
+        private void RefreshWarnings()
+        {
+            _warnings.Clear();
+
+            if (_item == null)
+                return;
+
+            _warningMessages.Clear();
+            _item.CollectSchemaWarnings(_warningMessages);
+
+            foreach (var message in _warningMessages)
+                _warnings.Add(new HelpBox(message, HelpBoxMessageType.Warning));
+        }
+
+        #endregion
 
         #region Json
 
