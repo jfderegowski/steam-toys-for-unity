@@ -12,7 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ec11f0d338ee4e45b4cab552a96f1c04, type: 3}
   m_Name: 1 Test Item
   m_EditorClassIdentifier: fefek5.SteamToys.Tests::SteamToys.Tests.Tests.TestItem
-  _appId: 2
   _itemDefId: 0
   _name: Sword
   _description: Good wor fight!
@@ -34,17 +33,23 @@ MonoBehaviour:
   _storeImages: []
   _storeHidden: 0
   _price:
-    _regularPrices: []
+    _regularPrices:
+    - _currency: 0
+      _amount: 5
+    - _currency: 1
+      _amount: 5
     _promotions: []
   _priceCategory:
     value: 0
     hasValue: 0
   _promo:
-    _rules: []
+    _rules:
+    - rid: 2392246124287623230
   _dropStartTime:
     _ticks: 0
     _hasValue: 0
   _grantedManually: 0
+  _dropInterval: 0
   _tradable: 0
   _marketable: 0
   _gameOnly: 0
@@ -52,10 +57,14 @@ MonoBehaviour:
   _purchaseLimit: 0
   _containerContentsGenerator: {fileID: 0}
   _tags:
-    RarityTag:
-      Value: 0
-    QualityTag:
+    Rarity:
+      Value: 3
+    Wear:
       Value: 0
   references:
     version: 2
-    RefIds: []
+    RefIds:
+    - rid: 2392246124287623230
+      type: {class: AchievementPromoRule, ns: SteamToys.Runtime.InventorySystem, asm: fefek5.SteamToys.Runtime}
+      data:
+        _achievement: {fileID: 0}

@@ -95,19 +95,7 @@ namespace SteamToys.Runtime.InventorySystem
             }
         }
 
-        public override string GetTags()
-        {
-            EnsureTagsInitialized();
-
-            return _tags.GetDefinitionTagsString();
-        }
-
-        public override void SetTags(string value)
-        {
-            EnsureTagsInitialized();
-
-            _tags.SetTagsString(value);
-        }
+        public override Tags GetTagsObject() => TagsData;
 
         private void EnsureTagsInitialized() => _tags ??= new TTags();
     }

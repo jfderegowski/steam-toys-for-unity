@@ -23,9 +23,6 @@ namespace SteamToys.Editor.InventorySystem
         private const string COPY_IMPORT_BUTTON_TOOLTIP =
             "Copy the item wrapped in an appid / items envelope, ready to import into the Steam Inventory Service.";
 
-        private const string NEW_LINE = "\n";
-        private const string INDENT = "  ";
-
         #endregion
 
         #region Fields
@@ -87,32 +84,9 @@ namespace SteamToys.Editor.InventorySystem
 
         /// <summary>
         /// Wraps the item in the envelope the Steam Inventory Service expects when importing item definitions:
-        /// an <c>appid</c> plus an <c>items</c> array.
+        /// an <c>appid</c> (from the Steam Settings) plus an <c>items</c> array.
         /// </summary>
-        private string GetImportJson()
-        {
-            if (_item == null)
-                return string.Empty;
-
-            var item = Indent(_item.ToJson(), INDENT + INDENT);
-
-            return "{" + NEW_LINE +
-                   INDENT + "\"appid\": " + _item.AppId + "," + NEW_LINE +
-                   INDENT + "\"items\": [" + NEW_LINE +
-                   item + NEW_LINE +
-                   INDENT + "]" + NEW_LINE +
-                   "}";
-        }
-
-        private static string Indent(string text, string indent)
-        {
-            var lines = text.Replace("\r\n", NEW_LINE).Split('\n');
-
-            for (var i = 0; i < lines.Length; i++)
-                lines[i] = indent + lines[i];
-
-            return string.Join(NEW_LINE, lines);
-        }
+        private string GetImportJson() => _item == null ? string.Empty : SteamItemsDB.ToImportJson(new[] { _item });
 
         #endregion
     }

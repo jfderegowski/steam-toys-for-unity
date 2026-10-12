@@ -7,7 +7,8 @@ namespace SteamToys.Runtime.InventorySystem
 {
     /// <summary>
     /// ItemDef of type <c>item</c>: the only type that actually sits in a player's inventory.
-    /// Use <see cref="Item{TTags}"/> to give it tags.
+    /// Use <see cref="Item{TTags}"/> to give it tags. Each one a player owns is an <see cref="InventoryItem"/> of
+    /// <see cref="Inventory"/>, which refers to this definition.
     /// </summary>
     [CreateAssetMenu(fileName = "New Item", menuName = "SteamToys/Inventory/Item", order = 1)]
     public class Item : StoreItemDef
@@ -152,19 +153,7 @@ namespace SteamToys.Runtime.InventorySystem
             }
         }
 
-        public override string GetTags()
-        {
-            EnsureTagsInitialized();
-
-            return _tags.GetDefinitionTagsString();
-        }
-
-        public override void SetTags(string value)
-        {
-            EnsureTagsInitialized();
-
-            _tags.SetTagsString(value);
-        }
+        public override Tags GetTagsObject() => TagsData;
 
         private void EnsureTagsInitialized() => _tags ??= new TTags();
     }

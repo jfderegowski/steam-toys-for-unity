@@ -15,12 +15,6 @@ namespace SteamToys.Runtime.InventorySystem
     {
         #region Properties
 
-        public uint AppId
-        {
-            get => GetAppId();
-            set => SetAppId(value);
-        }
-
         public ulong ItemDefId
         {
             get => GetItemDefId();
@@ -43,8 +37,6 @@ namespace SteamToys.Runtime.InventorySystem
         #region Inspector Serialized Fields
 
         [Header("Basic Item Data")]
-        [SerializeField, Tooltip("Steam Application ID for this item.")]
-        private uint _appId;
         [SerializeField, Tooltip("Unique identifier for this item definition.")]
         private ulong _itemDefId;
         [SerializeField, Tooltip("Display name of the item.")]
@@ -53,10 +45,6 @@ namespace SteamToys.Runtime.InventorySystem
         #endregion
 
         #region Getters and Setters
-
-        public virtual uint GetAppId() => _appId;
-
-        public virtual void SetAppId(uint value) => _appId = value;
 
         public virtual ulong GetItemDefId() => _itemDefId;
 

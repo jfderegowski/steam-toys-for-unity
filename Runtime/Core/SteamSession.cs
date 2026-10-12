@@ -1,5 +1,6 @@
 using System;
 using SteamToys.Runtime.AchievementsSystem;
+using SteamToys.Runtime.InventorySystem;
 using SteamToys.Runtime.StatsSystem;
 using Steamworks;
 using UnityEngine;
@@ -225,6 +226,7 @@ namespace SteamToys.Runtime.Core
             // warning from before this one would keep the next warning silent, so stats start over.
             SteamStatsDB.OnSessionStarted();
             SteamAchievementsDB.OnSessionStarted();
+            Inventory.OnSessionStarted();
 
             // Worth naming the app: the ID comes from steam_appid.txt in the working directory,
             // which is easy to have pointing somewhere other than the project's own setting.
