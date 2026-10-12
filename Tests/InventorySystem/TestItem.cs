@@ -27,9 +27,9 @@ namespace SteamToys.Tests.Tests
     public class TestItemTags : Tags
     {
         public Tag<Rarity> Rarity = new();
-        public GeneratedTag<Wear> Quality = new();
+        public GeneratedTag<Wear> Wear = new();
 
-        public override HashSet<Tag> GetTags() => new() { Rarity, Quality };
+        public override HashSet<Tag> GetTags() => new() { Rarity, Wear };
     }
 
     [CreateAssetMenu(fileName = "TestItem", menuName = "SteamToys/Inventory/Test/TestItem", order = 1)]

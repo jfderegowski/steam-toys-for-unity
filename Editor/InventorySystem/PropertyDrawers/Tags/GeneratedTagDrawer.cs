@@ -36,8 +36,6 @@ namespace SteamToys.Editor.InventorySystem.PropertyDrawers
             };
 
             field.AddToClassList(BaseField<string>.alignedFieldUssClassName);
-            field.style.unityFontStyleAndWeight = FontStyle.Italic;
-            field.labelElement.style.unityFontStyleAndWeight = FontStyle.Normal;
             field.Q(TextField.textInputUssName).style.color = _previewColor;
 
             return field;
