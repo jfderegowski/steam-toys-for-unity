@@ -1,4 +1,5 @@
 using System;
+using SteamToys.Runtime.AchievementsSystem;
 
 namespace SteamToys.Runtime.InventorySystem.Converters
 {
@@ -10,14 +11,16 @@ namespace SteamToys.Runtime.InventorySystem.Converters
     /// <list type="bullet">
     ///   <item><c>manual</c></item>
     ///   <item><c>owns:&lt;appid&gt;</c></item>
-    ///   <item><c>ach:&lt;appid&gt;:&lt;achievement_name&gt;</c></item>
-    ///   <item><c>played:&lt;appid&gt;:&lt;minutes&gt;</c></item>
+    ///   <item><c>ach:&lt;achievement API name&gt;</c></item>
+    ///   <item><c>played:&lt;appid&gt;/&lt;minutes&gt;</c>, minutes defaulting to 1</item>
     /// </list>
     /// </para>
     /// </summary>
     public static class PromoRuleConverter
     {
         private const char SEPARATOR = ':';
+        private const char MINUTES_SEPARATOR = '/';
+        private const uint DEFAULT_MINUTES = 1;
         private const string MANUAL = "manual";
         private const string OWNS = "owns";
         private const string ACH = "ach";
@@ -49,18 +52,19 @@ namespace SteamToys.Runtime.InventorySystem.Converters
             if (trimmed.Equals(MANUAL, StringComparison.OrdinalIgnoreCase))
                 return new ManualPromoRule();
 
-            var parts = trimmed.Split(SEPARATOR);
+            var separatorIndex = trimmed.IndexOf(SEPARATOR);
 
-            if (parts.Length < 2)
+            if (separatorIndex < 0)
                 return null;
 
-            var prefix = parts[0].Trim().ToLowerInvariant();
+            var prefix = trimmed.Substring(0, separatorIndex).Trim().ToLowerInvariant();
+            var argument = trimmed.Substring(separatorIndex + 1).Trim();
 
             switch (prefix)
             {
                 case OWNS:
                 {
-                    if (!uint.TryParse(parts[1].Trim(), out var appId))
+                    if (!uint.TryParse(argument, out var appId))
                         return null;
 
                     return new OwnsPromoRule { AppId = appId };
@@ -68,28 +72,22 @@ namespace SteamToys.Runtime.InventorySystem.Converters
 
                 case ACH:
                 {
-                    if (parts.Length < 3)
-                        return null;
+                    // The rule names the achievement only, so it resolves to the asset in the achievements DB.
+                    var achievement = SteamAchievementsDB.Instance.Get(argument);
 
-                    if (!uint.TryParse(parts[1].Trim(), out var appId))
-                        return null;
-
-                    return new AchievementPromoRule
-                    {
-                        AppId = appId,
-                        AchievementName = parts[2].Trim()
-                    };
+                    return achievement == null ? null : new AchievementPromoRule { Achievement = achievement };
                 }
 
                 case PLAYED:
                 {
-                    if (parts.Length < 3)
+                    var parts = argument.Split(MINUTES_SEPARATOR);
+
+                    if (!uint.TryParse(parts[0].Trim(), out var appId))
                         return null;
 
-                    if (!uint.TryParse(parts[1].Trim(), out var appId))
-                        return null;
+                    var minutes = DEFAULT_MINUTES;
 
-                    if (!uint.TryParse(parts[2].Trim(), out var minutes))
+                    if (parts.Length > 1 && !uint.TryParse(parts[1].Trim(), out minutes))
                         return null;
 
                     return new PlayedPromoRule

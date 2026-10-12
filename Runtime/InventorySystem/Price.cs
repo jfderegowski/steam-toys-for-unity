@@ -145,6 +145,8 @@ namespace SteamToys.Runtime.InventorySystem
         public List<PriceValue> RegularPrices => GetRegularPrices();
         public List<Promotion> Promotions => GetPromotions();
         
+        private const string VERSION_PREFIX = "1;";
+
         [SerializeField] private List<PriceValue> _regularPrices = new();
         [SerializeField] private List<Promotion> _promotions = new();
         
@@ -152,6 +154,11 @@ namespace SteamToys.Runtime.InventorySystem
         
         public virtual List<Promotion> GetPromotions() => _promotions;
 
+        /// <summary>
+        /// Converts the price to the Steam format <c>"1;&lt;original price&gt;(;&lt;sale&gt;)*"</c>,
+        /// e.g. <c>"1;USD100,EUR080;20130607T080000Z-20130606T080000ZUSD50,EUR40"</c>.
+        /// Returns an empty string when no price is set.
+        /// </summary>
         public string ToSteamString()
         {
             // Regular prices part (e.g. "USD499,EUR499")
@@ -159,7 +166,7 @@ namespace SteamToys.Runtime.InventorySystem
                 ? string.Join(",", _regularPrices.ConvertAll(p => p.ToSteamString()))
                 : string.Empty;
 
-            // Promotions part: join multiple promotions with ';' (e.g. "start-end:USD399;start2-end2:USD349")
+            // Promotions part: one sale per entry, joined with ';' (e.g. "start-endUSD399;start2-end2USD349")
             var promotionsPart = _promotions is { Count: > 0 }
                 ? string.Join(";", _promotions.ConvertAll(pr => pr.ToSteamString()))
                 : string.Empty;
@@ -167,14 +174,13 @@ namespace SteamToys.Runtime.InventorySystem
             if (string.IsNullOrEmpty(regularPart) && string.IsNullOrEmpty(promotionsPart))
                 return string.Empty;
 
-            if (string.IsNullOrEmpty(promotionsPart))
-                return regularPart;
+            // Steam requires the version prefix on every price; the sales follow the original price.
+            var result = VERSION_PREFIX + regularPart;
 
-            if (string.IsNullOrEmpty(regularPart))
-                return promotionsPart;
+            if (!string.IsNullOrEmpty(promotionsPart))
+                result += ";" + promotionsPart;
 
-            // Use '|' to separate regular prices from promotions
-            return "1;" + regularPart + ";" + promotionsPart;
+            return result;
         }
     }
 }

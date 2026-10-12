@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Item` is the ItemDef of type `item`; the shared base is `ItemDef`, and `Inventory.Items`,
   `BundleElement.Item` and the item inspector take any `ItemDef`. The `type` comes from the
   class of the asset, so it is no longer a field.
-- The bundle list is `BundleContents` (with `BundleContentsConverter`), since `Bundle` is now
+- The bundle list is `BundleContent` (with `BundleContentConverter`), since `Bundle` is now
   the ItemDef of type `bundle`. In generators its entries are weights.
 - `TagMaterial<TTags>` is `TagMaterial<TEnum>`, holding the one tag it matches. It took the
   first pair of a whole tags class, which comes from a `HashSet` in no set order, so a class with
@@ -36,6 +36,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   wrong.
 - A playtime generator exports `drop_limit` of 0 when the drop limit is set, which stops its
   drops, instead of leaving it out.
+- An item or bundle with a manual promo has a Drop Interval again, for promo items granted
+  repeatedly (e.g. once a week); it was only on playtime generators.
+- The achievement promo rule takes a `SteamAchievement` asset and exports `ach:<API Name>`, as
+  Steam reads it. It wrote `ach:<appid>:<name>`.
+- The playtime promo rule exports `played:<appid>/<minutes>`; it wrote a `:` before the minutes.
+  An incomplete promo rule, such as an achievement rule with no achievement, is left out of the
+  promo instead of leaving an empty entry, and the inspector warns about it.
+- A price always starts with the `1;` version. It had it only with sales, so a price without
+  sales was exported in a format Steam does not read.
 
 ## [0.5.1] - 2026-10-02
 

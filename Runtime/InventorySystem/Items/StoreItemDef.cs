@@ -102,6 +102,15 @@ namespace SteamToys.Runtime.InventorySystem
             set => SetGrantedManually(value);
         }
 
+        /// <summary>
+        /// Minutes between grants of a manual promo, e.g. 10080 for once a week. 0 grants it only once.
+        /// </summary>
+        public uint DropInterval
+        {
+            get => GetDropInterval();
+            set => SetDropInterval(value);
+        }
+
         #endregion
 
         #region Inspector Serialized Fields
@@ -139,6 +148,8 @@ namespace SteamToys.Runtime.InventorySystem
         private SteamDateTime _dropStartTime;
         [SerializeField, Tooltip("Granted only by AddPromoItem(s) with its explicit ID, not by GrantPromoItems.")]
         private bool _grantedManually;
+        [SerializeField, Tooltip("Minutes between grants of a manual promo, e.g. 10080 for once a week. 0 grants it only once.")]
+        private uint _dropInterval;
 
         #endregion
 
@@ -196,6 +207,10 @@ namespace SteamToys.Runtime.InventorySystem
 
         public virtual void SetGrantedManually(bool value) => _grantedManually = value;
 
+        public virtual uint GetDropInterval() => _dropInterval;
+
+        public virtual void SetDropInterval(uint value) => _dropInterval = value;
+
         #endregion
 
         #region Validation
@@ -207,8 +222,23 @@ namespace SteamToys.Runtime.InventorySystem
             if (PriceCategory.hasValue && !string.IsNullOrEmpty(Price?.ToSteamString()))
                 warnings.Add("Price and Price Category cannot be used together: only the price category is exported.");
 
+            if (Price != null && Price.RegularPrices.Count == 0 && Price.Promotions.Count > 0)
+                warnings.Add("Price has sales but no regular price, which Steam requires first.");
+
             if (DropStartTime is { HasValue: true } && !HasManualPromo())
                 warnings.Add("Drop Start Time only applies to a manual promo; add a Manual promo rule or clear it.");
+
+            if (DropInterval > 0 && !HasManualPromo())
+                warnings.Add("Drop Interval only applies to a manual promo; add a Manual promo rule or clear it.");
+
+            if (Promo != null)
+            {
+                for (var i = 0; i < Promo.Count; i++)
+                {
+                    if (string.IsNullOrEmpty(Promo[i]?.ToSteamString()))
+                        warnings.Add($"Promo rule {i} is incomplete and is left out.");
+                }
+            }
         }
 
         private bool HasManualPromo()
@@ -251,6 +281,7 @@ namespace SteamToys.Runtime.InventorySystem
             writer.WritePromoIfNotEmpty("promo", Promo);
             writer.WriteSteamDateTimeIfHasValue("drop_start_time", DropStartTime);
             writer.WriteBoolIfTrue("granted_manually", GrantedManually);
+            writer.WriteUintIfNotZero("drop_interval", DropInterval);
         }
 
         #endregion

@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Newtonsoft.Json;
+using SteamToys.Runtime.AchievementsSystem;
 using SteamToys.Runtime.InventorySystem.Converters;
 using UnityEngine;
 
@@ -17,7 +18,8 @@ namespace SteamToys.Runtime.InventorySystem
     {
         /// <summary>
         /// Converts this rule to the Steam promo string fragment,
-        /// e.g. <c>"manual"</c>, <c>"owns:480"</c>, <c>"ach:480:Winner"</c>, <c>"played:480:120"</c>.
+        /// e.g. <c>"manual"</c>, <c>"owns:480"</c>, <c>"ach:WIN_ONE_GAME"</c>, <c>"played:480/120"</c>.
+        /// An empty string means the rule is incomplete and is left out.
         /// </summary>
         public virtual string ToSteamString() => string.Empty;
     }
@@ -49,37 +51,31 @@ namespace SteamToys.Runtime.InventorySystem
     }
 
     /// <summary>
-    /// <c>ach:&lt;appid&gt;:&lt;achievement_name&gt;</c> — granted when the user unlocks a specific achievement.
+    /// <c>ach:&lt;achievement API name&gt;</c> — granted when the user unlocks an achievement of this app.
     /// </summary>
     [Serializable]
     public class AchievementPromoRule : PromoRule
     {
-        [SerializeField] private uint _appId;
-        [SerializeField] private string _achievementName;
+        [SerializeField] private SteamAchievement _achievement;
 
-        public uint AppId
+        public SteamAchievement Achievement
         {
-            get => _appId;
-            set => _appId = value;
+            get => _achievement;
+            set => _achievement = value;
         }
 
-        public string AchievementName
-        {
-            get => _achievementName;
-            set => _achievementName = value;
-        }
-
-        public override string ToSteamString() => $"ach:{_appId}:{_achievementName}";
+        public override string ToSteamString() =>
+            _achievement == null || string.IsNullOrEmpty(_achievement.ApiName) ? string.Empty : $"ach:{_achievement.ApiName}";
     }
 
     /// <summary>
-    /// <c>played:&lt;appid&gt;:&lt;minutes&gt;</c> — granted after the user has played an app for the given number of minutes.
+    /// <c>played:&lt;appid&gt;/&lt;minutes&gt;</c> — granted after the user has played an app for the given number of minutes.
     /// </summary>
     [Serializable]
     public class PlayedPromoRule : PromoRule
     {
         [SerializeField] private uint _appId;
-        [SerializeField] private uint _minutes;
+        [SerializeField] private uint _minutes = 1;
 
         public uint AppId
         {
@@ -93,7 +89,7 @@ namespace SteamToys.Runtime.InventorySystem
             set => _minutes = value;
         }
 
-        public override string ToSteamString() => $"played:{_appId}:{_minutes}";
+        public override string ToSteamString() => $"played:{_appId}/{_minutes}";
     }
 
     /// <summary>
@@ -102,7 +98,7 @@ namespace SteamToys.Runtime.InventorySystem
     /// when adding new elements.
     /// <para>
     /// Serializes to the Steam format: semicolon-delimited rules,
-    /// e.g. <c>"manual;owns:480;ach:480:MyAchievement;played:480:120"</c>.
+    /// e.g. <c>"manual;owns:480;ach:WIN_ONE_GAME;played:480/120"</c>.
     /// </para>
     /// <see href="https://partner.steamgames.com/doc/features/inventory/schema#PromoItems"/>
     /// </summary>

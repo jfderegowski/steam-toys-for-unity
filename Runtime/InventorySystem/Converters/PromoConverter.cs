@@ -40,7 +40,7 @@ namespace SteamToys.Runtime.InventorySystem.Converters
 
         /// <summary>
         /// Converts a <see cref="Promo"/> to the Steam promo string format.
-        /// Example output: <c>"manual;owns:480;ach:480:MyAchievement"</c>
+        /// Example output: <c>"manual;owns:480;ach:WIN_ONE_GAME"</c>. Incomplete rules are left out.
         /// </summary>
         public static string ToString(Promo promo)
         {
@@ -49,12 +49,17 @@ namespace SteamToys.Runtime.InventorySystem.Converters
 
             var sb = new StringBuilder();
 
-            for (int i = 0; i < promo.Count; i++)
+            foreach (var rule in promo)
             {
-                if (i > 0)
+                var entry = PromoRuleConverter.ToString(rule);
+
+                if (string.IsNullOrEmpty(entry))
+                    continue;
+
+                if (sb.Length > 0)
                     sb.Append(ENTRY_SEPARATOR);
 
-                sb.Append(PromoRuleConverter.ToString(promo[i]));
+                sb.Append(entry);
             }
 
             return sb.ToString();
