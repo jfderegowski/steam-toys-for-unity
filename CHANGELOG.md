@@ -45,6 +45,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Pages of 25 items as on Steam, with the page size set in the toolbar and remembered. Grant
   Promo Items is in the toolbar. Preview Definitions shows the definitions of the items DB in
   the same layout, without Steam, with Generate For Me to grant one for testing.
+- `GrantableItemDef.GenerateItem(quantity)` grants the definition to the signed-in account for
+  testing. The inspector of an item, bundle, generator or playtime generator has it as the
+  Generate Item button with a quantity field, disabled without a Steam session.
+- `JsonPreviewElement` takes a max height past which the JSON scrolls, and whether long lines
+  wrap; unwrapped, it scrolls sideways when needed. Both are also `MaxHeight` and `WrapText`, and
+  the scrollbars show only while the text does not fit. The defaults keep the old look.
+- The ItemDef inspector handles several selected definitions: Generate Item grants each of them,
+  the schema warnings of all are listed with the definition name in front, and the JSON preview
+  and Copy JSON hold an array of them, Copy JSON + AppID all of them in one import file.
 - Inventory: one asset class per ItemDef `type`, each with only the schema properties that type
   supports: `Item`, `Bundle`, `Generator`, `PlaytimeGenerator` and `TagGenerator<TEnum>`. The
   first four work without code and have `<Type><TTags>` variants for tags; a tag generator
@@ -87,6 +96,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   promo instead of leaving an empty entry, and the inspector warns about it.
 - A price always starts with the `1;` version. It had it only with sales, so a price without
   sales was exported in a format Steam does not read.
+
+### Fixed
+
+- Scrolling over the JSON preview threw a `NullReferenceException` in the rich text parser of
+  Unity 6.3's advanced text generator. The preview uses the standard generator, and the Steam
+  Properties rows of the inventory window are plain text.
 
 ## [0.5.1] - 2026-10-02
 

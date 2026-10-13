@@ -128,6 +128,32 @@ namespace SteamToys.Runtime.InventorySystem
 
         #endregion
 
+        #region Inventory
+
+        /// <summary>
+        /// Grants <paramref name="quantity"/> of this definition to the signed-in account through
+        /// <see cref="Inventory.GenerateItems"/>. Works only for accounts of the Steamworks partner group and only once
+        /// the definition is published on Steam, so it is for testing, never for the game itself.
+        /// </summary>
+        public bool GenerateItem(int quantity = 1)
+        {
+            if (quantity < 1)
+            {
+                Debug.LogWarning($"{name}: Generate Item needs a quantity of at least 1.");
+                return false;
+            }
+
+            return Inventory.GenerateItems(new[] { ((ItemDef)this, (uint)quantity) }, succeeded =>
+            {
+                if (succeeded)
+                    Debug.Log($"Generated {quantity} x {name} (itemdefid {ItemDefId}).");
+                else
+                    Debug.LogWarning($"Steam did not generate {name} (itemdefid {ItemDefId}).");
+            });
+        }
+
+        #endregion
+
         #region Json
 
         public override void WriteJsonProperties(JsonWriter writer)

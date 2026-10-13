@@ -539,6 +539,8 @@ namespace SteamToys.Editor.InventorySystem
             {
                 var row = CreateText($"{name}: {(string.IsNullOrEmpty(value) ? "-" : value)}", DimTextColor, 0, 0);
 
+                // Shown as Steam sent it: plain text, so no value is read as a rich text tag.
+                row.enableRichText = false;
                 row.selection.isSelectable = true;
                 foldout.Add(row);
             }

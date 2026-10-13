@@ -32,11 +32,21 @@ namespace SteamToys.Editor.InventorySystem
 
         private readonly VisualElement _actions;
         private readonly TextElement _jsonText;
+        private readonly ScrollView _scrollView;
         private readonly JsonSyntaxHighlighter.Theme _theme;
+
+        private bool _wrapText;
 
         #endregion
 
-        public JsonPreviewElement(string title)
+        /// <param name="title">The header text.</param>
+        /// <param name="maxHeight">
+        /// The height past which the JSON scrolls vertically; 0 or less lets the preview grow with its text.
+        /// </param>
+        /// <param name="wrapText">
+        /// Whether long lines wrap; without it they keep their length and the preview scrolls sideways when needed.
+        /// </param>
+        public JsonPreviewElement(string title, float maxHeight = 500, bool wrapText = true)
         {
             var proSkin = EditorGUIUtility.isProSkin;
 
@@ -49,11 +59,43 @@ namespace SteamToys.Editor.InventorySystem
             Add(CreateHeader(title, proSkin, _actions));
 
             _jsonText = CreateJsonText();
+            _scrollView = CreateBody(proSkin, _jsonText);
 
-            Add(CreateBody(proSkin, _jsonText));
+            Add(_scrollView);
+
+            MaxHeight = maxHeight;
+            WrapText = wrapText;
         }
 
         #region Public API
+
+        /// <summary>
+        /// The height past which the JSON scrolls vertically; 0 or less lets the preview grow with its text.
+        /// Scrollbars show only while the text does not fit.
+        /// </summary>
+        public float MaxHeight
+        {
+            get => _scrollView.style.maxHeight.keyword == StyleKeyword.None ? 0 : _scrollView.style.maxHeight.value.value;
+            set => _scrollView.style.maxHeight = value > 0 ? new StyleLength(value) : new StyleLength(StyleKeyword.None);
+        }
+
+        /// <summary>
+        /// Whether long lines wrap. Without it they keep their length and the preview scrolls sideways when needed.
+        /// </summary>
+        public bool WrapText
+        {
+            get => _wrapText;
+            set
+            {
+                _wrapText = value;
+
+                _jsonText.style.whiteSpace = value ? WhiteSpace.PreWrap : WhiteSpace.Pre;
+
+                // Wrapped text must take the width of the view, so only unwrapped text may scroll sideways.
+                _scrollView.mode = value ? ScrollViewMode.Vertical : ScrollViewMode.VerticalAndHorizontal;
+                _scrollView.horizontalScrollerVisibility = value ? ScrollerVisibility.Hidden : ScrollerVisibility.Auto;
+            }
+        }
 
         /// <summary>
         /// Replaces the previewed JSON. The text is re-highlighted, the copy buttons keep working on live data.
@@ -185,7 +227,10 @@ namespace SteamToys.Editor.InventorySystem
 
             jsonText.selection.isSelectable = true;
 
-            jsonText.style.whiteSpace = WhiteSpace.PreWrap;
+            // The advanced generator of Unity 6.3 throws in its native rich text parser when selectable rich text
+            // is scrolled over; the standard one draws the same colors.
+            jsonText.style.unityTextGenerator = TextGeneratorType.Standard;
+
             jsonText.style.fontSize = FONT_SIZE;
 
             var font = GetMonospaceFont();
@@ -196,15 +241,19 @@ namespace SteamToys.Editor.InventorySystem
             return jsonText;
         }
 
-        private static VisualElement CreateBody(bool proSkin, VisualElement jsonText)
+        private static ScrollView CreateBody(bool proSkin, VisualElement jsonText)
         {
-            var body = new VisualElement();
+            var body = new ScrollView {
+                verticalScrollerVisibility = ScrollerVisibility.Auto
+            };
 
             body.style.backgroundColor = proSkin ? new Color(0.13f, 0.13f, 0.13f) : new Color(0.94f, 0.94f, 0.94f);
-            body.style.paddingLeft = 8;
-            body.style.paddingRight = 8;
-            body.style.paddingTop = 6;
-            body.style.paddingBottom = 6;
+
+            // Padding inside the scrolled content, so the scrollbars sit at the edges of the panel.
+            body.contentContainer.style.paddingLeft = 8;
+            body.contentContainer.style.paddingRight = 8;
+            body.contentContainer.style.paddingTop = 6;
+            body.contentContainer.style.paddingBottom = 6;
 
             body.Add(jsonText);
 
