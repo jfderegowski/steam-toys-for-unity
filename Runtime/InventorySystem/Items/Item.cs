@@ -141,20 +141,10 @@ namespace SteamToys.Runtime.InventorySystem
 
     public class Item<TTags> : Item where TTags : Tags, new()
     {
-        [SerializeField] private TTags _tags;
+        [SerializeField] private TTags _tags = new();
 
-        public TTags TagsData
-        {
-            get
-            {
-                EnsureTagsInitialized();
-
-                return _tags;
-            }
-        }
+        public TTags TagsData => _tags;
 
         public override Tags GetTagsObject() => TagsData;
-
-        private void EnsureTagsInitialized() => _tags ??= new TTags();
     }
 }
