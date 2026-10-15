@@ -193,7 +193,7 @@ namespace SteamToys.Runtime.InventorySystem
             if (item is Item { ContainerContentsGenerator: { } containerContentsGenerator })
                 yield return containerContentsGenerator;
 
-            if (item is CraftableItemDef { Exchange: { } exchange })
+            if (item is GrantableItemDef { Exchange: { } exchange })
             {
                 foreach (var recipe in exchange)
                 {

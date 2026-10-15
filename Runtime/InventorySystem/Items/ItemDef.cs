@@ -63,7 +63,11 @@ namespace SteamToys.Runtime.InventorySystem
         /// <summary>
         /// Adds a message for every setting Steam would reject or silently ignore. Overrides call base first.
         /// </summary>
-        public virtual void CollectSchemaWarnings(List<string> warnings) { }
+        public virtual void CollectSchemaWarnings(List<string> warnings)
+        {
+            if (string.IsNullOrWhiteSpace(Name))
+                warnings.Add("Name is empty: Steam rejects the definition, and an upload stops there.");
+        }
 
         #endregion
 

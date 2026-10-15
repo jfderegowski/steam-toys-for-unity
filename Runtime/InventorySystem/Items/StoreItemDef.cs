@@ -7,10 +7,10 @@ using UnityEngine;
 namespace SteamToys.Runtime.InventorySystem
 {
     /// <summary>
-    /// An ItemDef players see and can buy or be granted directly: an item or a bundle.
-    /// Holds the presentation, Item Store and promo properties.
+    /// An ItemDef players see and can buy: an item or a bundle. Holds the presentation and Item Store properties;
+    /// Steam never prices a generator.
     /// </summary>
-    public abstract class StoreItemDef : CraftableItemDef
+    public abstract class StoreItemDef : GrantableItemDef
     {
         #region Constants
 
@@ -84,33 +84,6 @@ namespace SteamToys.Runtime.InventorySystem
             set => SetStoreHidden(value);
         }
 
-        public Promo Promo
-        {
-            get => GetPromo();
-            set => SetPromo(value);
-        }
-
-        public SteamDateTime DropStartTime
-        {
-            get => GetDropStartTime();
-            set => SetDropStartTime(value);
-        }
-
-        public bool GrantedManually
-        {
-            get => GetGrantedManually();
-            set => SetGrantedManually(value);
-        }
-
-        /// <summary>
-        /// Minutes between grants of a manual promo, e.g. 10080 for once a week. 0 grants it only once.
-        /// </summary>
-        public uint DropInterval
-        {
-            get => GetDropInterval();
-            set => SetDropInterval(value);
-        }
-
         #endregion
 
         #region Inspector Serialized Fields
@@ -140,16 +113,6 @@ namespace SteamToys.Runtime.InventorySystem
         private Price _price;
         [SerializeField, Tooltip("Valve price tier in VLV units (100 is about $0.99). Replaces the price when set.")]
         private HasValue<uint> _priceCategory;
-
-        [Header("Promo")]
-        [SerializeField, Tooltip("Rules that grant this item automatically.")]
-        private Promo _promo;
-        [SerializeField, Tooltip("Timestamp before which the manual promo does not grant this item.")]
-        private SteamDateTime _dropStartTime;
-        [SerializeField, Tooltip("Granted only by AddPromoItem(s) with its explicit ID, not by GrantPromoItems.")]
-        private bool _grantedManually;
-        [SerializeField, Tooltip("Minutes between grants of a manual promo, e.g. 10080 for once a week. 0 grants it only once.")]
-        private uint _dropInterval;
 
         #endregion
 
@@ -195,22 +158,6 @@ namespace SteamToys.Runtime.InventorySystem
 
         public virtual void SetStoreHidden(bool value) => _storeHidden = value;
 
-        public virtual Promo GetPromo() => _promo;
-
-        public virtual void SetPromo(Promo value) => _promo = value;
-
-        public virtual SteamDateTime GetDropStartTime() => _dropStartTime;
-
-        public virtual void SetDropStartTime(SteamDateTime value) => _dropStartTime = value;
-
-        public virtual bool GetGrantedManually() => _grantedManually;
-
-        public virtual void SetGrantedManually(bool value) => _grantedManually = value;
-
-        public virtual uint GetDropInterval() => _dropInterval;
-
-        public virtual void SetDropInterval(uint value) => _dropInterval = value;
-
         #endregion
 
         #region Validation
@@ -220,39 +167,10 @@ namespace SteamToys.Runtime.InventorySystem
             base.CollectSchemaWarnings(warnings);
 
             if (PriceCategory.hasValue && !string.IsNullOrEmpty(Price?.ToSteamString()))
-                warnings.Add("Price and Price Category cannot be used together: only the price category is exported.");
+                warnings.Add("Price and Price Category are both set: only the price category is exported.");
 
             if (Price != null && Price.RegularPrices.Count == 0 && Price.Promotions.Count > 0)
                 warnings.Add("Price has sales but no regular price, which Steam requires first.");
-
-            if (DropStartTime is { HasValue: true } && !HasManualPromo())
-                warnings.Add("Drop Start Time only applies to a manual promo; add a Manual promo rule or clear it.");
-
-            if (DropInterval > 0 && !HasManualPromo())
-                warnings.Add("Drop Interval only applies to a manual promo; add a Manual promo rule or clear it.");
-
-            if (Promo != null)
-            {
-                for (var i = 0; i < Promo.Count; i++)
-                {
-                    if (string.IsNullOrEmpty(Promo[i]?.ToSteamString()))
-                        warnings.Add($"Promo rule {i} is incomplete and is left out.");
-                }
-            }
-        }
-
-        private bool HasManualPromo()
-        {
-            if (Promo == null)
-                return false;
-
-            foreach (var rule in Promo)
-            {
-                if (rule is ManualPromoRule)
-                    return true;
-            }
-
-            return false;
         }
 
         #endregion
@@ -272,16 +190,11 @@ namespace SteamToys.Runtime.InventorySystem
             writer.WriteListIfNotEmpty("store_images", StoreImages);
             writer.WriteBoolIfTrue("store_hidden", StoreHidden);
 
-            // Steam rejects price and price_category together, so the category wins when it is set.
+            // Steam keeps both and charges the price, so only one is written: the category, which replaces the price.
             if (PriceCategory.hasValue)
                 writer.WriteIfNotEmpty("price_category", PRICE_CATEGORY_VERSION + PRICE_CATEGORY_CURRENCY + PriceCategory.value);
             else
                 writer.WritePriceIfNotEmpty("price", Price);
-
-            writer.WritePromoIfNotEmpty("promo", Promo);
-            writer.WriteSteamDateTimeIfHasValue("drop_start_time", DropStartTime);
-            writer.WriteBoolIfTrue("granted_manually", GrantedManually);
-            writer.WriteUintIfNotZero("drop_interval", DropInterval);
         }
 
         #endregion

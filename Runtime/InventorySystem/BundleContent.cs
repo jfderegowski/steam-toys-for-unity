@@ -101,7 +101,9 @@ namespace SteamToys.Runtime.InventorySystem
 
             if (content == null || content.Count == 0)
             {
-                warnings.Add($"{owner.Type} has no contents.");
+                warnings.Add(owner is Bundle
+                    ? "Bundle has no contents: Steam rejects it, and an upload stops there."
+                    : $"{owner.Type} has no contents, so it grants nothing.");
                 return;
             }
 

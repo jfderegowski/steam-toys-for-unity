@@ -11,7 +11,7 @@ namespace SteamToys.Runtime.InventorySystem
     /// with this generator's exchange instead. Use <see cref="Generator{TTags}"/> to give the created items tags.
     /// </summary>
     [CreateAssetMenu(fileName = "New Generator", menuName = "SteamToys/Inventory/Generator", order = 3)]
-    public class Generator : CraftableItemDef
+    public class Generator : GrantableItemDef
     {
         #region Properties
 

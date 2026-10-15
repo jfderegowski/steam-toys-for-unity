@@ -8,8 +8,8 @@ namespace SteamToys.Runtime.InventorySystem
 {
     /// <summary>
     /// ItemDef of type <c>playtimegenerator</c>: a <see cref="Generator"/> the application can also drop through
-    /// <c>ISteamInventory::TriggerItemDrop</c>, paced by the drop settings. Any drop setting left unset falls back
-    /// to the application level one. Its exchange works as a plain generator's: the materials buy one pick of its
+    /// <c>ISteamInventory::TriggerItemDrop</c>, paced by the drop settings and the <see cref="GrantableItemDef.DropInterval"/>.
+    /// Any drop setting left unset falls back to the application level one. Its exchange works as a plain generator's: the materials buy one pick of its
     /// content, apart from the drops. Use <see cref="PlaytimeGenerator{TTags}"/> to give the created items tags.
     /// </summary>
     [CreateAssetMenu(fileName = "New Playtime Generator", menuName = "SteamToys/Inventory/Playtime Generator", order = 4)]
@@ -22,12 +22,6 @@ namespace SteamToys.Runtime.InventorySystem
         #endregion
 
         #region Properties
-
-        public uint DropInterval
-        {
-            get => GetDropInterval();
-            set => SetDropInterval(value);
-        }
 
         public HasValue<uint> DropWindow
         {
@@ -51,9 +45,8 @@ namespace SteamToys.Runtime.InventorySystem
 
         #region Inspector Serialized Fields
 
+        // The playtime before a drop is the Drop Interval of the promo settings, as Steam has one drop_interval.
         [Header("Drop System")]
-        [SerializeField, Tooltip("Playtime in minutes required before a drop. 0 uses the application setting.")]
-        private uint _dropInterval;
         [SerializeField, Tooltip("Cool-down window in minutes. Drops are limited to the window only when set.")]
         private HasValue<uint> _dropWindow;
         [SerializeField, Tooltip("Drops allowed within the drop window (1-10). 0 uses the application setting.")]
@@ -66,10 +59,6 @@ namespace SteamToys.Runtime.InventorySystem
         #region Getters and Setters
 
         public override ItemType GetItemType() => ItemType.PlaytimeGenerator;
-
-        public virtual uint GetDropInterval() => _dropInterval;
-
-        public virtual void SetDropInterval(uint value) => _dropInterval = value;
 
         public virtual HasValue<uint> GetDropWindow() => _dropWindow;
 
@@ -86,6 +75,8 @@ namespace SteamToys.Runtime.InventorySystem
         #endregion
 
         #region Validation
+
+        protected override bool DropIntervalPacesDrops => true;
 
         public override void CollectSchemaWarnings(List<string> warnings)
         {
@@ -105,8 +96,6 @@ namespace SteamToys.Runtime.InventorySystem
         public override void WriteJsonProperties(JsonWriter writer)
         {
             base.WriteJsonProperties(writer);
-
-            writer.WriteUintIfNotZero("drop_interval", DropInterval);
 
             writer.WriteBoolIfTrue("use_drop_window", DropWindow.hasValue);
             if (DropWindow.hasValue)

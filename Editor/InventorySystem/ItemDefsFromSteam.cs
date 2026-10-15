@@ -18,11 +18,11 @@ namespace SteamToys.Editor.InventorySystem
     /// Makes and updates the definitions of <see cref="SteamItemsDB"/> from the ones published on Steam, as the Steam
     /// client of the signed-in account sees them.
     /// <para>
-    /// The client hands out only part of the schema: the presentation, the trading flags, <c>tags</c> (kept as
-    /// raw tags where the class has no typed tag for them),
-    /// <c>exchange</c> and <c>tag_generators</c>. The contents of bundles and generators, prices, promo rules, drop
-    /// settings, the purchase limit and <c>hidden</c> never reach it, so those fields of a definition are left as they
-    /// are, and a definition made here starts with them empty.
+    /// This takes the presentation, the trading flags, <c>tags</c>, <c>exchange</c> and <c>tag_generators</c>. A tag
+    /// goes to a typed tag of the class; a definition whose tag categories no class of the game holds is skipped, and
+    /// tags a class cannot hold are reported. The client never gets <c>hidden</c>, the contents of generators or
+    /// <c>container_contents_generator</c>; the other fields are left as they are, and a definition made here starts
+    /// with them empty.
     /// </para>
     /// </summary>
     internal static class ItemDefsFromSteam
@@ -44,7 +44,7 @@ namespace SteamToys.Editor.InventorySystem
         };
 
         private static readonly Type[] TaggedGenericTypes =
-            { typeof(Item<>), typeof(Bundle<>), typeof(Generator<>), typeof(PlaytimeGenerator<>) };
+            { typeof(Item<>), typeof(Generator<>), typeof(PlaytimeGenerator<>) };
 
         /// <summary>One definition as the Steam client reports it.</summary>
         internal sealed class SteamDefinition
@@ -218,8 +218,9 @@ namespace SteamToys.Editor.InventorySystem
         }
 
         /// <summary>
-        /// The class for a new definition: of its type, preferring a class of the game whose tags can hold the
-        /// categories the definition has, and the plain class of the package otherwise.
+        /// The class for a new definition: of its type, and with tags, the class of the game whose tags hold every
+        /// category the definition has, the one with the fewest others when several do. Null, with the reason in the
+        /// report, when no class holds them. A bundle has no tags to hold, as it does not pass them on.
         /// </summary>
         private static Type ChooseClass(SteamDefinition steam, Report report)
         {
@@ -239,17 +240,22 @@ namespace SteamToys.Editor.InventorySystem
 
             var categories = GetCategories(steam.Get("tags"));
 
-            if (categories.Count == 0)
+            if (categories.Count == 0 || steam.Type == ItemType.Bundle)
                 return baseType;
 
             var best = GetConcreteTypes(baseType)
-                .Select(type => (type, covered: GetTagCategories(type).Count(categories.Contains)))
-                .Where(candidate => candidate.covered > 0)
-                .OrderByDescending(candidate => candidate.covered)
+                .Select(type => (type, held: GetTagCategories(type)))
+                .Where(candidate => categories.IsSubsetOf(candidate.held))
+                .OrderBy(candidate => candidate.held.Count)
                 .ThenBy(candidate => candidate.type.Name)
+                .Select(candidate => candidate.type)
                 .FirstOrDefault();
 
-            return best.type ?? baseType;
+            if (best == null)
+                report.Problems.Add($"{steam.Type} {steam.ItemDefId} ({steam.Name}) was skipped: no class of the game has " +
+                                    $"tags for all of its categories ({string.Join(", ", categories.OrderBy(category => category))}).");
+
+            return best;
         }
 
         private static void ApplyFields(ItemDef asset, SteamDefinition steam, Report report)
@@ -260,8 +266,12 @@ namespace SteamToys.Editor.InventorySystem
             {
                 grantable.Description = steam.Get("description");
 
-                // Tags its class has no typed tag for are kept as raw tags, so none is lost.
-                grantable.Tags = steam.Get("tags");
+                var notHeld = grantable.SetTags(steam.Get("tags"));
+
+                if (notHeld.Count > 0)
+                    report.Problems.Add(asset is Bundle
+                        ? $"{asset.name}: Steam has tags on this bundle ({string.Join(";", notHeld)}), which a bundle does not pass on, so they were left out."
+                        : $"{asset.name}: its class has no tag for {string.Join(";", notHeld)}, so they were left out.");
             }
 
             if (asset is StoreItemDef store)
@@ -285,14 +295,14 @@ namespace SteamToys.Editor.InventorySystem
 
         private static void ApplyReferences(ItemDef asset, SteamDefinition steam, IReadOnlyDictionary<ulong, ItemDef> db, Report report)
         {
-            if (asset is CraftableItemDef craftable)
+            if (asset is GrantableItemDef grantable)
             {
                 var exchange = ParseExchange(steam.Get("exchange"), db, out var problem);
 
                 if (problem != null)
                     report.Problems.Add($"{asset.name}: its exchange was left as it was, since {problem}");
                 else
-                    craftable.Exchange = exchange;
+                    grantable.Exchange = exchange;
             }
 
             var tagGeneratorIds = steam.Get("tag_generators");

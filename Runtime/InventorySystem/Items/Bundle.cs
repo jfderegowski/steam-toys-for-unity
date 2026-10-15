@@ -6,8 +6,9 @@ using UnityEngine;
 namespace SteamToys.Runtime.InventorySystem
 {
     /// <summary>
-    /// ItemDef of type <c>bundle</c>: expands into all of its <see cref="Content"/> when granted or bought.
-    /// Use <see cref="Bundle{TTags}"/> to give the created items tags.
+    /// ItemDef of type <c>bundle</c>: expands into all of its <see cref="Content"/> when granted or bought. Unlike a
+    /// generator it does not pass tags on to the items it creates, so it has no tags of its own; its
+    /// <see cref="TagGenerators"/> do apply to them.
     /// </summary>
     [CreateAssetMenu(fileName = "New Bundle", menuName = "SteamToys/Inventory/Bundle", order = 2)]
     public class Bundle : StoreItemDef
@@ -120,25 +121,5 @@ namespace SteamToys.Runtime.InventorySystem
         }
 
         #endregion
-    }
-
-    public class Bundle<TTags> : Bundle where TTags : Tags, new()
-    {
-        [SerializeField, Tooltip("Tags copied to every item this bundle creates.")]
-        private TTags _tags;
-
-        public TTags TagsData
-        {
-            get
-            {
-                EnsureTagsInitialized();
-
-                return _tags;
-            }
-        }
-
-        public override Tags GetTagsObject() => TagsData;
-
-        private void EnsureTagsInitialized() => _tags ??= new TTags();
     }
 }

@@ -19,11 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Create From Steam in the items DB makes a definition for every one the Steam client has for
   the app and the DB lacks, and overwrites the fields Steam reports of the ones it has: name,
   description, display type, icons, colors, trading flags, tags, exchange recipes and tag
-  generators. The client never hands out bundle and generator contents, prices, promo rules,
-  drop settings, the purchase limit or `hidden`, so those are left as they are. A new definition
-  takes the class of the game whose tags hold its tag categories, and keeps the tags no class
-  holds as raw tags. Exchange materials with no `TagMaterial<TEnum>` class and references to
-  definitions not in the DB are listed in the console.
+  generators; the other fields are left as they are. A new definition takes the class of the
+  game whose tags hold all of its tag categories; one no class holds is skipped and listed, as
+  are tags the class of an existing definition cannot hold, and the tags of a bundle, which
+  Steam does not pass on. Exchange materials with no `TagMaterial<TEnum>` class and references
+  to definitions not in the DB are listed in the console.
 - `Inventory` reads the Steam inventory of the signed-in player. Each owned item is an
   `InventoryItem`, kept across updates while owned: its `Definition` (an `Item`), `InstanceId`,
   `Quantity`, `Flags`, its tags as Steam reported them, generated ones included, and as a typed
@@ -35,8 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it: `Refresh`, `TriggerItemDrop`, `AddPromoItem(s)`, `GrantPromoItems`, `ConsumeItem`,
   `ExchangeItems` and `GenerateItems`, each with an optional completion callback, plus
   `OnChanged`. An itemdefid the items DB lacks gets a definition made at runtime from the one
-  published on Steam (name, description, display type, icons, colors, trading flags, tags),
-  shared by its items. The flags the client reports as `1` / `0` are read as such.
+  published on Steam (name, description, display type, icons, colors, trading flags), shared by
+  its items. The flags the client reports as `1` / `0` are read as such.
 - "Window/Steam Toys/Steam Inventory" shows the inventory of the signed-in account like the
   inventory page of Steam: a grid of item tiles in their background and name colors, with the
   icon and the quantity, and the clicked item previewed beside it with its large icon, display
@@ -56,18 +56,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and Copy JSON hold an array of them, Copy JSON + AppID all of them in one import file.
 - Inventory: one asset class per ItemDef `type`, each with only the schema properties that type
   supports: `Item`, `Bundle`, `Generator`, `PlaytimeGenerator` and `TagGenerator<TEnum>`. The
-  first four work without code and have `<Type><TTags>` variants for tags; a tag generator
-  takes its category and values from the same enum a `Tag<TEnum>` uses.
+  first four work without code. `Item`, `Generator` and `PlaytimeGenerator` have `<Type><TTags>`
+  variants for tags, which generators copy to the items they create; a bundle does not, so it
+  has none. A tag generator takes its category and values from the same enum a `Tag<TEnum>` uses.
+  Exchange, promo, `granted_manually`, `drop_start_time` and `drop_interval` are on every
+  grantable definition (`GrantableItemDef`), as Steam honours them on items, bundles,
+  generators and playtime generators alike; the presentation and Item Store fields are on items
+  and bundles (`StoreItemDef`), the only types Steam prices.
 - Inventory: `price_category`, `store_tags`, `store_images`, `purchase_bundle_discount`,
   `container_contents_generator` and `tag_generators`.
 - `GeneratedTag<TEnum>`, a tag a tag generator sets on each created item: it is left out of the
   ItemDef's `tags` (`Tags.GetDefinitionTagsString`), but read from an item's tags like any
   `Tag<TEnum>`. The inspector shows it as set by a tag generator, with no value to pick.
-- Raw tags on every definition that holds tags: the pairs no typed tag of its class holds, kept
-  as text and exported after the typed ones. Setting `Tags` sends each pair to its typed tag and
-  keeps the rest raw, values its enum cannot hold included, so no tag is lost.
 - The item inspector warns about settings Steam would reject or ignore, such as a price together
-  with a price category, or a drop start time without a manual promo.
+  with a price category, or a drop start time without a manual promo, and about the ones that
+  make Steam reject a definition and stop the upload there: an empty name or a bundle without
+  contents.
+- Schema probes (`Tests/SchemaProbes`): edit mode tests that run against the live Steam inventory
+  of a partner account and record, per ItemDef type, what Steam does with granting, exchange,
+  promos, `granted_manually`, drops, tags, tag generators, `auto_stack`, `tradable`, `hidden`,
+  prices, which properties it keeps for each type, and what reaches the client of definitions that
+  break a schema rule. "SteamToys/Inventory/Schema Probes/Save
+  JSON" writes the probe definitions to upload; the results go to `Logs/SteamSchemaProbes/report.md`.
 
 ### Changed
 
@@ -92,8 +102,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   wrong.
 - A playtime generator exports `drop_limit` of 0 when the drop limit is set, which stops its
   drops, instead of leaving it out.
-- An item or bundle with a manual promo has a Drop Interval again, for promo items granted
-  repeatedly (e.g. once a week); it was only on playtime generators.
 - The achievement promo rule takes a `SteamAchievement` asset and exports `ach:<API Name>`, as
   Steam reads it. It wrote `ach:<appid>:<name>`.
 - The playtime promo rule exports `played:<appid>/<minutes>`; it wrote a `:` before the minutes.

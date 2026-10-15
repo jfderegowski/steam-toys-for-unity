@@ -2,13 +2,15 @@ using System;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 using SteamToys.Runtime.InventorySystem.Converters;
+using SteamToys.Runtime.InventorySystem.ExchangeVariable;
 using UnityEngine;
 
 namespace SteamToys.Runtime.InventorySystem
 {
     /// <summary>
     /// An ItemDef that ends up as items in a player's inventory: an item itself, or a bundle / generator that
-    /// expands into items. Everything except a tag generator.
+    /// expands into items. Everything except a tag generator. Each of them can be the target of an exchange recipe
+    /// and granted by a promo.
     /// </summary>
     public abstract class GrantableItemDef : ItemDef
     {
@@ -34,8 +36,8 @@ namespace SteamToys.Runtime.InventorySystem
         }
 
         /// <summary>
-        /// Steam <c>tags</c> string, e.g. <c>"rarity:rare;quality:unique"</c>: the typed tags of a generic subclass,
-        /// generated ones left out, followed by the <see cref="RawTags"/>.
+        /// Steam <c>tags</c> string, e.g. <c>"rarity:rare;quality:unique"</c>, of the typed tags of a generic subclass,
+        /// generated ones left out. Empty for a class without a <see cref="InventorySystem.Tags"/> type.
         /// </summary>
         public string Tags
         {
@@ -43,14 +45,38 @@ namespace SteamToys.Runtime.InventorySystem
             set => SetTags(value);
         }
 
-        /// <summary>
-        /// Tags no typed tag of this class holds, as <c>category:value</c> pairs separated by <c>;</c>. They are
-        /// exported as they are, so definitions made from Steam keep every tag without a class for it.
-        /// </summary>
-        public string RawTags
+        public Exchange Exchange
         {
-            get => GetRawTags();
-            set => SetRawTags(value);
+            get => GetExchange();
+            set => SetExchange(value);
+        }
+
+        public Promo Promo
+        {
+            get => GetPromo();
+            set => SetPromo(value);
+        }
+
+        public SteamDateTime DropStartTime
+        {
+            get => GetDropStartTime();
+            set => SetDropStartTime(value);
+        }
+
+        public bool GrantedManually
+        {
+            get => GetGrantedManually();
+            set => SetGrantedManually(value);
+        }
+
+        /// <summary>
+        /// With a manual promo, the minutes before it grants this again, e.g. 10080 for once a week; 0 grants it only
+        /// once. On a <see cref="PlaytimeGenerator"/> also the minutes of playtime before a drop.
+        /// </summary>
+        public uint DropInterval
+        {
+            get => GetDropInterval();
+            set => SetDropInterval(value);
         }
 
         #endregion
@@ -60,13 +86,26 @@ namespace SteamToys.Runtime.InventorySystem
         [SerializeField, TextArea, Tooltip("Detailed description of the item.")]
         private string _description;
 
-        [SerializeField, Tooltip("Tags no typed tag of this class holds, as category:value pairs separated by ';'. " +
-                                 "Exported as they are.")]
-        private string _rawTags;
-
         [Header("Visibility & Restrictions")]
-        [SerializeField, Tooltip("Hides the definition from clients and makes it unpurchasable.")]
+        [SerializeField, Tooltip("Hides the definition from clients and makes it unpurchasable. It can still be granted.")]
         private bool _hidden;
+
+        [Header("Exchange System")]
+        [SerializeField, Tooltip("Recipes that consume materials to create this item.")]
+        private Exchange _exchange;
+
+        [Header("Promo")]
+        [SerializeField, Tooltip("Rules that grant this item automatically.")]
+        private Promo _promo;
+        [SerializeField, Tooltip("Timestamp before which the manual promo does not grant this item.")]
+        private SteamDateTime _dropStartTime;
+        [SerializeField, Tooltip("Granted only by AddPromoItem(s) with its explicit ID. Without it GrantPromoItems " +
+                                 "grants a manual promo too.")]
+        private bool _grantedManually;
+        [SerializeField, Tooltip("With a manual promo: minutes before it grants this again, e.g. 10080 for once a week; " +
+                                 "0 grants it only once. On a playtime generator: minutes of playtime before a drop, " +
+                                 "0 uses the application setting.")]
+        private uint _dropInterval;
 
         #endregion
 
@@ -80,9 +119,25 @@ namespace SteamToys.Runtime.InventorySystem
 
         public virtual void SetHidden(bool value) => _hidden = value;
 
-        public virtual string GetRawTags() => _rawTags ?? string.Empty;
+        public virtual Exchange GetExchange() => _exchange;
 
-        public virtual void SetRawTags(string value) => _rawTags = value;
+        public virtual void SetExchange(Exchange value) => _exchange = value;
+
+        public virtual Promo GetPromo() => _promo;
+
+        public virtual void SetPromo(Promo value) => _promo = value;
+
+        public virtual SteamDateTime GetDropStartTime() => _dropStartTime;
+
+        public virtual void SetDropStartTime(SteamDateTime value) => _dropStartTime = value;
+
+        public virtual bool GetGrantedManually() => _grantedManually;
+
+        public virtual void SetGrantedManually(bool value) => _grantedManually = value;
+
+        public virtual uint GetDropInterval() => _dropInterval;
+
+        public virtual void SetDropInterval(uint value) => _dropInterval = value;
 
         /// <summary>
         /// The tags of this definition as typed values, or null without a <see cref="InventorySystem.Tags"/> type.
@@ -90,40 +145,33 @@ namespace SteamToys.Runtime.InventorySystem
         /// </summary>
         public virtual Tags GetTagsObject() => null;
 
-        public virtual string GetTags()
-        {
-            var typed = GetTagsObject()?.GetDefinitionTagsString() ?? string.Empty;
-            var raw = GetRawTags().Trim().Trim(TAG_SEPARATOR);
-
-            if (typed.Length == 0)
-                return raw;
-
-            return raw.Length == 0 ? typed : typed + TAG_SEPARATOR + raw;
-        }
+        public virtual string GetTags() => GetTagsObject()?.GetDefinitionTagsString() ?? string.Empty;
 
         /// <summary>
-        /// Takes a Steam <c>tags</c> string: each pair a typed tag holds goes to it, and the rest becomes the
-        /// <see cref="RawTags"/>, replacing them.
+        /// Takes a Steam <c>tags</c> string into the typed tags of this definition.
         /// </summary>
-        public virtual void SetTags(string value)
+        /// <returns>
+        /// The <c>category:value</c> pairs no typed tag of this class holds, or whose value its enum lacks. They are
+        /// left out.
+        /// </returns>
+        public virtual List<string> SetTags(string value)
         {
             var typed = GetTagsObject();
-            var raw = new List<string>();
+            var notHeld = new List<string>();
 
             foreach (var pair in (value ?? string.Empty).Split(TAG_SEPARATOR, StringSplitOptions.RemoveEmptyEntries))
             {
                 var trimmed = pair.Trim();
                 var separator = trimmed.IndexOf(CATEGORY_SEPARATOR);
 
-                // A value the enum cannot hold is kept raw too, so no tag is lost.
                 var held = typed != null && separator > 0 &&
                            typed.SetValue(trimmed[..separator].Trim(), trimmed[(separator + 1)..].Trim());
 
                 if (!held && trimmed.Length > 0)
-                    raw.Add(trimmed);
+                    notHeld.Add(trimmed);
             }
 
-            SetRawTags(string.Join(TAG_SEPARATOR, raw));
+            return notHeld;
         }
 
         #endregion
@@ -154,6 +202,47 @@ namespace SteamToys.Runtime.InventorySystem
 
         #endregion
 
+        #region Validation
+
+        /// <summary>Whether <see cref="DropInterval"/> means something without a manual promo.</summary>
+        protected virtual bool DropIntervalPacesDrops => false;
+
+        public override void CollectSchemaWarnings(List<string> warnings)
+        {
+            base.CollectSchemaWarnings(warnings);
+
+            if (DropStartTime is { HasValue: true } && !HasManualPromo())
+                warnings.Add("Drop Start Time only applies to a manual promo; add a Manual promo rule or clear it.");
+
+            if (DropInterval > 0 && !HasManualPromo() && !DropIntervalPacesDrops)
+                warnings.Add("Drop Interval only applies to a manual promo; add a Manual promo rule or clear it.");
+
+            if (Promo != null)
+            {
+                for (var i = 0; i < Promo.Count; i++)
+                {
+                    if (string.IsNullOrEmpty(Promo[i]?.ToSteamString()))
+                        warnings.Add($"Promo rule {i} is incomplete and is left out.");
+                }
+            }
+        }
+
+        private bool HasManualPromo()
+        {
+            if (Promo == null)
+                return false;
+
+            foreach (var rule in Promo)
+            {
+                if (rule is ManualPromoRule)
+                    return true;
+            }
+
+            return false;
+        }
+
+        #endregion
+
         #region Json
 
         public override void WriteJsonProperties(JsonWriter writer)
@@ -163,6 +252,11 @@ namespace SteamToys.Runtime.InventorySystem
             writer.WriteIfNotEmpty("description", Description);
             writer.WriteIfNotEmpty("tags", Tags);
             writer.WriteBoolIfTrue("hidden", Hidden);
+            writer.WriteExchangeIfNotEmpty("exchange", Exchange);
+            writer.WritePromoIfNotEmpty("promo", Promo);
+            writer.WriteSteamDateTimeIfHasValue("drop_start_time", DropStartTime);
+            writer.WriteBoolIfTrue("granted_manually", GrantedManually);
+            writer.WriteUintIfNotZero("drop_interval", DropInterval);
         }
 
         #endregion

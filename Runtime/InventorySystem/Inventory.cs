@@ -244,8 +244,8 @@ namespace SteamToys.Runtime.InventorySystem
             return Track(SteamInventory.TriggerItemDrop(out var handle, ToSteam(generator)), handle, false, onComplete);
         }
 
-        /// <summary>Grants the promo item or bundle <paramref name="definition"/>, if the player meets its promo rules.</summary>
-        public static bool AddPromoItem(StoreItemDef definition, Action<bool> onComplete = null)
+        /// <summary>Grants the promo definition <paramref name="definition"/>, if the player meets its promo rules.</summary>
+        public static bool AddPromoItem(GrantableItemDef definition, Action<bool> onComplete = null)
         {
             if (!definition || !EnsureInitialized())
                 return Fail(onComplete);
@@ -254,7 +254,7 @@ namespace SteamToys.Runtime.InventorySystem
         }
 
         /// <summary>Grants each promo definition of <paramref name="definitions"/> the player meets the promo rules of.</summary>
-        public static bool AddPromoItems(IEnumerable<StoreItemDef> definitions, Action<bool> onComplete = null)
+        public static bool AddPromoItems(IEnumerable<GrantableItemDef> definitions, Action<bool> onComplete = null)
         {
             var ids = definitions?.Where(definition => definition).Select(ToSteam).ToArray();
 
@@ -265,7 +265,8 @@ namespace SteamToys.Runtime.InventorySystem
         }
 
         /// <summary>
-        /// Grants every promo item the player meets the promo rules of, except the ones granted only manually.
+        /// Grants every promo item the player meets the promo rules of, manual promos included, except the ones set to be
+        /// granted only manually.
         /// </summary>
         public static bool GrantPromoItems(Action<bool> onComplete = null)
         {
@@ -290,7 +291,7 @@ namespace SteamToys.Runtime.InventorySystem
         /// Creates <paramref name="target"/> from the owned <paramref name="materials"/>, which Steam checks against the
         /// target's exchange recipes and destroys on success, e.g. opening a container with a key.
         /// </summary>
-        public static bool ExchangeItems(CraftableItemDef target, IEnumerable<(InventoryItem item, uint quantity)> materials,
+        public static bool ExchangeItems(GrantableItemDef target, IEnumerable<(InventoryItem item, uint quantity)> materials,
             Action<bool> onComplete = null)
         {
             var destroy = materials?.Where(material => material.item != null && material.quantity > 0).ToArray();
@@ -307,8 +308,8 @@ namespace SteamToys.Runtime.InventorySystem
             return Track(generated, handle, false, onComplete);
         }
 
-        /// <inheritdoc cref="ExchangeItems(CraftableItemDef, IEnumerable{ValueTuple{InventoryItem, uint}}, Action{bool})"/>
-        public static bool ExchangeItems(CraftableItemDef target, params (InventoryItem item, uint quantity)[] materials) =>
+        /// <inheritdoc cref="ExchangeItems(GrantableItemDef, IEnumerable{ValueTuple{InventoryItem, uint}}, Action{bool})"/>
+        public static bool ExchangeItems(GrantableItemDef target, params (InventoryItem item, uint quantity)[] materials) =>
             ExchangeItems(target, materials, null);
 
         /// <summary>
@@ -551,8 +552,8 @@ namespace SteamToys.Runtime.InventorySystem
             if (string.IsNullOrEmpty(displayName))
                 return false;
 
+            // Its tags are left out: a plain item has no typed tags to hold them.
             item.Name = displayName;
-            item.Tags = Read("tags");
             item.Description = Read("description");
             item.DisplayType = Read("display_type");
             item.IconUrl = new Url(Read("icon_url"));
