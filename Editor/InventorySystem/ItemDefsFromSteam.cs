@@ -297,7 +297,7 @@ namespace SteamToys.Editor.InventorySystem
 
             var tagGeneratorIds = steam.Get("tag_generators");
 
-            if (asset is not (Bundle or Generator or PlaytimeGenerator))
+            if (asset is not (Bundle or Generator))
                 return;
 
             var tagGenerators = new List<TagGenerator>();
@@ -317,9 +317,6 @@ namespace SteamToys.Editor.InventorySystem
                     break;
                 case Generator generator:
                     generator.TagGenerators = tagGenerators;
-                    break;
-                case PlaytimeGenerator playtimeGenerator:
-                    playtimeGenerator.TagGenerators = tagGenerators;
                     break;
             }
         }
@@ -439,9 +436,15 @@ namespace SteamToys.Editor.InventorySystem
             }
         }
 
+        /// <summary>
+        /// The classes a definition of <paramref name="baseType"/> can be made with, leaving out those under a more
+        /// specific base type, such as playtime generators under <see cref="Generator"/>.
+        /// </summary>
         private static IEnumerable<Type> GetConcreteTypes(Type baseType) =>
             TypeCache.GetTypesDerivedFrom(baseType).Append(baseType)
-                .Where(type => !type.IsAbstract && !type.IsGenericTypeDefinition);
+                .Where(type => !type.IsAbstract && !type.IsGenericTypeDefinition)
+                .Where(type => !BaseTypes.Values.Any(other =>
+                    other != baseType && baseType.IsAssignableFrom(other) && other.IsAssignableFrom(type)));
 
         private static IEnumerable<Type> GetTagMaterialTypes() =>
             TypeCache.GetTypesDerivedFrom<Material>()

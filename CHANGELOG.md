@@ -79,6 +79,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   class of the asset, so it is no longer a field.
 - The bundle list is `BundleContent` (with `BundleContentConverter`), since `Bundle` is now
   the ItemDef of type `bundle`. In generators its entries are weights.
+- `PlaytimeGenerator` derives from `Generator`, as Steam treats a playtime generator as a form of
+  generator: it takes its content and tag generators from it, and gains an exchange, which Steam
+  accepts and runs like a plain generator's, one pick of the content for the materials, apart
+  from the drops. Code matching `Generator` now matches playtime generators too, and Create
+  From Steam still makes a definition of type `generator` with a generator class only.
 - `TagMaterial<TTags>` is `TagMaterial<TEnum>`, holding the one tag it matches. It took the
   first pair of a whole tags class, which comes from a `HashSet` in no set order, so a class with
   two tags could put either into the recipe. Subclass it per enum to offer it in recipes.

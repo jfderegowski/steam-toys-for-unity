@@ -7,12 +7,13 @@ using UnityEngine;
 namespace SteamToys.Runtime.InventorySystem
 {
     /// <summary>
-    /// ItemDef of type <c>playtimegenerator</c>: a generator granted only through
+    /// ItemDef of type <c>playtimegenerator</c>: a <see cref="Generator"/> the application can also drop through
     /// <c>ISteamInventory::TriggerItemDrop</c>, paced by the drop settings. Any drop setting left unset falls back
-    /// to the application level one. Use <see cref="PlaytimeGenerator{TTags}"/> to give the created items tags.
+    /// to the application level one. Its exchange works as a plain generator's: the materials buy one pick of its
+    /// content, apart from the drops. Use <see cref="PlaytimeGenerator{TTags}"/> to give the created items tags.
     /// </summary>
     [CreateAssetMenu(fileName = "New Playtime Generator", menuName = "SteamToys/Inventory/Playtime Generator", order = 4)]
-    public class PlaytimeGenerator : GrantableItemDef
+    public class PlaytimeGenerator : Generator
     {
         #region Constants
 
@@ -21,21 +22,6 @@ namespace SteamToys.Runtime.InventorySystem
         #endregion
 
         #region Properties
-
-        /// <summary>
-        /// Definitions this generator can drop, with their relative odds.
-        /// </summary>
-        public BundleContent Content
-        {
-            get => GetContents();
-            set => SetContents(value);
-        }
-
-        public List<TagGenerator> TagGenerators
-        {
-            get => GetTagGenerators();
-            set => SetTagGenerators(value);
-        }
 
         public uint DropInterval
         {
@@ -65,12 +51,6 @@ namespace SteamToys.Runtime.InventorySystem
 
         #region Inspector Serialized Fields
 
-        [Header("Generator")]
-        [SerializeField, Tooltip("Definitions this generator can drop, with their relative odds.")]
-        private BundleContent _bundle = new();
-        [SerializeField, Tooltip("Tag generators applied to every item this generator creates.")]
-        private List<TagGenerator> _tagGenerators = new();
-
         [Header("Drop System")]
         [SerializeField, Tooltip("Playtime in minutes required before a drop. 0 uses the application setting.")]
         private uint _dropInterval;
@@ -86,14 +66,6 @@ namespace SteamToys.Runtime.InventorySystem
         #region Getters and Setters
 
         public override ItemType GetItemType() => ItemType.PlaytimeGenerator;
-
-        public virtual BundleContent GetContents() => _bundle;
-
-        public virtual void SetContents(BundleContent value) => _bundle = value;
-
-        public virtual List<TagGenerator> GetTagGenerators() => _tagGenerators;
-
-        public virtual void SetTagGenerators(List<TagGenerator> value) => _tagGenerators = value;
 
         public virtual uint GetDropInterval() => _dropInterval;
 
@@ -119,8 +91,6 @@ namespace SteamToys.Runtime.InventorySystem
         {
             base.CollectSchemaWarnings(warnings);
 
-            BundleContent.CollectSchemaWarnings(this, Content, warnings);
-
             if (DropMaxPerWindow > MAX_DROPS_PER_WINDOW)
                 warnings.Add($"Drop Max Per Window cannot exceed {MAX_DROPS_PER_WINDOW}.");
 
@@ -135,9 +105,6 @@ namespace SteamToys.Runtime.InventorySystem
         public override void WriteJsonProperties(JsonWriter writer)
         {
             base.WriteJsonProperties(writer);
-
-            writer.WriteBundleIfNotEmpty("bundle", Content);
-            writer.WriteItemDefIdsIfNotEmpty("tag_generators", TagGenerators);
 
             writer.WriteUintIfNotZero("drop_interval", DropInterval);
 

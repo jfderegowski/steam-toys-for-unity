@@ -165,7 +165,6 @@ namespace SteamToys.Runtime.InventorySystem
             {
                 Bundle bundle => bundle.Content,
                 Generator generator => generator.Content,
-                PlaytimeGenerator generator => generator.Content,
                 _ => null
             };
 
@@ -182,7 +181,6 @@ namespace SteamToys.Runtime.InventorySystem
             {
                 Bundle bundle => bundle.TagGenerators,
                 Generator generator => generator.TagGenerators,
-                PlaytimeGenerator generator => generator.TagGenerators,
                 _ => null
             };
 
