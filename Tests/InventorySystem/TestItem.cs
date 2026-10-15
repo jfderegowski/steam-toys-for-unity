@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using SteamToys.Runtime.InventorySystem;
 using UnityEngine;
@@ -23,13 +23,13 @@ namespace SteamToys.Tests.Tests
         BattleScarred,
     }
     
+    /// <summary>Tags of the rarity and wear categories only.</summary>
     [Serializable]
     public class TestItemTags : Tags
     {
-        public Tag<Rarity> Rarity = new();
-        public GeneratedTag<Wear> Wear = new();
+        private static readonly HashSet<string> Categories = new() { GetCategory<Rarity>(), GetCategory<Wear>() };
 
-        public override HashSet<Tag> GetTags() => new() { Rarity, Wear };
+        public override bool CanHold(string category) => Categories.Contains(category);
     }
 
     [CreateAssetMenu(fileName = "TestItem", menuName = "SteamToys/Inventory/Test/TestItem", order = 1)]

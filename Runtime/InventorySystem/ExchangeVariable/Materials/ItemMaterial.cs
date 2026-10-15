@@ -6,7 +6,7 @@ namespace SteamToys.Runtime.InventorySystem.ExchangeVariable.Materials
     [Serializable]
     public class ItemMaterial : Material
     {
-        public Item Item
+        public ItemDef Item
         {
             get => GetItem();
             set => SetItem(value);
@@ -18,12 +18,12 @@ namespace SteamToys.Runtime.InventorySystem.ExchangeVariable.Materials
             set => SetQuantity(value);
         }
         
-        [SerializeField] private Item _item;
+        [SerializeField] private ItemDef _item;
         [SerializeField] private uint _quantity;
 
-        public Item GetItem() => _item;
+        public ItemDef GetItem() => _item;
 
-        public void SetItem(Item value) => _item = value;
+        public void SetItem(ItemDef value) => _item = value;
         
         public uint GetQuantity() => _quantity;
         

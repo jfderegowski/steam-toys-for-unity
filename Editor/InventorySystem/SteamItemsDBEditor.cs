@@ -196,9 +196,9 @@ namespace SteamToys.Editor.InventorySystem
             if (!EditorUtility.DisplayDialog("Create From Steam",
                     $"Steam has {definitions.Count} item definitions for app {SteamItemsDB.AppId}.\n\n" +
                     $"Create {definitions.Count - existing} in {SteamItemsDB.AssetsFolder} and update {existing} the DB has?\n\n" +
-                    "Only the fields the Steam client reports are written: names, descriptions, icons, colors, trading " +
-                    "flags, tags, exchange recipes and tag generators. Bundle and generator contents, prices, promo rules " +
-                    "and drop settings are left as they are.",
+                    "Only these fields are written, each for the types that use it: names, descriptions, icons, colors, " +
+                    "trading flags, tags, exchange recipes and tag generators. The others, such as contents, prices, " +
+                    "promo rules and drop settings, are left as they are.",
                     "Create And Update", "Cancel"))
                 return;
 

@@ -93,11 +93,11 @@ namespace SteamToys.Runtime.InventorySystem
         #region Items
 
         /// <summary>Every owned item whose tags are a <typeparamref name="TTags"/>.</summary>
-        public static IEnumerable<InventoryItem> GetItems<TTags>() where TTags : Tags =>
+        public static IEnumerable<InventoryItem> GetItems<TTags>() where TTags : TagsDef =>
             _items.Where(item => item.TagsObject is TTags);
 
         /// <summary>Every owned item whose definition is a <typeparamref name="TItem"/>, e.g. a class of the game.</summary>
-        public static IEnumerable<InventoryItem> GetItemsOfType<TItem>() where TItem : Item =>
+        public static IEnumerable<InventoryItem> GetItemsOfType<TItem>() where TItem : ItemDef =>
             _items.Where(item => item.Definition is TItem);
 
         /// <summary>Every owned item matching <paramref name="predicate"/>.</summary>
@@ -138,7 +138,7 @@ namespace SteamToys.Runtime.InventorySystem
             _items.FirstOrDefault(item => item.InstanceId == instanceId);
 
         /// <summary>The first owned item whose definition is a <typeparamref name="TItem"/>, or null.</summary>
-        public static InventoryItem GetOfType<TItem>() where TItem : Item => GetItemsOfType<TItem>().FirstOrDefault();
+        public static InventoryItem GetOfType<TItem>() where TItem : ItemDef => GetItemsOfType<TItem>().FirstOrDefault();
 
         public static bool TryGet(Func<InventoryItem, bool> predicate, out InventoryItem item) => (item = Get(predicate)) != null;
 
@@ -149,7 +149,7 @@ namespace SteamToys.Runtime.InventorySystem
         /// <summary>
         /// The first owned item of the definition and its tags, as long as they are a <typeparamref name="TTags"/>.
         /// </summary>
-        public static bool TryGet<TTags>(ItemDef definition, out InventoryItem item, out TTags tags) where TTags : Tags
+        public static bool TryGet<TTags>(ItemDef definition, out InventoryItem item, out TTags tags) where TTags : TagsDef
         {
             item = GetAll(definition).FirstOrDefault(owned => owned.TagsObject is TTags);
             tags = item?.GetTags<TTags>();
@@ -160,7 +160,7 @@ namespace SteamToys.Runtime.InventorySystem
         /// <summary>
         /// The first owned item with the itemdefid and its tags, as long as they are a <typeparamref name="TTags"/>.
         /// </summary>
-        public static bool TryGet<TTags>(ulong itemDefId, out InventoryItem item, out TTags tags) where TTags : Tags
+        public static bool TryGet<TTags>(ulong itemDefId, out InventoryItem item, out TTags tags) where TTags : TagsDef
         {
             item = GetAll(itemDefId).FirstOrDefault(owned => owned.TagsObject is TTags);
             tags = item?.GetTags<TTags>();
@@ -176,7 +176,7 @@ namespace SteamToys.Runtime.InventorySystem
         public static bool TryGetByInstanceId(SteamItemInstanceID_t instanceId, out InventoryItem item) =>
             (item = GetByInstanceId(instanceId)) != null;
 
-        public static bool TryGetOfType<TItem>(out InventoryItem item) where TItem : Item => (item = GetOfType<TItem>()) != null;
+        public static bool TryGetOfType<TItem>(out InventoryItem item) where TItem : ItemDef => (item = GetOfType<TItem>()) != null;
 
         public static bool Contains(Func<InventoryItem, bool> predicate) => _items.Any(predicate);
 
@@ -193,7 +193,7 @@ namespace SteamToys.Runtime.InventorySystem
 
         public static bool ContainsInstance(SteamItemInstanceID_t instanceId) => GetByInstanceId(instanceId) != null;
 
-        public static bool ContainsOfType<TItem>() where TItem : Item => GetOfType<TItem>() != null;
+        public static bool ContainsOfType<TItem>() where TItem : ItemDef => GetOfType<TItem>() != null;
 
         /// <summary>How many of the definition the player owns, summed over every stack.</summary>
         public static uint Count(ItemDef definition) => Sum(GetAll(definition));
@@ -236,16 +236,22 @@ namespace SteamToys.Runtime.InventorySystem
         /// Turns the playtime credit of the player into a drop of <paramref name="generator"/>, if they have earned
         /// one. Call it at a natural pause, such as between rounds; an empty answer means no drop is due.
         /// </summary>
-        public static bool TriggerItemDrop(PlaytimeGenerator generator, Action<bool> onComplete = null)
+        public static bool TriggerItemDrop(ItemDef generator, Action<bool> onComplete = null)
         {
             if (!generator || !EnsureInitialized())
                 return Fail(onComplete);
+
+            if (generator.Type != ItemType.PlaytimeGenerator)
+            {
+                Debug.LogWarning($"{generator.name} is a {generator.Type}; only a playtime generator drops.");
+                return Fail(onComplete);
+            }
 
             return Track(SteamInventory.TriggerItemDrop(out var handle, ToSteam(generator)), handle, false, onComplete);
         }
 
         /// <summary>Grants the promo definition <paramref name="definition"/>, if the player meets its promo rules.</summary>
-        public static bool AddPromoItem(GrantableItemDef definition, Action<bool> onComplete = null)
+        public static bool AddPromoItem(ItemDef definition, Action<bool> onComplete = null)
         {
             if (!definition || !EnsureInitialized())
                 return Fail(onComplete);
@@ -254,7 +260,7 @@ namespace SteamToys.Runtime.InventorySystem
         }
 
         /// <summary>Grants each promo definition of <paramref name="definitions"/> the player meets the promo rules of.</summary>
-        public static bool AddPromoItems(IEnumerable<GrantableItemDef> definitions, Action<bool> onComplete = null)
+        public static bool AddPromoItems(IEnumerable<ItemDef> definitions, Action<bool> onComplete = null)
         {
             var ids = definitions?.Where(definition => definition).Select(ToSteam).ToArray();
 
@@ -291,7 +297,7 @@ namespace SteamToys.Runtime.InventorySystem
         /// Creates <paramref name="target"/> from the owned <paramref name="materials"/>, which Steam checks against the
         /// target's exchange recipes and destroys on success, e.g. opening a container with a key.
         /// </summary>
-        public static bool ExchangeItems(GrantableItemDef target, IEnumerable<(InventoryItem item, uint quantity)> materials,
+        public static bool ExchangeItems(ItemDef target, IEnumerable<(InventoryItem item, uint quantity)> materials,
             Action<bool> onComplete = null)
         {
             var destroy = materials?.Where(material => material.item != null && material.quantity > 0).ToArray();
@@ -308,8 +314,8 @@ namespace SteamToys.Runtime.InventorySystem
             return Track(generated, handle, false, onComplete);
         }
 
-        /// <inheritdoc cref="ExchangeItems(GrantableItemDef, IEnumerable{ValueTuple{InventoryItem, uint}}, Action{bool})"/>
-        public static bool ExchangeItems(GrantableItemDef target, params (InventoryItem item, uint quantity)[] materials) =>
+        /// <inheritdoc cref="ExchangeItems(ItemDef, IEnumerable{ValueTuple{InventoryItem, uint}}, Action{bool})"/>
+        public static bool ExchangeItems(ItemDef target, params (InventoryItem item, uint quantity)[] materials) =>
             ExchangeItems(target, materials, null);
 
         /// <summary>
@@ -482,9 +488,9 @@ namespace SteamToys.Runtime.InventorySystem
         {
             var item = new InventoryItem(detail.m_itemId);
             var itemDefId = (ulong)(int)detail.m_iDefinition;
-            var definition = SteamItemsDB.Instance ? SteamItemsDB.Instance.Get(itemDefId) as Item : null;
+            var definition = SteamItemsDB.Instance ? SteamItemsDB.Instance.Get(itemDefId) : null;
 
-            if (definition)
+            if (definition && definition.Type == ItemType.Item)
                 item.SetDefinition(definition, true);
             else
                 item.SetDefinition(GetPublishedDefinition(itemDefId), false);
@@ -552,8 +558,8 @@ namespace SteamToys.Runtime.InventorySystem
             if (string.IsNullOrEmpty(displayName))
                 return false;
 
-            // Its tags are left out: a plain item has no typed tags to hold them.
             item.Name = displayName;
+            item.Tags = Read("tags");
             item.Description = Read("description");
             item.DisplayType = Read("display_type");
             item.IconUrl = new Url(Read("icon_url"));

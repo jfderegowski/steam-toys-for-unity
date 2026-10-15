@@ -16,8 +16,6 @@ MonoBehaviour:
   _name: Sword
   _description: Good wor fight!
   _hidden: 0
-  _exchange:
-    _recipes: []
   _displayType: 
   _iconUrl:
     _value: 
@@ -29,9 +27,9 @@ MonoBehaviour:
   _backgroundColor:
     serializedVersion: 2
     rgba: 4281019321
-  _storeTags: []
-  _storeImages: []
-  _storeHidden: 0
+  _bundle:
+    _elements: []
+  _tagGenerators: []
   _price:
     _regularPrices:
     - _currency: 0
@@ -42,6 +40,19 @@ MonoBehaviour:
   _priceCategory:
     value: 0
     hasValue: 0
+  _useBundlePrice: 0
+  _purchaseBundleDiscount: 0
+  _storeTags: []
+  _storeImages: []
+  _storeHidden: 0
+  _tradable: 0
+  _marketable: 0
+  _gameOnly: 0
+  _autoStack: 0
+  _purchaseLimit: 0
+  _containerContentsGenerator: {fileID: 0}
+  _exchange:
+    _recipes: []
   _promo:
     _rules:
     - rid: 2392246124287623230
@@ -50,17 +61,18 @@ MonoBehaviour:
     _hasValue: 0
   _grantedManually: 0
   _dropInterval: 0
-  _tradable: 0
-  _marketable: 0
-  _gameOnly: 0
-  _autoStack: 0
-  _purchaseLimit: 0
-  _containerContentsGenerator: {fileID: 0}
+  _dropWindow:
+    value: 0
+    hasValue: 0
+  _dropMaxPerWindow: 0
+  _dropLimit:
+    value: 0
+    hasValue: 0
   _tags:
-    Rarity:
-      Value: 3
-    Wear:
-      Value: 0
+    _tags:
+      entries:
+      - key: rarity
+        value: legendary
   references:
     version: 2
     RefIds:

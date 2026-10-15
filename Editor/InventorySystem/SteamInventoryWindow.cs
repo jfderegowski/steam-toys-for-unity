@@ -235,7 +235,9 @@ namespace SteamToys.Editor.InventorySystem
         private IEnumerable<Entry> GetShownItems()
         {
             var entries = _previewDefinitions.value
-                ? SteamItemsDB.Instance.GetAll<StoreItemDef>().Where(definition => definition).Select(definition => new Entry(definition, null))
+                // Only the types players see: items and bundles.
+                ? SteamItemsDB.Instance.GetAll<ItemDef>().Where(definition => definition && definition.SchemaSupportsIconUrl())
+                    .Select(definition => new Entry(definition, null))
                 : Inventory.Items.Where(item => item.Definition).Select(item => new Entry(item.Definition, item));
 
             var search = _search.value?.Trim() ?? string.Empty;
@@ -564,14 +566,14 @@ namespace SteamToys.Editor.InventorySystem
             });
         }
 
-        private static string DescribeTrading(StoreItemDef item, InventoryItem owned)
+        private static string DescribeTrading(ItemDef item, InventoryItem owned)
         {
-            if (item is not Item definition)
-                return item is Bundle ? "Bundle: expands into its contents when granted." : string.Empty;
+            if (item.Type != ItemType.Item)
+                return item.Type == ItemType.Bundle ? "Bundle: expands into its contents when granted." : string.Empty;
 
-            var tradable = definition.Tradable && !(owned?.IsNoTrade ?? false);
+            var tradable = item.Tradable && !(owned?.IsNoTrade ?? false);
 
-            return (tradable ? "Tradable" : "Not tradable") + ", " + (definition.Marketable ? "Marketable" : "Not marketable");
+            return (tradable ? "Tradable" : "Not tradable") + ", " + (item.Marketable ? "Marketable" : "Not marketable");
         }
 
         private static Label CreateText(string text, Color color, float marginTop, float marginBottom) => new(text)
@@ -659,7 +661,7 @@ namespace SteamToys.Editor.InventorySystem
         }
 
         /// <summary>The first letter of the name, for an item without an icon.</summary>
-        private static Label CreatePlaceholder(StoreItemDef item, int fontSize)
+        private static Label CreatePlaceholder(ItemDef item, int fontSize)
         {
             var name = GetDisplayName(item);
 
@@ -685,10 +687,10 @@ namespace SteamToys.Editor.InventorySystem
             string.Join(" ", token.Trim().Split('_', StringSplitOptions.RemoveEmptyEntries)
                 .Select(word => char.ToUpperInvariant(word[0]) + word[1..]));
 
-        private static string GetDisplayName(StoreItemDef item) =>
+        private static string GetDisplayName(ItemDef item) =>
             string.IsNullOrEmpty(item.Name) ? item.name : item.Name;
 
-        private static Color GetBorderColor(StoreItemDef item) =>
+        private static Color GetBorderColor(ItemDef item) =>
             HasColor(item.NameColor) ? Opaque(item.NameColor) : TileBorder;
 
         // A color left at its default (transparent black) counts as unset, as in the exported JSON.
@@ -713,10 +715,10 @@ namespace SteamToys.Editor.InventorySystem
         /// <summary>One tile: a definition, and the owned item when the grid shows the inventory.</summary>
         private sealed class Entry
         {
-            public readonly StoreItemDef Definition;
+            public readonly ItemDef Definition;
             public readonly InventoryItem Owned;
 
-            public Entry(StoreItemDef definition, InventoryItem owned)
+            public Entry(ItemDef definition, InventoryItem owned)
             {
                 Definition = definition;
                 Owned = owned;

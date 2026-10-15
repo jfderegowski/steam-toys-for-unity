@@ -1,102 +1,54 @@
-using System.Collections.Generic;
-using Newtonsoft.Json;
-using SteamToys.Runtime.InventorySystem.Converters;
 using UnityEngine;
 
 namespace SteamToys.Runtime.InventorySystem
 {
     /// <summary>
-    /// ItemDef of type <c>generator</c>: grants one entry of its <see cref="Content"/>, picked by weight.
-    /// Never sits in an inventory itself and should not be sold; sell a container <see cref="Item"/> and open it
-    /// with this generator's exchange instead. Use <see cref="Generator{TTags}"/> to give the created items tags.
+    /// ItemDef of type <c>generator</c> with tags of <typeparamref name="TTags"/>, copied to the item it creates: grants
+    /// one entry of its <see cref="ItemDef.Content"/>, picked by weight. Never sits in an inventory itself and Steam
+    /// does not price it; sell a container <see cref="Item"/> and open it with this generator's exchange instead.
     /// </summary>
-    [CreateAssetMenu(fileName = "New Generator", menuName = "SteamToys/Inventory/Generator", order = 3)]
-    public class Generator : GrantableItemDef
+    public class Generator<TTags> : ItemDef<TTags> where TTags : TagsDef, new()
     {
-        #region Properties
-
-        /// <summary>
-        /// Definitions this generator can grant, with their relative odds.
-        /// </summary>
-        public BundleContent Content
-        {
-            get => GetContents();
-            set => SetContents(value);
-        }
-
-        public List<TagGenerator> TagGenerators
-        {
-            get => GetTagGenerators();
-            set => SetTagGenerators(value);
-        }
-
-        #endregion
-
-        #region Inspector Serialized Fields
-
-        [Header("Generator")]
-        [SerializeField, Tooltip("Definitions this generator can grant, with their relative odds.")]
-        private BundleContent _bundle = new();
-        [SerializeField, Tooltip("Tag generators applied to every item this generator creates.")]
-        private List<TagGenerator> _tagGenerators = new();
-
-        #endregion
-
-        #region Getters and Setters
-
         public override ItemType GetItemType() => ItemType.Generator;
 
-        public virtual BundleContent GetContents() => _bundle;
+        public override bool SchemaSupportsDescription() => true;
+        public override bool SchemaSupportsHidden() => true;
+        public override bool SchemaSupportsExchange() => true;
+        public override bool SchemaSupportsPromo() => true;
+        public override bool SchemaSupportsDropStartTime() => true;
+        public override bool SchemaSupportsGrantedManually() => true;
+        public override bool SchemaSupportsDropInterval() => true;
 
-        public virtual void SetContents(BundleContent value) => _bundle = value;
+        public override bool SchemaSupportsContent() => true;
+        public override bool SchemaSupportsTagGenerators() => true;
 
-        public virtual List<TagGenerator> GetTagGenerators() => _tagGenerators;
+        public override bool SchemaSupportsDisplayType() => false;
+        public override bool SchemaSupportsIconUrl() => false;
+        public override bool SchemaSupportsIconUrlLarge() => false;
+        public override bool SchemaSupportsNameColor() => false;
+        public override bool SchemaSupportsBackgroundColor() => false;
+        public override bool SchemaSupportsStoreTags() => false;
+        public override bool SchemaSupportsStoreImages() => false;
+        public override bool SchemaSupportsStoreHidden() => false;
+        public override bool SchemaSupportsPrice() => false;
+        public override bool SchemaSupportsPriceCategory() => false;
 
-        public virtual void SetTagGenerators(List<TagGenerator> value) => _tagGenerators = value;
+        public override bool SchemaSupportsUseBundlePrice() => false;
+        public override bool SchemaSupportsPurchaseBundleDiscount() => false;
 
-        #endregion
+        public override bool SchemaSupportsTradable() => false;
+        public override bool SchemaSupportsMarketable() => false;
+        public override bool SchemaSupportsGameOnly() => false;
+        public override bool SchemaSupportsAutoStack() => false;
+        public override bool SchemaSupportsPurchaseLimit() => false;
+        public override bool SchemaSupportsContainerContentsGenerator() => false;
 
-        #region Validation
-
-        public override void CollectSchemaWarnings(List<string> warnings)
-        {
-            base.CollectSchemaWarnings(warnings);
-
-            BundleContent.CollectSchemaWarnings(this, Content, warnings);
-        }
-
-        #endregion
-
-        #region Json
-
-        public override void WriteJsonProperties(JsonWriter writer)
-        {
-            base.WriteJsonProperties(writer);
-
-            writer.WriteBundleIfNotEmpty("bundle", Content);
-            writer.WriteItemDefIdsIfNotEmpty("tag_generators", TagGenerators);
-        }
-
-        #endregion
+        public override bool SchemaSupportsDropWindow() => false;
+        public override bool SchemaSupportsDropMaxPerWindow() => false;
+        public override bool SchemaSupportsDropLimit() => false;
     }
 
-    public class Generator<TTags> : Generator where TTags : Tags, new()
-    {
-        [SerializeField, Tooltip("Tags copied to every item this generator creates.")]
-        private TTags _tags;
-
-        public TTags TagsData
-        {
-            get
-            {
-                EnsureTagsInitialized();
-
-                return _tags;
-            }
-        }
-
-        public override Tags GetTagsObject() => TagsData;
-
-        private void EnsureTagsInitialized() => _tags ??= new TTags();
-    }
+    /// <summary>ItemDef of type <c>generator</c> with tags of any category.</summary>
+    [CreateAssetMenu(fileName = "New Generator", menuName = "SteamToys/Inventory/Generator", order = 3)]
+    public class Generator : Generator<Tags> { }
 }

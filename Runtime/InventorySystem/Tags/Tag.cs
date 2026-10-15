@@ -15,12 +15,6 @@ namespace SteamToys.Runtime.InventorySystem
 
         public abstract Type GetValueType();
 
-        /// <summary>
-        /// True when a tag generator sets the value on each created item instead of the ItemDef, so the tag is
-        /// left out of the definition's <c>tags</c> but still read from an item's tags.
-        /// </summary>
-        public virtual bool IsGenerated => false;
-
         public override string ToString() => $"{GetName()}:{GetValue()}";
 
         public override bool Equals(object obj)

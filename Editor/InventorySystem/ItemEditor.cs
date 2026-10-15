@@ -8,6 +8,6 @@ namespace SteamToys.Editor.InventorySystem
     public class ItemEditor : UnityEditor.Editor
     {
         public override VisualElement CreateInspectorGUI() => 
-            new ItemEditorElement(serializedObject, this);
+            new ItemEditorElement(serializedObject);
     }
 }

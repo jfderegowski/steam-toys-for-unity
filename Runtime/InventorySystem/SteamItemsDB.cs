@@ -161,12 +161,7 @@ namespace SteamToys.Runtime.InventorySystem
         /// <summary>Every definition <paramref name="item"/> names in its JSON.</summary>
         private static IEnumerable<ItemDef> GetReferences(ItemDef item)
         {
-            var contents = item switch
-            {
-                Bundle bundle => bundle.Content,
-                Generator generator => generator.Content,
-                _ => null
-            };
+            var contents = item.SchemaSupportsContent() ? item.Content : null;
 
             if (contents != null)
             {
@@ -177,12 +172,7 @@ namespace SteamToys.Runtime.InventorySystem
                 }
             }
 
-            var tagGenerators = item switch
-            {
-                Bundle bundle => bundle.TagGenerators,
-                Generator generator => generator.TagGenerators,
-                _ => null
-            };
+            var tagGenerators = item.SchemaSupportsTagGenerators() ? item.TagGenerators : null;
 
             if (tagGenerators != null)
             {
@@ -190,10 +180,10 @@ namespace SteamToys.Runtime.InventorySystem
                     yield return tagGenerator;
             }
 
-            if (item is Item { ContainerContentsGenerator: { } containerContentsGenerator })
-                yield return containerContentsGenerator;
+            if (item.SchemaSupportsContainerContentsGenerator() && item.ContainerContentsGenerator)
+                yield return item.ContainerContentsGenerator;
 
-            if (item is GrantableItemDef { Exchange: { } exchange })
+            if (item.SchemaSupportsExchange() && item.Exchange is { } exchange)
             {
                 foreach (var recipe in exchange)
                 {

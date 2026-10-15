@@ -10,9 +10,9 @@ using UnityEngine.UIElements;
 namespace SteamToys.Editor.InventorySystem
 {
     /// <summary>
-    /// Draws the whole <see cref="ItemDef"/> inspector: the default inspector, the schema warnings and the
-    /// JSON preview / copy buttons. With several definitions selected, the warnings, the JSON and Generate Item
-    /// cover all of them.
+    /// Draws the whole <see cref="ItemDef"/> inspector: the fields of the schema properties its type uses, the schema
+    /// warnings and the JSON preview / copy buttons. With several definitions selected, a field shows when all of them
+    /// use it, and the warnings, the JSON and Generate Item cover all of them.
     /// </summary>
     public class ItemEditorElement : VisualElement
     {
@@ -39,18 +39,18 @@ namespace SteamToys.Editor.InventorySystem
 
         #endregion
 
-        public ItemEditorElement(SerializedObject serializedObject, UnityEditor.Editor editor)
+        public ItemEditorElement(SerializedObject serializedObject)
         {
             _items = serializedObject.targetObjects.OfType<ItemDef>().ToArray();
 
-            InspectorElement.FillDefaultInspector(this, serializedObject, editor);
+            AddFields(serializedObject);
 
             _warnings = new VisualElement();
             Add(_warnings);
             RefreshWarnings();
 
-            // A tag generator cannot be granted, so the button is there only when every selected definition can be.
-            if (_items.Length > 0 && _items.All(item => item is GrantableItemDef))
+            // A tag generator creates no items, so the button is there only when every selected definition does.
+            if (_items.Length > 0 && _items.All(item => item.Type != ItemType.TagGenerator))
                 Add(CreateGrantSection(_items.Cast<object>().ToArray()));
 
             _preview = new JsonPreviewElement(PREVIEW_TITLE);
@@ -68,6 +68,40 @@ namespace SteamToys.Editor.InventorySystem
                 _preview.SetJson(GetItemJson());
             });
         }
+
+        #region Fields
+
+        private const string SCRIPT_PROPERTY = "m_Script";
+
+        /// <summary>The default inspector, without the fields of schema properties the type does not use.</summary>
+        private void AddFields(SerializedObject serializedObject)
+        {
+            var property = serializedObject.GetIterator();
+
+            if (!property.NextVisible(true))
+                return;
+
+            do
+            {
+                if (!IsShown(property.name))
+                    continue;
+
+                var field = new PropertyField(property.Copy());
+
+                if (property.propertyPath == SCRIPT_PROPERTY)
+                    field.SetEnabled(false);
+
+                Add(field);
+            }
+            while (property.NextVisible(false));
+
+            this.Bind(serializedObject);
+        }
+
+        private bool IsShown(string fieldName) =>
+            _items.All(item => !item || item.SchemaSupportsField(fieldName));
+
+        #endregion
 
         #region Warnings
 
@@ -96,7 +130,7 @@ namespace SteamToys.Editor.InventorySystem
 
         private static VisualElement CreateGrantSection(object[] items)
         {
-            var generate = new InspectorButtonElement(items, nameof(GrantableItemDef.GenerateItem))
+            var generate = new InspectorButtonElement(items, nameof(ItemDef.GenerateItem))
             {
                 tooltip = "Grants each selected definition to the signed-in account, for testing. Works only for " +
                           "accounts of the Steamworks partner group, and only once the definition is published on Steam."

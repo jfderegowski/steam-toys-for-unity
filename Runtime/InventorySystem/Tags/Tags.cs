@@ -1,135 +1,19 @@
 ﻿using System;
-using System.Collections.Generic;
+using fefek5.Toys.Runtime;
+using UnityEngine;
 
 namespace SteamToys.Runtime.InventorySystem
 {
+    /// <summary>
+    /// Tags of any category, edited as a dictionary of category and value. The tags of every definition that has
+    /// them unless its class names another <see cref="TagsDef"/>.
+    /// </summary>
     [Serializable]
-    public abstract class Tags
+    public class Tags : TagsDef
     {
-        public string TagsValue
-        {
-            get => GetTagsString();
-            set => SetTagsString(value);
-        }
+        [SerializeField, Tooltip("Steam tags by category, e.g. rarity: legendary. Each value is sent as category:value.")]
+        private SerializableDictionary<string, string> _tags = new();
 
-        public string this[string tagName]
-        {
-            get => GetValue(tagName);
-            set => SetValue(tagName, value);
-        }
-
-        public abstract HashSet<Tag> GetTags();
-
-        public TEnum GetValue<TEnum>() where TEnum : Enum
-        {
-            var tags = GetTags();
-
-            foreach (var tag in tags)
-            {
-                if (tag != null && tag.GetValueType() == typeof(TEnum))
-                    return ((Tag<TEnum>)tag).Value;
-            }
-
-            return default;
-        }
-
-        public string GetValue(string tagName)
-        {
-            var tags = GetTags();
-
-            foreach (var tag in tags)
-            {
-                if (tag != null && tag.GetName() == tagName)
-                    return tag.GetValue();
-            }
-
-            return null;
-        }
-
-        public bool SetValue<TEnum>(TEnum value) where TEnum : Enum
-        {
-            var tags = GetTags();
-
-            foreach (var tag in tags)
-            {
-                if (tag == null || tag.GetValueType() != typeof(TEnum))
-                    continue;
-
-                ((Tag<TEnum>)tag).Value = value;
-                return true;
-            }
-
-            return false;
-        }
-
-        public bool SetValue(string tagName, string value)
-        {
-            var tags = GetTags();
-
-            foreach (var tag in tags)
-            {
-                if (tag != null && tag.GetName() == tagName)
-                    return tag.SetValue(value);
-            }
-
-            return false;
-        }
-
-        /// <summary>
-        /// Every tag, generated ones included: the tags an item instance carries.
-        /// </summary>
-        public string GetTagsString() => BuildTagsString(true);
-
-        /// <summary>
-        /// The tags written to an ItemDef's <c>tags</c>: generated tags are left to their tag generator.
-        /// </summary>
-        public string GetDefinitionTagsString() => BuildTagsString(false);
-
-        private string BuildTagsString(bool includeGenerated)
-        {
-            var tags = GetTags();
-
-            var result = string.Empty;
-
-            foreach (var tag in tags)
-            {
-                if (tag == null || (!includeGenerated && tag.IsGenerated))
-                    continue;
-
-                result += tag + ";";
-            }
-
-            return result.TrimEnd(';');
-        }
-
-        public void SetTagsString(string tags)
-        {
-            if (string.IsNullOrEmpty(tags))
-                return;
-
-            var pairs = tags.Split(';');
-
-            foreach (var pair in pairs)
-            {
-                var separatorIndex = pair.IndexOf(':');
-                if (separatorIndex < 0)
-                    continue;
-
-                var tagName = pair.Substring(0, separatorIndex).Trim();
-                var tagValue = pair.Substring(separatorIndex + 1).Trim();
-
-                SetValue(tagName, tagValue);
-            }
-        }
-
-        public override string ToString() => GetTagsString();
-
-        public static explicit operator string(Tags tags)
-        {
-            if (tags is null)
-                throw new ArgumentNullException(nameof(tags));
-
-            return tags.GetTagsString();
-        }
+        public override SerializableDictionary<string, string> GetTags() => _tags ??= new SerializableDictionary<string, string>();
     }
 }

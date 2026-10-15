@@ -38,6 +38,48 @@ namespace SteamToys.Runtime.InventorySystem
 
         #endregion
 
+        #region Support
+
+        public override bool SchemaSupportsTags() => false;
+
+        public override bool SchemaSupportsDescription() => false;
+        public override bool SchemaSupportsHidden() => false;
+        public override bool SchemaSupportsExchange() => false;
+        public override bool SchemaSupportsPromo() => false;
+        public override bool SchemaSupportsDropStartTime() => false;
+        public override bool SchemaSupportsGrantedManually() => false;
+        public override bool SchemaSupportsDropInterval() => false;
+
+        public override bool SchemaSupportsContent() => false;
+        public override bool SchemaSupportsTagGenerators() => false;
+
+        public override bool SchemaSupportsDisplayType() => false;
+        public override bool SchemaSupportsIconUrl() => false;
+        public override bool SchemaSupportsIconUrlLarge() => false;
+        public override bool SchemaSupportsNameColor() => false;
+        public override bool SchemaSupportsBackgroundColor() => false;
+        public override bool SchemaSupportsStoreTags() => false;
+        public override bool SchemaSupportsStoreImages() => false;
+        public override bool SchemaSupportsStoreHidden() => false;
+        public override bool SchemaSupportsPrice() => false;
+        public override bool SchemaSupportsPriceCategory() => false;
+
+        public override bool SchemaSupportsUseBundlePrice() => false;
+        public override bool SchemaSupportsPurchaseBundleDiscount() => false;
+
+        public override bool SchemaSupportsTradable() => false;
+        public override bool SchemaSupportsMarketable() => false;
+        public override bool SchemaSupportsGameOnly() => false;
+        public override bool SchemaSupportsAutoStack() => false;
+        public override bool SchemaSupportsPurchaseLimit() => false;
+        public override bool SchemaSupportsContainerContentsGenerator() => false;
+
+        public override bool SchemaSupportsDropWindow() => false;
+        public override bool SchemaSupportsDropMaxPerWindow() => false;
+        public override bool SchemaSupportsDropLimit() => false;
+
+        #endregion
+
         #region Json
 
         public override void WriteJsonProperties(JsonWriter writer)

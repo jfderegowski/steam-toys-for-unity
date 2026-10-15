@@ -18,9 +18,9 @@ namespace SteamToys.Editor.InventorySystem
     /// Makes and updates the definitions of <see cref="SteamItemsDB"/> from the ones published on Steam, as the Steam
     /// client of the signed-in account sees them.
     /// <para>
-    /// This takes the presentation, the trading flags, <c>tags</c>, <c>exchange</c> and <c>tag_generators</c>. A tag
-    /// goes to a typed tag of the class; a definition whose tag categories no class of the game holds is skipped, and
-    /// tags a class cannot hold are reported. The client never gets <c>hidden</c>, the contents of generators or
+    /// This takes the presentation, the trading flags, <c>tags</c>, <c>exchange</c> and <c>tag_generators</c>, each
+    /// only for the types that use it. Tags a class cannot hold are reported, as are the tags of a bundle, which Steam
+    /// does not pass on. The client never gets <c>hidden</c>, the contents of generators or
     /// <c>container_contents_generator</c>; the other fields are left as they are, and a definition made here starts
     /// with them empty.
     /// </para>
@@ -34,17 +34,16 @@ namespace SteamToys.Editor.InventorySystem
         private const char TAG_SEPARATOR = ':';
         private const uint PROPERTY_BUFFER_SIZE = 8192;
 
-        private static readonly Dictionary<ItemType, Type> BaseTypes = new()
+        // The class of the package for each type, taken when no class of the game is a better fit.
+        private static readonly Dictionary<ItemType, Type> PackageTypes = new()
         {
             { ItemType.Item, typeof(Item) },
             { ItemType.Bundle, typeof(Bundle) },
             { ItemType.Generator, typeof(Generator) },
-            { ItemType.PlaytimeGenerator, typeof(PlaytimeGenerator) },
-            { ItemType.TagGenerator, typeof(TagGenerator) }
+            { ItemType.PlaytimeGenerator, typeof(PlaytimeGenerator) }
         };
 
-        private static readonly Type[] TaggedGenericTypes =
-            { typeof(Item<>), typeof(Generator<>), typeof(PlaytimeGenerator<>) };
+        private static readonly Dictionary<Type, ItemType> ItemTypesOfClasses = new();
 
         /// <summary>One definition as the Steam client reports it.</summary>
         internal sealed class SteamDefinition
@@ -218,18 +217,17 @@ namespace SteamToys.Editor.InventorySystem
         }
 
         /// <summary>
-        /// The class for a new definition: of its type, and with tags, the class of the game whose tags hold every
-        /// category the definition has, the one with the fewest others when several do. Null, with the reason in the
-        /// report, when no class holds them. A bundle has no tags to hold, as it does not pass them on.
+        /// The class for a new definition: of its type, and with tags, the class of the game whose tags type takes
+        /// only a fixed set of categories that holds every one the definition has, by name when several do; the class
+        /// of the package otherwise, whose <see cref="Tags"/> takes any category. A tag generator needs the class of
+        /// its category; without one it is null, with the reason in the report.
         /// </summary>
         private static Type ChooseClass(SteamDefinition steam, Report report)
         {
-            var baseType = BaseTypes[steam.Type];
-
             if (steam.Type == ItemType.TagGenerator)
             {
                 var category = steam.Get("tag_generator_name");
-                var tagGenerator = GetConcreteTypes(baseType).FirstOrDefault(type => GetTagGeneratorName(type) == category);
+                var tagGenerator = GetConcreteTypes(ItemType.TagGenerator).FirstOrDefault(type => GetTagGeneratorName(type) == category);
 
                 if (tagGenerator == null)
                     report.Problems.Add($"Tag generator {steam.ItemDefId} ({steam.Name}) was skipped: no TagGenerator<TEnum> class " +
@@ -238,76 +236,72 @@ namespace SteamToys.Editor.InventorySystem
                 return tagGenerator;
             }
 
+            var packageType = PackageTypes[steam.Type];
             var categories = GetCategories(steam.Get("tags"));
 
-            if (categories.Count == 0 || steam.Type == ItemType.Bundle)
-                return baseType;
+            if (categories.Count == 0 || CreateTags(packageType) == null)
+                return packageType;
 
-            var best = GetConcreteTypes(baseType)
-                .Select(type => (type, held: GetTagCategories(type)))
-                .Where(candidate => categories.IsSubsetOf(candidate.held))
-                .OrderBy(candidate => candidate.held.Count)
-                .ThenBy(candidate => candidate.type.Name)
+            return GetConcreteTypes(steam.Type)
+                .Select(type => (type, tags: CreateTags(type)))
+                .Where(candidate => candidate.tags != null && HoldsFixedCategories(candidate.tags) && categories.All(candidate.tags.CanHold))
+                .OrderBy(candidate => candidate.type.Name)
                 .Select(candidate => candidate.type)
-                .FirstOrDefault();
-
-            if (best == null)
-                report.Problems.Add($"{steam.Type} {steam.ItemDefId} ({steam.Name}) was skipped: no class of the game has " +
-                                    $"tags for all of its categories ({string.Join(", ", categories.OrderBy(category => category))}).");
-
-            return best;
+                .FirstOrDefault() ?? packageType;
         }
+
+        // A tags type that turns away a category nobody would name takes a fixed set, so holding the categories of a
+        // definition says something about its class.
+        private static bool HoldsFixedCategories(TagsDef tags) => !tags.CanHold("\u0001");
 
         private static void ApplyFields(ItemDef asset, SteamDefinition steam, Report report)
         {
             asset.Name = steam.Name;
 
-            if (asset is GrantableItemDef grantable)
+            if (asset.SchemaSupportsDescription())
+                asset.Description = steam.Get("description");
+
+            var notHeld = asset.SetTags(steam.Get("tags"));
+
+            if (notHeld.Count > 0)
+                report.Problems.Add(asset.SchemaSupportsTags()
+                    ? $"{asset.name}: its tags type does not take {string.Join(";", notHeld)}, so they were left out."
+                    : $"{asset.name}: Steam has tags on this {asset.Type} ({string.Join(";", notHeld)}), which it does not pass on, so they were left out.");
+
+            if (asset.SchemaSupportsDisplayType())
             {
-                grantable.Description = steam.Get("description");
-
-                var notHeld = grantable.SetTags(steam.Get("tags"));
-
-                if (notHeld.Count > 0)
-                    report.Problems.Add(asset is Bundle
-                        ? $"{asset.name}: Steam has tags on this bundle ({string.Join(";", notHeld)}), which a bundle does not pass on, so they were left out."
-                        : $"{asset.name}: its class has no tag for {string.Join(";", notHeld)}, so they were left out.");
+                asset.DisplayType = steam.Get("display_type");
+                asset.IconUrl = new Url(steam.Get("icon_url"));
+                asset.IconUrlLarge = new Url(steam.Get("icon_url_large"));
+                asset.NameColor = ParseColor(steam.Get("name_color"));
+                asset.BackgroundColor = ParseColor(steam.Get("background_color"));
+                asset.StoreHidden = ParseBool(steam.Get("store_hidden"));
             }
 
-            if (asset is StoreItemDef store)
+            if (asset.SchemaSupportsTradable())
             {
-                store.DisplayType = steam.Get("display_type");
-                store.IconUrl = new Url(steam.Get("icon_url"));
-                store.IconUrlLarge = new Url(steam.Get("icon_url_large"));
-                store.NameColor = ParseColor(steam.Get("name_color"));
-                store.BackgroundColor = ParseColor(steam.Get("background_color"));
-                store.StoreHidden = ParseBool(steam.Get("store_hidden"));
-            }
-
-            if (asset is Item item)
-            {
-                item.Tradable = ParseBool(steam.Get("tradable"));
-                item.Marketable = ParseBool(steam.Get("marketable"));
-                item.GameOnly = ParseBool(steam.Get("game_only"));
-                item.AutoStack = ParseBool(steam.Get("auto_stack"));
+                asset.Tradable = ParseBool(steam.Get("tradable"));
+                asset.Marketable = ParseBool(steam.Get("marketable"));
+                asset.GameOnly = ParseBool(steam.Get("game_only"));
+                asset.AutoStack = ParseBool(steam.Get("auto_stack"));
             }
         }
 
         private static void ApplyReferences(ItemDef asset, SteamDefinition steam, IReadOnlyDictionary<ulong, ItemDef> db, Report report)
         {
-            if (asset is GrantableItemDef grantable)
+            if (asset.SchemaSupportsExchange())
             {
                 var exchange = ParseExchange(steam.Get("exchange"), db, out var problem);
 
                 if (problem != null)
                     report.Problems.Add($"{asset.name}: its exchange was left as it was, since {problem}");
                 else
-                    grantable.Exchange = exchange;
+                    asset.Exchange = exchange;
             }
 
             var tagGeneratorIds = steam.Get("tag_generators");
 
-            if (asset is not (Bundle or Generator))
+            if (!asset.SchemaSupportsTagGenerators())
                 return;
 
             var tagGenerators = new List<TagGenerator>();
@@ -320,15 +314,7 @@ namespace SteamToys.Editor.InventorySystem
                     report.Problems.Add($"{asset.name}: tag generator {id.Trim()} is not in the DB, so it was left out.");
             }
 
-            switch (asset)
-            {
-                case Bundle bundle:
-                    bundle.TagGenerators = tagGenerators;
-                    break;
-                case Generator generator:
-                    generator.TagGenerators = tagGenerators;
-                    break;
-            }
+            asset.TagGenerators = tagGenerators;
         }
 
         #endregion
@@ -447,14 +433,41 @@ namespace SteamToys.Editor.InventorySystem
         }
 
         /// <summary>
-        /// The classes a definition of <paramref name="baseType"/> can be made with, leaving out those under a more
-        /// specific base type, such as playtime generators under <see cref="Generator"/>.
+        /// The classes a definition of <paramref name="type"/> can be made with: every concrete ItemDef class of that
+        /// type, those of the package included.
         /// </summary>
-        private static IEnumerable<Type> GetConcreteTypes(Type baseType) =>
-            TypeCache.GetTypesDerivedFrom(baseType).Append(baseType)
-                .Where(type => !type.IsAbstract && !type.IsGenericTypeDefinition)
-                .Where(type => !BaseTypes.Values.Any(other =>
-                    other != baseType && baseType.IsAssignableFrom(other) && other.IsAssignableFrom(type)));
+        private static IEnumerable<Type> GetConcreteTypes(ItemType type) =>
+            TypeCache.GetTypesDerivedFrom<ItemDef>()
+                .Where(candidate => !candidate.IsAbstract && !candidate.IsGenericTypeDefinition && GetItemType(candidate) == type);
+
+        private static ItemType GetItemType(Type type)
+        {
+            if (ItemTypesOfClasses.TryGetValue(type, out var itemType))
+                return itemType;
+
+            var instance = (ItemDef)ScriptableObject.CreateInstance(type);
+
+            try
+            {
+                return ItemTypesOfClasses[type] = instance.Type;
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(instance);
+            }
+        }
+
+        /// <summary>A new tags object of the type <paramref name="type"/> keeps its tags in, or null without tags.</summary>
+        private static TagsDef CreateTags(Type type)
+        {
+            for (var current = type; current != null; current = current.BaseType)
+            {
+                if (current.IsGenericType && current.GetGenericTypeDefinition() == typeof(ItemDef<>))
+                    return (TagsDef)Activator.CreateInstance(current.GetGenericArguments()[0]);
+            }
+
+            return null;
+        }
 
         private static IEnumerable<Type> GetTagMaterialTypes() =>
             TypeCache.GetTypesDerivedFrom<Material>()
@@ -469,22 +482,6 @@ namespace SteamToys.Editor.InventorySystem
             }
 
             return false;
-        }
-
-        /// <summary>The tag categories a definition class can hold, from the tags type it is built on.</summary>
-        private static HashSet<string> GetTagCategories(Type type)
-        {
-            for (var current = type; current != null; current = current.BaseType)
-            {
-                if (!current.IsGenericType || !TaggedGenericTypes.Contains(current.GetGenericTypeDefinition()))
-                    continue;
-
-                var tags = (Tags)Activator.CreateInstance(current.GetGenericArguments()[0]);
-
-                return new HashSet<string>(tags.GetTags().Where(tag => tag != null).Select(tag => tag.GetName()));
-            }
-
-            return new HashSet<string>();
         }
 
         private static HashSet<string> GetCategories(string tags) =>

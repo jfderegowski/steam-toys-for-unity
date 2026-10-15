@@ -11,7 +11,7 @@ namespace SteamToys.Runtime.InventorySystem
     [JsonConverter(typeof(BundleElementConverter))]
     public class BundleElement
     {
-        public GrantableItemDef Item
+        public ItemDef Item
         {
             get => GetItem();
             set => SetItem(value);
@@ -34,12 +34,12 @@ namespace SteamToys.Runtime.InventorySystem
         
         public bool HasItem => Item;
 
-        [SerializeField] private GrantableItemDef _item;
+        [SerializeField] private ItemDef _item;
         [SerializeField] private uint _quantity;
 
-        public GrantableItemDef GetItem() => _item;
+        public ItemDef GetItem() => _item;
         
-        public void SetItem(GrantableItemDef value) => _item = value;
+        public void SetItem(ItemDef value) => _item = value;
 
         public ulong GetItemDefId() => Item.ItemDefId;
 
@@ -97,11 +97,11 @@ namespace SteamToys.Runtime.InventorySystem
         /// </summary>
         public static void CollectSchemaWarnings(ItemDef owner, BundleContent content, List<string> warnings)
         {
-            var amountName = owner is Bundle ? "quantity" : "weight";
+            var amountName = owner.Type == ItemType.Bundle ? "quantity" : "weight";
 
             if (content == null || content.Count == 0)
             {
-                warnings.Add(owner is Bundle
+                warnings.Add(owner.Type == ItemType.Bundle
                     ? "Bundle has no contents: Steam rejects it, and an upload stops there."
                     : $"{owner.Type} has no contents, so it grants nothing.");
                 return;

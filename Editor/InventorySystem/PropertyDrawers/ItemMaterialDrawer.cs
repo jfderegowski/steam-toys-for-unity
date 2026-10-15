@@ -45,7 +45,7 @@ namespace SteamToys.Editor.InventorySystem.PropertyDrawers
 
             var itemField = new ObjectField {
                 bindingPath = itemProp.propertyPath,
-                objectType = typeof(Item),
+                objectType = typeof(ItemDef),
                 allowSceneObjects = false,
                 label = "",
                 style = {
@@ -117,7 +117,7 @@ namespace SteamToys.Editor.InventorySystem.PropertyDrawers
         // keeping the SerializedProperty alive for scheduled callbacks.
         private static string BuildInfoText(Object itemObj)
         {
-            var item = itemObj as Item;
+            var item = itemObj as ItemDef;
             if (item == null)
                 return NO_ITEM_LABEL;
 

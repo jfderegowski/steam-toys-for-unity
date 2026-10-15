@@ -31,10 +31,11 @@ namespace SteamToys.Runtime.InventorySystem
         #region Properties
 
         /// <summary>
-        /// The definition of this item: the asset of <see cref="SteamItemsDB"/>, or, for an itemdefid the DB lacks,
-        /// one made at runtime from the definition published on Steam (<see cref="IsDefinitionInDB"/> tells them apart).
+        /// The definition of this item, of type <c>item</c>: the asset of <see cref="SteamItemsDB"/>, or, for an
+        /// itemdefid the DB lacks, one made at runtime from the definition published on Steam
+        /// (<see cref="IsDefinitionInDB"/> tells them apart).
         /// </summary>
-        public Item Definition { get; private set; }
+        public ItemDef Definition { get; private set; }
 
         /// <summary>Whether <see cref="Definition"/> is an asset of <see cref="SteamItemsDB"/>.</summary>
         public bool IsDefinitionInDB { get; private set; }
@@ -62,10 +63,11 @@ namespace SteamToys.Runtime.InventorySystem
         public string Tags => GetInstanceProperty(TAGS_PROPERTY);
 
         /// <summary>
-        /// The tags of this item as typed values, generated ones included, or null when its definition has no
-        /// <see cref="InventorySystem.Tags"/> type. Its own object, so changing it leaves the definition alone.
+        /// The tags of this item, generated ones included: the ones of its definition overridden by the ones Steam
+        /// reported for it, in the <see cref="TagsDef"/> type of the definition. Null when the definition has no tags.
+        /// Its own object, so changing it leaves the definition alone.
         /// </summary>
-        public Tags TagsObject { get; private set; }
+        public TagsDef TagsObject { get; private set; }
 
         /// <summary>
         /// Every property Steam reports for this item, by name, e.g. <c>itemid</c>, <c>acquired</c>, <c>Origin</c>,
@@ -97,15 +99,14 @@ namespace SteamToys.Runtime.InventorySystem
 
         #region Tags
 
-        /// <summary>The typed tags of this item, as long as they are a <typeparamref name="TTags"/>.</summary>
-        public TTags GetTags<TTags>() where TTags : Tags => TagsObject as TTags;
+        /// <summary>The tags of this item, as long as they are a <typeparamref name="TTags"/>.</summary>
+        public TTags GetTags<TTags>() where TTags : TagsDef => TagsObject as TTags;
 
-        public bool TryGetTags<TTags>(out TTags tags) where TTags : Tags => (tags = GetTags<TTags>()) != null;
+        public bool TryGetTags<TTags>(out TTags tags) where TTags : TagsDef => (tags = GetTags<TTags>()) != null;
 
         /// <summary>
         /// Whether this item carries the tag value <paramref name="value"/>: one of the tags Steam reported for it, or
-        /// a tag its definition sets. A generated tag counts only when Steam reported it, since the definition holds no
-        /// real value for it.
+        /// a tag its definition sets.
         /// </summary>
         public bool HasTag<TEnum>(TEnum value) where TEnum : Enum
         {
@@ -117,16 +118,7 @@ namespace SteamToys.Runtime.InventorySystem
                     return true;
             }
 
-            if (!Definition)
-                return false;
-
-            foreach (var tag in Definition.Tags.Split(TAG_SEPARATOR))
-            {
-                if (tag.Trim() == pair)
-                    return true;
-            }
-
-            return false;
+            return TagsObject != null && TagsObject.Has(value);
         }
 
         #endregion
@@ -156,7 +148,7 @@ namespace SteamToys.Runtime.InventorySystem
         #region Inventory
 
         /// <summary>Points this item at its definition, and builds its typed tags from it.</summary>
-        internal void SetDefinition(Item definition, bool isInDB)
+        internal void SetDefinition(ItemDef definition, bool isInDB)
         {
             Definition = definition;
             IsDefinitionInDB = isInDB;
@@ -179,7 +171,7 @@ namespace SteamToys.Runtime.InventorySystem
         /// </summary>
         private void UpdateTagsObject()
         {
-            var definitionTags = Definition ? Definition.GetTagsObject() : null;
+            var definitionTags = Definition ? Definition.GetTagsDef() : null;
 
             if (definitionTags == null)
             {
@@ -187,10 +179,10 @@ namespace SteamToys.Runtime.InventorySystem
                 return;
             }
 
-            var tags = (Tags)Activator.CreateInstance(definitionTags.GetType());
+            var tags = (TagsDef)Activator.CreateInstance(definitionTags.GetType());
 
-            tags.SetTagsString(definitionTags.GetTagsString());
-            tags.SetTagsString(Tags);
+            tags.SetSteamString(definitionTags.ToSteamString());
+            tags.MergeSteamString(Tags);
 
             TagsObject = tags;
         }

@@ -49,7 +49,7 @@ namespace SteamToys.Editor.InventorySystem.PropertyDrawers
             // Item object field – just the reference picker, no label
             var itemField = new ObjectField {
                 bindingPath = itemProp.propertyPath,
-                objectType = typeof(GrantableItemDef),
+                objectType = typeof(ItemDef),
                 allowSceneObjects = false,
                 label = "",
                 style = {
@@ -73,7 +73,7 @@ namespace SteamToys.Editor.InventorySystem.PropertyDrawers
             };
 
             // The same contents list holds quantities in a bundle and weights in a generator.
-            var isBundle = property.serializedObject.targetObject is Bundle;
+            var isBundle = property.serializedObject.targetObject is ItemDef { Type: ItemType.Bundle };
 
             var xLabel = new Label(isBundle ? QUANTITY_LABEL : WEIGHT_LABEL) {
                 tooltip = isBundle ? QUANTITY_TOOLTIP : WEIGHT_TOOLTIP,
