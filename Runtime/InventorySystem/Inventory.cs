@@ -93,7 +93,7 @@ namespace SteamToys.Runtime.InventorySystem
         #region Items
 
         /// <summary>Every owned item whose tags are a <typeparamref name="TTags"/>.</summary>
-        public static IEnumerable<InventoryItem> GetItems<TTags>() where TTags : TagsDef =>
+        public static IEnumerable<InventoryItem> GetItems<TTags>() where TTags : Tags =>
             _items.Where(item => item.TagsObject is TTags);
 
         /// <summary>Every owned item whose definition is a <typeparamref name="TItem"/>, e.g. a class of the game.</summary>
@@ -149,7 +149,7 @@ namespace SteamToys.Runtime.InventorySystem
         /// <summary>
         /// The first owned item of the definition and its tags, as long as they are a <typeparamref name="TTags"/>.
         /// </summary>
-        public static bool TryGet<TTags>(ItemDef definition, out InventoryItem item, out TTags tags) where TTags : TagsDef
+        public static bool TryGet<TTags>(ItemDef definition, out InventoryItem item, out TTags tags) where TTags : Tags
         {
             item = GetAll(definition).FirstOrDefault(owned => owned.TagsObject is TTags);
             tags = item?.GetTags<TTags>();
@@ -160,7 +160,7 @@ namespace SteamToys.Runtime.InventorySystem
         /// <summary>
         /// The first owned item with the itemdefid and its tags, as long as they are a <typeparamref name="TTags"/>.
         /// </summary>
-        public static bool TryGet<TTags>(ulong itemDefId, out InventoryItem item, out TTags tags) where TTags : TagsDef
+        public static bool TryGet<TTags>(ulong itemDefId, out InventoryItem item, out TTags tags) where TTags : Tags
         {
             item = GetAll(itemDefId).FirstOrDefault(owned => owned.TagsObject is TTags);
             tags = item?.GetTags<TTags>();
@@ -559,7 +559,7 @@ namespace SteamToys.Runtime.InventorySystem
                 return false;
 
             item.Name = displayName;
-            item.Tags = Read("tags");
+            item.Tags = new DefaultTags(Read("tags"));
             item.Description = Read("description");
             item.DisplayType = Read("display_type");
             item.IconUrl = new Url(Read("icon_url"));

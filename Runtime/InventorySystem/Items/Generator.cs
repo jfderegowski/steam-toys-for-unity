@@ -7,7 +7,7 @@ namespace SteamToys.Runtime.InventorySystem
     /// one entry of its <see cref="ItemDef.Content"/>, picked by weight. Never sits in an inventory itself and Steam
     /// does not price it; sell a container <see cref="Item"/> and open it with this generator's exchange instead.
     /// </summary>
-    public class Generator<TTags> : ItemDef<TTags> where TTags : TagsDef, new()
+    public class Generator<TTags> : ItemDef<TTags> where TTags : Tags, new()
     {
         public override ItemType GetItemType() => ItemType.Generator;
 
@@ -50,5 +50,5 @@ namespace SteamToys.Runtime.InventorySystem
 
     /// <summary>ItemDef of type <c>generator</c> with tags of any category.</summary>
     [CreateAssetMenu(fileName = "New Generator", menuName = "SteamToys/Inventory/Generator", order = 3)]
-    public class Generator : Generator<Tags> { }
+    public class Generator : Generator<DefaultTags> { }
 }

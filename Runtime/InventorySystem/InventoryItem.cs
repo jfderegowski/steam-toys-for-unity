@@ -64,10 +64,10 @@ namespace SteamToys.Runtime.InventorySystem
 
         /// <summary>
         /// The tags of this item, generated ones included: the ones of its definition overridden by the ones Steam
-        /// reported for it, in the <see cref="TagsDef"/> type of the definition. Null when the definition has no tags.
+        /// reported for it, in the <see cref="InventorySystem.Tags"/> type of the definition. Null when the definition has no tags.
         /// Its own object, so changing it leaves the definition alone.
         /// </summary>
-        public TagsDef TagsObject { get; private set; }
+        public Tags TagsObject { get; private set; }
 
         /// <summary>
         /// Every property Steam reports for this item, by name, e.g. <c>itemid</c>, <c>acquired</c>, <c>Origin</c>,
@@ -100,9 +100,9 @@ namespace SteamToys.Runtime.InventorySystem
         #region Tags
 
         /// <summary>The tags of this item, as long as they are a <typeparamref name="TTags"/>.</summary>
-        public TTags GetTags<TTags>() where TTags : TagsDef => TagsObject as TTags;
+        public TTags GetTags<TTags>() where TTags : Tags => TagsObject as TTags;
 
-        public bool TryGetTags<TTags>(out TTags tags) where TTags : TagsDef => (tags = GetTags<TTags>()) != null;
+        public bool TryGetTags<TTags>(out TTags tags) where TTags : Tags => (tags = GetTags<TTags>()) != null;
 
         /// <summary>
         /// Whether this item carries the tag value <paramref name="value"/>: one of the tags Steam reported for it, or
@@ -171,7 +171,7 @@ namespace SteamToys.Runtime.InventorySystem
         /// </summary>
         private void UpdateTagsObject()
         {
-            var definitionTags = Definition ? Definition.GetTagsDef() : null;
+            var definitionTags = Definition && Definition.SchemaSupportsTags() ? Definition.GetTags() : null;
 
             if (definitionTags == null)
             {
@@ -179,7 +179,7 @@ namespace SteamToys.Runtime.InventorySystem
                 return;
             }
 
-            var tags = (TagsDef)Activator.CreateInstance(definitionTags.GetType());
+            var tags = (Tags)Activator.CreateInstance(definitionTags.GetType());
 
             tags.SetSteamString(definitionTags.ToSteamString());
             tags.MergeSteamString(Tags);

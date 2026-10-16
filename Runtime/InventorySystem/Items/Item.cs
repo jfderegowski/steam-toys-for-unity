@@ -5,9 +5,9 @@ namespace SteamToys.Runtime.InventorySystem
     /// <summary>
     /// ItemDef of type <c>item</c> with tags of <typeparamref name="TTags"/>: the only type that actually sits in a
     /// player's inventory. Each one a player owns is an <see cref="InventoryItem"/> of <see cref="Inventory"/>, which
-    /// refers to this definition. Subclass it with a <see cref="TagsDef"/> of the game, or use <see cref="Item"/>.
+    /// refers to this definition. Subclass it with a <see cref="Tags"/> of the game, or use <see cref="Item"/>.
     /// </summary>
-    public class Item<TTags> : ItemDef<TTags> where TTags : TagsDef, new()
+    public class Item<TTags> : ItemDef<TTags> where TTags : Tags, new()
     {
         public override ItemType GetItemType() => ItemType.Item;
 
@@ -50,5 +50,5 @@ namespace SteamToys.Runtime.InventorySystem
 
     /// <summary>ItemDef of type <c>item</c> with tags of any category.</summary>
     [CreateAssetMenu(fileName = "New Item", menuName = "SteamToys/Inventory/Item", order = 1)]
-    public class Item : Item<Tags> { }
+    public class Item : Item<DefaultTags> { }
 }

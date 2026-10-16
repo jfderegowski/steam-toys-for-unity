@@ -12,6 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ec11f0d338ee4e45b4cab552a96f1c04, type: 3}
   m_Name: 1 Test Item
   m_EditorClassIdentifier: fefek5.SteamToys.Tests::SteamToys.Tests.Tests.TestItem
+  _tagss:
+    rid: 2392246277940707386
   _itemDefId: 0
   _name: Sword
   _description: Good wor fight!
@@ -80,3 +82,8 @@ MonoBehaviour:
       type: {class: AchievementPromoRule, ns: SteamToys.Runtime.InventorySystem, asm: fefek5.SteamToys.Runtime}
       data:
         _achievement: {fileID: 0}
+    - rid: 2392246277940707386
+      type: {class: Tags, ns: SteamToys.Runtime.InventorySystem, asm: fefek5.SteamToys.Runtime}
+      data:
+        _tags:
+          entries: []

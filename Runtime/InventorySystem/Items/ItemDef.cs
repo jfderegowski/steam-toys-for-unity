@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using fefek5.Toys.Runtime;
 using fefek5.Toys.Runtime.Attributes;
 using Newtonsoft.Json;
@@ -57,16 +58,6 @@ namespace SteamToys.Runtime.InventorySystem
         {
             get => GetHidden();
             set => SetHidden(value);
-        }
-
-        /// <summary>
-        /// Steam <c>tags</c> string of this definition, e.g. <c>"rarity:rare;quality:unique"</c>. Empty for a type
-        /// without tags.
-        /// </summary>
-        public string Tags
-        {
-            get => GetTagsDef()?.ToSteamString() ?? string.Empty;
-            set => SetTags(value);
         }
 
         public string DisplayType
@@ -254,6 +245,12 @@ namespace SteamToys.Runtime.InventorySystem
             set => SetDropLimit(value);
         }
 
+        public Tags Tags
+        {
+            get => GetTags();
+            set => SetTags(value);
+        }
+
         #endregion
 
         #region Inspector Serialized Fields
@@ -342,6 +339,10 @@ namespace SteamToys.Runtime.InventorySystem
         private uint _dropMaxPerWindow;
         [SerializeField, Tooltip("Maximum number of drops per user. Enforced only when set; 0 stops all future drops.")]
         private HasValue<uint> _dropLimit;
+
+        [Header("Tags")]
+        [SerializeReference, Tooltip("Tags of this definition; a generator copies them to the item it creates.")]
+        private Tags _tags;
 
         #endregion
 
@@ -476,10 +477,25 @@ namespace SteamToys.Runtime.InventorySystem
         public virtual HasValue<uint> GetDropLimit() => _dropLimit;
 
         public virtual void SetDropLimit(HasValue<uint> value) => _dropLimit = value;
+        
+        public virtual Tags GetTags() => _tags;
+
+        public virtual void SetTags(Tags value) => _tags = value;
+
+        public virtual string GetTag(string tagName)
+        {
+            if (!Tags.ContainsKey(tagName))
+                throw new Exception($"The tag {tagName} does not exist.");
+            
+            return Tags[tagName];
+        }
+        
+        public virtual void SetTag(string tagName, string tagValue) => 
+            Tags[tagName] = tagValue;
 
         #endregion
 
-        #region Support
+        #region Schema
 
         // Which schema properties Steam acts on for this definition: Steam keeps any property on any type, so each type
         // says what it was measured to act on (Tests/SchemaProbes), not what it accepts. Only the supported properties
@@ -566,6 +582,7 @@ namespace SteamToys.Runtime.InventorySystem
             nameof(_dropWindow) => SchemaSupportsDropWindow(),
             nameof(_dropMaxPerWindow) => SchemaSupportsDropMaxPerWindow(),
             nameof(_dropLimit) => SchemaSupportsDropLimit(),
+            nameof(_tags) => SchemaSupportsTags(),
             _ => true
         };
 
@@ -574,7 +591,7 @@ namespace SteamToys.Runtime.InventorySystem
         {
             yield return ("description", SchemaSupportsDescription(), !string.IsNullOrEmpty(Description));
             yield return ("hidden", SchemaSupportsHidden(), Hidden);
-            yield return ("tags", SchemaSupportsTags(), GetTagsDef() is { Count: > 0 });
+            yield return ("tags", SchemaSupportsTags(), GetTags() is { Count: > 0 });
             yield return ("display_type", SchemaSupportsDisplayType(), !string.IsNullOrEmpty(DisplayType));
             yield return ("icon_url", SchemaSupportsIconUrl(), IconUrl is { HasValue: true });
             yield return ("icon_url_large", SchemaSupportsIconUrlLarge(), IconUrlLarge is { HasValue: true });
@@ -603,28 +620,6 @@ namespace SteamToys.Runtime.InventorySystem
             yield return ("drop_window", SchemaSupportsDropWindow(), DropWindow.hasValue);
             yield return ("drop_max_per_window", SchemaSupportsDropMaxPerWindow(), DropMaxPerWindow > 0);
             yield return ("drop_limit", SchemaSupportsDropLimit(), DropLimit.hasValue);
-        }
-
-        #endregion
-
-        #region Tags
-
-        /// <summary>
-        /// The tags of this definition, or null for a type without tags. On an owned item they hold its own values,
-        /// generated ones included.
-        /// </summary>
-        public virtual TagsDef GetTagsDef() => null;
-
-        /// <summary>Replaces the tags of this definition with the ones of a Steam <c>tags</c> string.</summary>
-        /// <returns>The pairs left out: all of them for a type without tags.</returns>
-        public virtual List<string> SetTags(string value)
-        {
-            var tags = GetTagsDef();
-
-            if (tags != null)
-                return tags.SetSteamString(value);
-
-            return new List<string>((value ?? string.Empty).Split(';', StringSplitOptions.RemoveEmptyEntries));
         }
 
         #endregion
@@ -767,7 +762,7 @@ namespace SteamToys.Runtime.InventorySystem
                 writer.WriteIfNotEmpty("description", Description);
 
             if (SchemaSupportsTags())
-                writer.WriteIfNotEmpty("tags", Tags);
+                writer.WriteIfNotEmpty("tags", Tags?.ToSteamString());
 
             if (SchemaSupportsHidden())
                 writer.WriteBoolIfTrue("hidden", Hidden);
@@ -893,22 +888,62 @@ namespace SteamToys.Runtime.InventorySystem
     }
 
     /// <summary>
-    /// An ItemDef with tags of <typeparamref name="TTags"/>: <see cref="InventorySystem.Tags"/> for any category, or a
-    /// <see cref="TagsDef"/> of the game.
+    /// An ItemDef with tags of <typeparamref name="TTags"/>: <see cref="DefaultTags"/> for any category, or a
+    /// <see cref="Tags"/> of the game.
     /// </summary>
-    public abstract class ItemDef<TTags> : ItemDef where TTags : TagsDef, new()
+    public abstract class ItemDef<TTags> : ItemDef where TTags : Tags, new()
     {
-        [Header("Tags")]
+        #region Properties
+
+        public TTags FixedTags
+        {
+            get => GetFixedTags();
+            set => SetFixedTags(value);
+        }
+
+        #endregion
+
+        #region Inspector Serialized Field
+
         [SerializeField, Tooltip("Tags of this definition; a generator copies them to the item it creates.")]
-        private TTags _tags = new();
+        private TTags _fixedTags = new();
 
-        public TTags TagsData => _tags ??= new TTags();
+        #endregion
 
-        public override TagsDef GetTagsDef() => TagsData;
+        #region Getters and Setters
+
+        public override Tags GetTags()
+        {
+            var tags = base.GetTags();
+            var fixedTags = GetFixedTags();
+            var combined = new TTags();
+
+            if (tags != null)
+                foreach (var (tagName, tagValue) in tags)
+                    combined.SetValue(tagName, tagValue);
+            
+            if (fixedTags != null)
+                foreach (var (tagName, tagValue) in fixedTags)
+                    combined.SetValue(tagName, tagValue);
+
+            return combined;
+        }
+
+        public virtual TTags GetFixedTags() => _fixedTags;
+
+        public virtual void SetFixedTags(TTags fixedTags) => _fixedTags = fixedTags;
+
+        #endregion
+
+        #region Schema
 
         public override bool SchemaSupportsTags() => true;
 
+        public virtual bool SchemaSupportsFixedTags() => true;
+
         public override bool SchemaSupportsField(string fieldName) =>
-            fieldName == nameof(_tags) ? SchemaSupportsTags() : base.SchemaSupportsField(fieldName);
+            fieldName == nameof(_fixedTags) ? SchemaSupportsFixedTags() : base.SchemaSupportsField(fieldName);
+
+        #endregion
     }
 }

@@ -25,7 +25,7 @@ namespace SteamToys.Tests.Tests
     
     /// <summary>Tags of the rarity and wear categories only.</summary>
     [Serializable]
-    public class TestItemTags : Tags
+    public class TestItemDefaultTags : DefaultTags
     {
         private static readonly HashSet<string> Categories = new() { GetCategory<Rarity>(), GetCategory<Wear>() };
 
@@ -33,7 +33,7 @@ namespace SteamToys.Tests.Tests
     }
 
     [CreateAssetMenu(fileName = "TestItem", menuName = "SteamToys/Inventory/Test/TestItem", order = 1)]
-    public class TestItem : Item<TestItemTags>
+    public class TestItem : Item<TestItemDefaultTags>
     {
         
     }

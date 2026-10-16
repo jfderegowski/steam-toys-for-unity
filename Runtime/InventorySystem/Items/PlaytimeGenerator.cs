@@ -9,7 +9,7 @@ namespace SteamToys.Runtime.InventorySystem
     /// exchange works as a plain generator's: the materials buy one pick of its content, apart from the drops. The
     /// Steam client never gets its definition.
     /// </summary>
-    public class PlaytimeGenerator<TTags> : ItemDef<TTags> where TTags : TagsDef, new()
+    public class PlaytimeGenerator<TTags> : ItemDef<TTags> where TTags : Tags, new()
     {
         public override ItemType GetItemType() => ItemType.PlaytimeGenerator;
 
@@ -52,5 +52,5 @@ namespace SteamToys.Runtime.InventorySystem
 
     /// <summary>ItemDef of type <c>playtimegenerator</c> with tags of any category.</summary>
     [CreateAssetMenu(fileName = "New Playtime Generator", menuName = "SteamToys/Inventory/Playtime Generator", order = 4)]
-    public class PlaytimeGenerator : PlaytimeGenerator<Tags> { }
+    public class PlaytimeGenerator : PlaytimeGenerator<DefaultTags> { }
 }

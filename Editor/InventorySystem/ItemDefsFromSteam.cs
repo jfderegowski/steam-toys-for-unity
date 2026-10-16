@@ -219,7 +219,7 @@ namespace SteamToys.Editor.InventorySystem
         /// <summary>
         /// The class for a new definition: of its type, and with tags, the class of the game whose tags type takes
         /// only a fixed set of categories that holds every one the definition has, by name when several do; the class
-        /// of the package otherwise, whose <see cref="Tags"/> takes any category. A tag generator needs the class of
+        /// of the package otherwise, whose <see cref="DefaultTags"/> takes any category. A tag generator needs the class of
         /// its category; without one it is null, with the reason in the report.
         /// </summary>
         private static Type ChooseClass(SteamDefinition steam, Report report)
@@ -252,7 +252,7 @@ namespace SteamToys.Editor.InventorySystem
 
         // A tags type that turns away a category nobody would name takes a fixed set, so holding the categories of a
         // definition says something about its class.
-        private static bool HoldsFixedCategories(TagsDef tags) => !tags.CanHold("\u0001");
+        private static bool HoldsFixedCategories(Tags tags) => !tags.CanHold("\u0001");
 
         private static void ApplyFields(ItemDef asset, SteamDefinition steam, Report report)
         {
@@ -261,7 +261,13 @@ namespace SteamToys.Editor.InventorySystem
             if (asset.SchemaSupportsDescription())
                 asset.Description = steam.Get("description");
 
-            var notHeld = asset.SetTags(steam.Get("tags"));
+            var steamTags = steam.Get("tags");
+            var tags = asset.SchemaSupportsTags() ? CreateTags(asset.GetType()) : null;
+            var notHeld = tags?.SetSteamString(steamTags) ??
+                          new List<string>(steamTags.Split(LIST_SEPARATOR, StringSplitOptions.RemoveEmptyEntries));
+
+            if (tags != null)
+                asset.Tags = tags;
 
             if (notHeld.Count > 0)
                 report.Problems.Add(asset.SchemaSupportsTags()
@@ -458,12 +464,12 @@ namespace SteamToys.Editor.InventorySystem
         }
 
         /// <summary>A new tags object of the type <paramref name="type"/> keeps its tags in, or null without tags.</summary>
-        private static TagsDef CreateTags(Type type)
+        private static Tags CreateTags(Type type)
         {
             for (var current = type; current != null; current = current.BaseType)
             {
                 if (current.IsGenericType && current.GetGenericTypeDefinition() == typeof(ItemDef<>))
-                    return (TagsDef)Activator.CreateInstance(current.GetGenericArguments()[0]);
+                    return (Tags)Activator.CreateInstance(current.GetGenericArguments()[0]);
             }
 
             return null;
