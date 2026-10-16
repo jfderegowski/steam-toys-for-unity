@@ -244,7 +244,7 @@ namespace SteamToys.Editor.InventorySystem
 
             return GetConcreteTypes(steam.Type)
                 .Select(type => (type, tags: CreateTags(type)))
-                .Where(candidate => candidate.tags != null && HoldsFixedCategories(candidate.tags) && categories.All(candidate.tags.CanHold))
+                .Where(candidate => candidate.tags != null && HoldsFixedCategories(candidate.tags) && categories.All(candidate.tags.ContainsKey))
                 .OrderBy(candidate => candidate.type.Name)
                 .Select(candidate => candidate.type)
                 .FirstOrDefault() ?? packageType;
@@ -252,7 +252,7 @@ namespace SteamToys.Editor.InventorySystem
 
         // A tags type that turns away a category nobody would name takes a fixed set, so holding the categories of a
         // definition says something about its class.
-        private static bool HoldsFixedCategories(Tags tags) => !tags.CanHold("\u0001");
+        private static bool HoldsFixedCategories(Tags tags) => !tags.ContainsKey("\u0001");
 
         private static void ApplyFields(ItemDef asset, SteamDefinition steam, Report report)
         {
@@ -263,8 +263,9 @@ namespace SteamToys.Editor.InventorySystem
 
             var steamTags = steam.Get("tags");
             var tags = asset.SchemaSupportsTags() ? CreateTags(asset.GetType()) : null;
-            var notHeld = tags?.SetSteamString(steamTags) ??
-                          new List<string>(steamTags.Split(LIST_SEPARATOR, StringSplitOptions.RemoveEmptyEntries));
+            var notHeld = tags != null
+                ? TagsConverter.FromString(steamTags, tags)
+                : new List<string>(steamTags.Split(LIST_SEPARATOR, StringSplitOptions.RemoveEmptyEntries));
 
             if (tags != null)
                 asset.Tags = tags;

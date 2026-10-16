@@ -3,6 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using fefek5.Toys.Runtime;
+using Newtonsoft.Json;
+using SteamToys.Runtime.InventorySystem.Converters;
 
 namespace SteamToys.Runtime.InventorySystem
 {
@@ -18,168 +20,45 @@ namespace SteamToys.Runtime.InventorySystem
     /// <see href="https://partner.steamgames.com/doc/features/inventory/itemtags"/>
     /// </summary>
     [Serializable]
+    [JsonConverter(typeof(TagsConverter))]
     public abstract class Tags : IReadOnlyDictionary<string, string>
     {
-        #region Constants
+        #region IReadOnlyDictionary
 
-        private const char PAIR_SEPARATOR = ';';
-        private const char CATEGORY_SEPARATOR = ':';
-
-        #endregion
-
-        #region Constructors
-
-        protected Tags() { }
-
-        /// <summary>Tags of a Steam <c>tags</c> string; the pairs this tags type does not take are left out.</summary>
-        protected Tags(string steamTags) => SetSteamString(steamTags);
-
-        #endregion
-
-        /// <summary>
-        /// The tags by category.
-        /// </summary>
-        public abstract SerializableDictionary<string, string> GetTags();
-
-        /// <summary>
-        /// Whether this tags type takes the category. Any non-empty category by default.
-        /// </summary>
-        public virtual bool CanHold(string category) => !string.IsNullOrWhiteSpace(category);
-
-        #region Collection
-
-        public int Count => GetTags().Count;
-
-        /// <summary>The categories that have a value.</summary>
-        public IEnumerable<string> Keys => GetTags().Keys;
-
-        public IEnumerable<string> Values => GetTags().Values;
-
-        public bool ContainsKey(string category) => category != null && GetTags().ContainsKey(category);
-
-        /// <summary>The tags as category and value pairs, e.g. <c>foreach (var (category, value) in tags)</c>.</summary>
-        public Dictionary<string, string>.Enumerator GetEnumerator() => GetTags().GetEnumerator();
-
-        IEnumerator<KeyValuePair<string, string>> IEnumerable<KeyValuePair<string, string>>.GetEnumerator() =>
-            GetEnumerator();
+        public IEnumerator<KeyValuePair<string, string>> GetEnumerator()
+        {
+            foreach (var tagName in Keys)
+                if (TryGetValue(tagName, out var tagValue))
+                    yield return new KeyValuePair<string, string>(tagName, tagValue);
+        }
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
-        #endregion
+        public int Count => Keys.Count();
 
-        #region Values
+        public bool ContainsKey(string tagName) => Keys.Contains(tagName);
 
-        /// <summary>
-        /// The value of the category, or null without one; unlike a dictionary it does not throw. Setting it works as
-        /// <see cref="SetValue(string, string)"/>.
-        /// </summary>
-        public string this[string category]
+        public abstract bool TryGetValue(string tagName, out string tagValue);
+
+        public string this[string tagName]
         {
-            get => GetValue(category);
-            set => SetValue(category, value);
-        }
-
-        /// <summary>The value of the category, or null without one.</summary>
-        public string GetValue(string category) =>
-            category != null && GetTags().TryGetValue(category, out var value) ? value : null;
-
-        public bool TryGetValue(string category, out string value) => (value = GetValue(category)) != null;
-
-        /// <summary>
-        /// Sets the value of the category, or removes the category for a null or empty value. False when this tags
-        /// type does not take the category.
-        /// </summary>
-        public virtual bool SetValue(string category, string value)
-        {
-            if (!CanHold(category))
-                return false;
-
-            if (string.IsNullOrEmpty(value))
-                GetTags().Remove(category);
-            else
-                GetTags()[category] = value;
-
-            return true;
-        }
-
-        public bool Remove(string category) => category != null && GetTags().Remove(category);
-
-        public void Clear() => GetTags().Clear();
-
-        public bool Has(string category, string value) => GetValue(category) == value && value != null;
-
-        #endregion
-
-        #region Enum Helpers
-
-        /// <summary>The category <typeparamref name="TEnum"/> stands for, e.g. <c>rarity</c> for <c>Rarity</c>.</summary>
-        public static string GetCategory<TEnum>() where TEnum : Enum => new Tag<TEnum>().GetName();
-
-        public bool TryGetValue<TEnum>(out TEnum value) where TEnum : Enum
-        {
-            var tag = new Tag<TEnum>();
-            var found = tag.SetValue(GetValue(GetCategory<TEnum>()));
-
-            value = tag.Value;
-            return found;
-        }
-
-        /// <summary>The value of the <typeparamref name="TEnum"/> category, or its default without one.</summary>
-        public TEnum GetValue<TEnum>() where TEnum : Enum => TryGetValue<TEnum>(out var value) ? value : default;
-
-        public bool SetValue<TEnum>(TEnum value) where TEnum : Enum =>
-            SetValue(GetCategory<TEnum>(), new Tag<TEnum> { Value = value }.GetValue());
-
-        public bool Remove<TEnum>() where TEnum : Enum => Remove(GetCategory<TEnum>());
-
-        public bool Has<TEnum>(TEnum value) where TEnum : Enum =>
-            Has(GetCategory<TEnum>(), new Tag<TEnum> { Value = value }.GetValue());
-
-        #endregion
-
-        #region Steam String
-
-        /// <summary>The Steam <c>tags</c> string, e.g. <c>"rarity:legendary;wear:field_tested"</c>.</summary>
-        public string ToSteamString() =>
-            string.Join(PAIR_SEPARATOR, GetTags()
-                .Where(tag => !string.IsNullOrEmpty(tag.Key) && !string.IsNullOrEmpty(tag.Value))
-                .Select(tag => tag.Key + CATEGORY_SEPARATOR + tag.Value));
-
-        /// <summary>Replaces every tag with the ones of a Steam <c>tags</c> string.</summary>
-        /// <returns>The pairs left out: malformed, or of a category this tags type does not take.</returns>
-        public List<string> SetSteamString(string tags)
-        {
-            Clear();
-
-            return MergeSteamString(tags);
-        }
-
-        /// <summary>
-        /// Takes the pairs of a Steam <c>tags</c> string over the tags held, e.g. an owned item's own tags over the ones
-        /// of its definition.
-        /// </summary>
-        /// <returns>The pairs left out: malformed, or of a category this tags type does not take.</returns>
-        public List<string> MergeSteamString(string tags)
-        {
-            var notHeld = new List<string>();
-
-            foreach (var pair in (tags ?? string.Empty).Split(PAIR_SEPARATOR, StringSplitOptions.RemoveEmptyEntries))
+            get =>
+                TryGetValue(tagName, out var tagValue)
+                    ? tagValue
+                    : throw new KeyNotFoundException(tagName);
+            set
             {
-                var trimmed = pair.Trim();
-                var separator = trimmed.IndexOf(CATEGORY_SEPARATOR);
-
-                var held = separator > 0 && separator < trimmed.Length - 1 &&
-                           SetValue(trimmed[..separator].Trim(), trimmed[(separator + 1)..].Trim());
-
-                if (!held && trimmed.Length > 0)
-                    notHeld.Add(trimmed);
+                if (!TrySetValue(tagName, value))
+                    throw new ArgumentException($"{tagName}:{value} is not held by {GetType().Name}.");
             }
-
-            return notHeld;
         }
 
-        public override string ToString() => ToSteamString();
+        public abstract IEnumerable<string> Keys { get; }
+
+        public IEnumerable<string> Values => Keys.Select(key => this[key]);
 
         #endregion
+        
+        public abstract bool TrySetValue(string tagName, string tagValue);
     }
 }

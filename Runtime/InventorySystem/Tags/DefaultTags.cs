@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using fefek5.Toys.Runtime;
 using UnityEngine;
 
@@ -14,11 +15,23 @@ namespace SteamToys.Runtime.InventorySystem
         [SerializeField, Tooltip("Steam tags by category, e.g. rarity: legendary. Each value is sent as category:value.")]
         private SerializableDictionary<string, string> _tags = new();
 
-        public DefaultTags() { }
+        #region Tags
 
-        /// <summary>Tags of a Steam <c>tags</c> string, e.g. <c>new DefaultTags("rarity:legendary;wear:worn")</c>.</summary>
-        public DefaultTags(string steamTags) : base(steamTags) { }
+        public override IEnumerable<string> Keys => _tags.Keys;
 
-        public override SerializableDictionary<string, string> GetTags() => _tags ??= new SerializableDictionary<string, string>();
+        public override bool TryGetValue(string tagName, out string tagValue) =>
+            _tags.TryGetValue(tagName, out tagValue);
+
+        public override bool TrySetValue(string tagName, string tagValue)
+        {
+            if (!ContainsKey(tagName))
+                return false;
+            
+            _tags[tagName] = tagValue;
+            
+            return true;
+        }
+
+        #endregion
     }
 }

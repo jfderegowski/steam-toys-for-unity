@@ -3,7 +3,8 @@
     "rootNamespace": "SteamToys.Tests",
     "references": [
         "fefek5.SteamToys.Runtime",
-        "fefek5.SteamToys.Editor"
+        "fefek5.SteamToys.Editor",
+        "com.fefek5.toys.Runtime"
     ],
     "includePlatforms": [
         "Editor"

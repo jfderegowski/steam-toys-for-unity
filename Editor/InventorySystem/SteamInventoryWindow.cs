@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using SteamToys.Runtime.InventorySystem;
+using SteamToys.Runtime.InventorySystem.Converters;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
@@ -730,7 +731,7 @@ namespace SteamToys.Editor.InventorySystem
             public uint Quantity => Owned?.Quantity ?? 0;
 
             /// <summary>The tags Steam reported for the owned item, or the ones the definition sets.</summary>
-            public string Tags => Owned != null && !string.IsNullOrEmpty(Owned.Tags) ? Owned.Tags : Definition.Tags?.ToSteamString() ?? string.Empty;
+            public string Tags => Owned != null && !string.IsNullOrEmpty(Owned.Tags) ? Owned.Tags : TagsConverter.ToString(Definition.Tags);
         }
     }
 }

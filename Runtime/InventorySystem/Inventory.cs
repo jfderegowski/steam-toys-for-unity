@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using SteamToys.Runtime.Core;
+using SteamToys.Runtime.InventorySystem.Converters;
 using Steamworks;
 using UnityEngine;
 using Object = UnityEngine.Object;
@@ -559,7 +560,9 @@ namespace SteamToys.Runtime.InventorySystem
                 return false;
 
             item.Name = displayName;
-            item.Tags = new DefaultTags(Read("tags"));
+            var tags = new DefaultTags();
+            TagsConverter.FromString(Read("tags"), tags);
+            item.Tags = tags;
             item.Description = Read("description");
             item.DisplayType = Read("display_type");
             item.IconUrl = new Url(Read("icon_url"));

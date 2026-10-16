@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using SteamToys.Runtime.InventorySystem.Converters;
 using Steamworks;
 
 namespace SteamToys.Runtime.InventorySystem
@@ -110,7 +111,8 @@ namespace SteamToys.Runtime.InventorySystem
         /// </summary>
         public bool HasTag<TEnum>(TEnum value) where TEnum : Enum
         {
-            var pair = new Tag<TEnum> { Value = value }.ToString();
+            var expected = new Tag<TEnum> { Value = value };
+            var pair = expected.ToString();
 
             foreach (var tag in Tags.Split(TAG_SEPARATOR))
             {
@@ -118,7 +120,8 @@ namespace SteamToys.Runtime.InventorySystem
                     return true;
             }
 
-            return TagsObject != null && TagsObject.Has(value);
+            return TagsObject != null && TagsObject.TryGetValue(expected.GetName(), out var held) &&
+                   held == expected.GetValue();
         }
 
         #endregion
@@ -181,8 +184,8 @@ namespace SteamToys.Runtime.InventorySystem
 
             var tags = (Tags)Activator.CreateInstance(definitionTags.GetType());
 
-            tags.SetSteamString(definitionTags.ToSteamString());
-            tags.MergeSteamString(Tags);
+            TagsConverter.FromString(TagsConverter.ToString(definitionTags), tags);
+            TagsConverter.FromString(Tags, tags);
 
             TagsObject = tags;
         }

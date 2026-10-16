@@ -11,6 +11,7 @@ namespace SteamToys.Runtime.InventorySystem
     {
         public override ItemType GetItemType() => ItemType.Item;
 
+        public override bool SchemaSupportsTags() => true;
         public override bool SchemaSupportsDescription() => true;
         public override bool SchemaSupportsHidden() => true;
         public override bool SchemaSupportsExchange() => true;

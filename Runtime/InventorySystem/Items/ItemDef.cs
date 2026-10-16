@@ -341,7 +341,7 @@ namespace SteamToys.Runtime.InventorySystem
         private HasValue<uint> _dropLimit;
 
         [Header("Tags")]
-        [SerializeReference, Tooltip("Tags of this definition; a generator copies them to the item it creates.")]
+        [SerializeReference, SelectType, Tooltip("Tags of this definition; a generator copies them to the item it creates.")]
         private Tags _tags;
 
         #endregion
@@ -480,8 +480,25 @@ namespace SteamToys.Runtime.InventorySystem
         
         public virtual Tags GetTags() => _tags;
 
-        public virtual void SetTags(Tags value) => _tags = value;
+        public virtual void SetTags(Tags tags)
+        {
+            foreach (var (tagName, tagValue) in tags)
+                SetTag(tagName, tagValue);
+        }
 
+        public virtual bool TryGetTag(string tagName, out string tagValue)
+        {
+            if (!Tags.ContainsKey(tagName))
+            {
+                tagValue = string.Empty;
+                return false;
+            }
+
+            tagValue = GetTag(tagName);
+            
+            return true;
+        }
+        
         public virtual string GetTag(string tagName)
         {
             if (!Tags.ContainsKey(tagName))
@@ -639,8 +656,7 @@ namespace SteamToys.Runtime.InventorySystem
                 return false;
             }
 
-            return Inventory.GenerateItems(new[] { (this, (uint)quantity) }, succeeded =>
-            {
+            return Inventory.GenerateItems(new[] { (this, (uint)quantity) }, succeeded => {
                 if (succeeded)
                     Debug.Log($"Generated {quantity} x {name} (itemdefid {ItemDefId}).");
                 else
@@ -762,7 +778,7 @@ namespace SteamToys.Runtime.InventorySystem
                 writer.WriteIfNotEmpty("description", Description);
 
             if (SchemaSupportsTags())
-                writer.WriteIfNotEmpty("tags", Tags?.ToSteamString());
+                writer.WriteIfNotEmpty("tags", TagsConverter.ToString(Tags));
 
             if (SchemaSupportsHidden())
                 writer.WriteBoolIfTrue("hidden", Hidden);
@@ -902,7 +918,7 @@ namespace SteamToys.Runtime.InventorySystem
         }
 
         #endregion
-
+        
         #region Inspector Serialized Field
 
         [SerializeField, Tooltip("Tags of this definition; a generator copies them to the item it creates.")]
@@ -912,37 +928,29 @@ namespace SteamToys.Runtime.InventorySystem
 
         #region Getters and Setters
 
-        public override Tags GetTags()
-        {
-            var tags = base.GetTags();
-            var fixedTags = GetFixedTags();
-            var combined = new TTags();
-
-            if (tags != null)
-                foreach (var (tagName, tagValue) in tags)
-                    combined.SetValue(tagName, tagValue);
-            
-            if (fixedTags != null)
-                foreach (var (tagName, tagValue) in fixedTags)
-                    combined.SetValue(tagName, tagValue);
-
-            return combined;
-        }
-
         public virtual TTags GetFixedTags() => _fixedTags;
 
-        public virtual void SetFixedTags(TTags fixedTags) => _fixedTags = fixedTags;
+        public virtual void SetFixedTags(TTags tags)
+        {
+            foreach (var (tagName, tagValue) in tags) 
+                FixedTags.TrySetValue(tagName, tagValue);
+        }
 
-        #endregion
+        public override string GetTag(string tagName)
+        {
+            if (FixedTags.TryGetValue(tagName, out var tagValue))
+                return tagValue;
+            
+            return base.GetTag(tagName);
+        }
 
-        #region Schema
-
-        public override bool SchemaSupportsTags() => true;
-
-        public virtual bool SchemaSupportsFixedTags() => true;
-
-        public override bool SchemaSupportsField(string fieldName) =>
-            fieldName == nameof(_fixedTags) ? SchemaSupportsFixedTags() : base.SchemaSupportsField(fieldName);
+        public override void SetTag(string tagName, string tagValue)
+        {
+            if (FixedTags.TrySetValue(tagName, tagValue))
+                return;
+            
+            base.SetTag(tagName, tagValue);
+        }
 
         #endregion
     }
