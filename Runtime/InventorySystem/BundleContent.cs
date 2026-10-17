@@ -89,38 +89,5 @@ namespace SteamToys.Runtime.InventorySystem
         }
 
         #endregion
-
-        #region Validation
-
-        /// <summary>
-        /// Adds a message for every entry Steam would reject in the contents of <paramref name="owner"/>.
-        /// </summary>
-        public static void CollectSchemaWarnings(ItemDef owner, BundleContent content, List<string> warnings)
-        {
-            var amountName = owner.Type == ItemType.Bundle ? "quantity" : "weight";
-
-            if (content == null || content.Count == 0)
-            {
-                warnings.Add(owner.Type == ItemType.Bundle
-                    ? "Bundle has no contents: Steam rejects it, and an upload stops there."
-                    : $"{owner.Type} has no contents, so it grants nothing.");
-                return;
-            }
-
-            for (var i = 0; i < content.Count; i++)
-            {
-                var element = content[i];
-
-                if (element is not { HasItem: true })
-                    warnings.Add($"Contents entry {i} has no item and is skipped.");
-                else if (element.Item == owner)
-                    warnings.Add($"Contents entry {i} references this {owner.Type} itself.");
-
-                if (element != null && element.Quantity == 0)
-                    warnings.Add($"Contents entry {i} has a {amountName} of 0.");
-            }
-        }
-
-        #endregion
     }
 }

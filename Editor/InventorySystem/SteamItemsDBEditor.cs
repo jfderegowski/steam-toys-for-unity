@@ -265,7 +265,7 @@ namespace SteamToys.Editor.InventorySystem
                     continue;
 
                 var row = new Row(item);
-                item.CollectSchemaWarnings(row.Problems);
+                ItemDefElement.CollectWarnings(item, row.Problems);
 
                 _rows.Add(row);
             }

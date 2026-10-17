@@ -174,7 +174,7 @@ namespace SteamToys.Runtime.InventorySystem
         /// </summary>
         private void UpdateTagsObject()
         {
-            var definitionTags = Definition && Definition.SchemaSupportsTags() ? Definition.GetTags() : null;
+            var definitionTags = Definition && Definition.SchemaSupportsTags() ? Definition.Tags : null;
 
             if (definitionTags == null)
             {

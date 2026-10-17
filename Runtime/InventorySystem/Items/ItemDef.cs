@@ -24,8 +24,6 @@ namespace SteamToys.Runtime.InventorySystem
 
         private const string PRICE_CATEGORY_VERSION = "1;";
         private const string PRICE_CATEGORY_CURRENCY = "VLV";
-        private const uint MAX_DISCOUNT = 100;
-        private const uint MAX_DROPS_PER_WINDOW = 10;
 
         #endregion
 
@@ -245,11 +243,7 @@ namespace SteamToys.Runtime.InventorySystem
             set => SetDropLimit(value);
         }
 
-        public Tags Tags
-        {
-            get => GetTags();
-            set => SetTags(value);
-        }
+        public Tags Tags => GetRawTags();
 
         #endregion
 
@@ -339,10 +333,6 @@ namespace SteamToys.Runtime.InventorySystem
         private uint _dropMaxPerWindow;
         [SerializeField, Tooltip("Maximum number of drops per user. Enforced only when set; 0 stops all future drops.")]
         private HasValue<uint> _dropLimit;
-
-        [Header("Tags")]
-        [SerializeReference, SelectType, Tooltip("Tags of this definition; a generator copies them to the item it creates.")]
-        private Tags _tags;
 
         #endregion
 
@@ -477,38 +467,8 @@ namespace SteamToys.Runtime.InventorySystem
         public virtual HasValue<uint> GetDropLimit() => _dropLimit;
 
         public virtual void SetDropLimit(HasValue<uint> value) => _dropLimit = value;
-        
-        public virtual Tags GetTags() => _tags;
 
-        public virtual void SetTags(Tags tags)
-        {
-            foreach (var (tagName, tagValue) in tags)
-                SetTag(tagName, tagValue);
-        }
-
-        public virtual bool TryGetTag(string tagName, out string tagValue)
-        {
-            if (!Tags.ContainsKey(tagName))
-            {
-                tagValue = string.Empty;
-                return false;
-            }
-
-            tagValue = GetTag(tagName);
-            
-            return true;
-        }
-        
-        public virtual string GetTag(string tagName)
-        {
-            if (!Tags.ContainsKey(tagName))
-                throw new Exception($"The tag {tagName} does not exist.");
-            
-            return Tags[tagName];
-        }
-        
-        public virtual void SetTag(string tagName, string tagValue) => 
-            Tags[tagName] = tagValue;
+        public virtual Tags GetRawTags() => null;
 
         #endregion
 
@@ -517,9 +477,6 @@ namespace SteamToys.Runtime.InventorySystem
         // Which schema properties Steam acts on for this definition: Steam keeps any property on any type, so each type
         // says what it was measured to act on (Tests/SchemaProbes), not what it accepts. Only the supported properties
         // are shown, exported and imported.
-
-        /// <summary>Whether this has tags; <see cref="ItemDef{TTags}"/> does.</summary>
-        public abstract bool SchemaSupportsTags();
 
         // Granted with the definition or the items it creates.
         public abstract bool SchemaSupportsDescription();
@@ -562,10 +519,15 @@ namespace SteamToys.Runtime.InventorySystem
         public abstract bool SchemaSupportsDropWindow();
         public abstract bool SchemaSupportsDropMaxPerWindow();
         public abstract bool SchemaSupportsDropLimit();
+        
+        /// <summary>
+        /// Whether this has tags; <see cref="ItemDef{TTags}"/> does.
+        /// </summary>
+        public abstract bool SchemaSupportsTags();
 
         /// <summary>
-        /// Whether the serialized field <paramref name="fieldName"/> holds a property this definition supports. A field
-        /// of no schema property, such as the itemdefid, always does.
+        /// Whether the serialized field <paramref name="fieldName"/> holds a schema property this definition uses.
+        /// Fields that are not schema properties, such as the itemdefid and name or the fields of a subclass, always do.
         /// </summary>
         public virtual bool SchemaSupportsField(string fieldName) => fieldName switch
         {
@@ -599,45 +561,8 @@ namespace SteamToys.Runtime.InventorySystem
             nameof(_dropWindow) => SchemaSupportsDropWindow(),
             nameof(_dropMaxPerWindow) => SchemaSupportsDropMaxPerWindow(),
             nameof(_dropLimit) => SchemaSupportsDropLimit(),
-            nameof(_tags) => SchemaSupportsTags(),
             _ => true
         };
-
-        /// <summary>Each schema property by its Steam key, with whether it is supported and holds anything.</summary>
-        private IEnumerable<(string key, bool supported, bool set)> GetPropertyUse()
-        {
-            yield return ("description", SchemaSupportsDescription(), !string.IsNullOrEmpty(Description));
-            yield return ("hidden", SchemaSupportsHidden(), Hidden);
-            yield return ("tags", SchemaSupportsTags(), GetTags() is { Count: > 0 });
-            yield return ("display_type", SchemaSupportsDisplayType(), !string.IsNullOrEmpty(DisplayType));
-            yield return ("icon_url", SchemaSupportsIconUrl(), IconUrl is { HasValue: true });
-            yield return ("icon_url_large", SchemaSupportsIconUrlLarge(), IconUrlLarge is { HasValue: true });
-            yield return ("name_color", SchemaSupportsNameColor(), NameColor.a > 0);
-            yield return ("background_color", SchemaSupportsBackgroundColor(), BackgroundColor.a > 0);
-            yield return ("bundle", SchemaSupportsContent(), Content is { Count: > 0 });
-            yield return ("tag_generators", SchemaSupportsTagGenerators(), TagGenerators is { Count: > 0 });
-            yield return ("price", SchemaSupportsPrice(), !string.IsNullOrEmpty(Price?.ToSteamString()));
-            yield return ("price_category", SchemaSupportsPriceCategory(), PriceCategory.hasValue);
-            yield return ("use_bundle_price", SchemaSupportsUseBundlePrice(), UseBundlePrice);
-            yield return ("purchase_bundle_discount", SchemaSupportsPurchaseBundleDiscount(), PurchaseBundleDiscount > 0);
-            yield return ("store_tags", SchemaSupportsStoreTags(), StoreTags is { Count: > 0 });
-            yield return ("store_images", SchemaSupportsStoreImages(), StoreImages is { Count: > 0 });
-            yield return ("store_hidden", SchemaSupportsStoreHidden(), StoreHidden);
-            yield return ("tradable", SchemaSupportsTradable(), Tradable);
-            yield return ("marketable", SchemaSupportsMarketable(), Marketable);
-            yield return ("game_only", SchemaSupportsGameOnly(), GameOnly);
-            yield return ("auto_stack", SchemaSupportsAutoStack(), AutoStack);
-            yield return ("purchase_limit", SchemaSupportsPurchaseLimit(), PurchaseLimit > 0);
-            yield return ("container_contents_generator", SchemaSupportsContainerContentsGenerator(), ContainerContentsGenerator != null);
-            yield return ("exchange", SchemaSupportsExchange(), Exchange is { Count: > 0 });
-            yield return ("promo", SchemaSupportsPromo(), Promo is { Count: > 0 });
-            yield return ("drop_start_time", SchemaSupportsDropStartTime(), DropStartTime is { HasValue: true });
-            yield return ("granted_manually", SchemaSupportsGrantedManually(), GrantedManually);
-            yield return ("drop_interval", SchemaSupportsDropInterval(), DropInterval > 0);
-            yield return ("drop_window", SchemaSupportsDropWindow(), DropWindow.hasValue);
-            yield return ("drop_max_per_window", SchemaSupportsDropMaxPerWindow(), DropMaxPerWindow > 0);
-            yield return ("drop_limit", SchemaSupportsDropLimit(), DropLimit.hasValue);
-        }
 
         #endregion
 
@@ -662,96 +587,6 @@ namespace SteamToys.Runtime.InventorySystem
                 else
                     Debug.LogWarning($"Steam did not generate {name} (itemdefid {ItemDefId}).");
             });
-        }
-
-        #endregion
-
-        #region Validation
-
-        /// <summary>
-        /// Adds a message for every setting Steam would reject or silently ignore. Overrides call base first.
-        /// </summary>
-        public virtual void CollectSchemaWarnings(List<string> warnings)
-        {
-            if (string.IsNullOrWhiteSpace(Name))
-                warnings.Add("Name is empty: Steam rejects the definition, and an upload stops there.");
-
-            foreach (var (key, supported, set) in GetPropertyUse())
-            {
-                if (!supported && set)
-                    warnings.Add($"{key} is set, but a {Type} does not use it, so it is not exported.");
-            }
-
-            if (SchemaSupportsContent())
-                BundleContent.CollectSchemaWarnings(this, Content, warnings);
-
-            if (SchemaSupportsPrice())
-                CollectPriceWarnings(warnings);
-
-            if (SchemaSupportsPromo())
-                CollectPromoWarnings(warnings);
-
-            if (SchemaSupportsPurchaseLimit() && PurchaseLimit > 0 && (Tradable || Marketable))
-                warnings.Add("Purchase Limit does not block repurchasing tradable or marketable items.");
-
-            if (SchemaSupportsDropMaxPerWindow() && DropMaxPerWindow > MAX_DROPS_PER_WINDOW)
-                warnings.Add($"Drop Max Per Window cannot exceed {MAX_DROPS_PER_WINDOW}.");
-
-            if (SchemaSupportsDropWindow() && DropWindow.hasValue && DropWindow.value == 0)
-                warnings.Add("Drop Window is enabled with 0 minutes, so it is not exported.");
-        }
-
-        private void CollectPriceWarnings(List<string> warnings)
-        {
-            if (PriceCategory.hasValue && !string.IsNullOrEmpty(Price?.ToSteamString()))
-                warnings.Add("Price and Price Category are both set: only the price category is exported.");
-
-            if (Price != null && Price.RegularPrices.Count == 0 && Price.Promotions.Count > 0)
-                warnings.Add("Price has sales but no regular price, which Steam requires first.");
-
-            if (!SchemaSupportsPurchaseBundleDiscount())
-                return;
-
-            if (PurchaseBundleDiscount > MAX_DISCOUNT)
-                warnings.Add($"Purchase Bundle Discount is a percentage and cannot exceed {MAX_DISCOUNT}.");
-
-            if (PurchaseBundleDiscount > 0 && UseBundlePrice)
-                warnings.Add("Purchase Bundle Discount is ignored when Use Bundle Price is on.");
-        }
-
-        private void CollectPromoWarnings(List<string> warnings)
-        {
-            var manual = HasManualPromo();
-
-            if (DropStartTime is { HasValue: true } && !manual)
-                warnings.Add("Drop Start Time only applies to a manual promo; add a Manual promo rule or clear it.");
-
-            // On a playtime generator the interval also paces its drops.
-            if (DropInterval > 0 && !manual && Type != ItemType.PlaytimeGenerator)
-                warnings.Add("Drop Interval only applies to a manual promo; add a Manual promo rule or clear it.");
-
-            if (Promo == null)
-                return;
-
-            for (var i = 0; i < Promo.Count; i++)
-            {
-                if (string.IsNullOrEmpty(Promo[i]?.ToSteamString()))
-                    warnings.Add($"Promo rule {i} is incomplete and is left out.");
-            }
-        }
-
-        private bool HasManualPromo()
-        {
-            if (Promo == null)
-                return false;
-
-            foreach (var rule in Promo)
-            {
-                if (rule is ManualPromoRule)
-                    return true;
-            }
-
-            return false;
         }
 
         #endregion
@@ -911,46 +746,28 @@ namespace SteamToys.Runtime.InventorySystem
     {
         #region Properties
 
-        public TTags FixedTags
-        {
-            get => GetFixedTags();
-            set => SetFixedTags(value);
-        }
+        public new TTags Tags => GetTags();
 
         #endregion
         
         #region Inspector Serialized Field
 
         [SerializeField, Tooltip("Tags of this definition; a generator copies them to the item it creates.")]
-        private TTags _fixedTags = new();
+        private TTags _tags = new();
 
         #endregion
 
         #region Getters and Setters
 
-        public virtual TTags GetFixedTags() => _fixedTags;
+        public virtual TTags GetTags() => _tags;
 
-        public virtual void SetFixedTags(TTags tags)
-        {
-            foreach (var (tagName, tagValue) in tags) 
-                FixedTags.TrySetValue(tagName, tagValue);
-        }
+        public override Tags GetRawTags() => GetTags();
 
-        public override string GetTag(string tagName)
-        {
-            if (FixedTags.TryGetValue(tagName, out var tagValue))
-                return tagValue;
-            
-            return base.GetTag(tagName);
-        }
+        #endregion
 
-        public override void SetTag(string tagName, string tagValue)
-        {
-            if (FixedTags.TrySetValue(tagName, tagValue))
-                return;
-            
-            base.SetTag(tagName, tagValue);
-        }
+        #region Shema
+
+        public override bool SchemaSupportsTags() => true;
 
         #endregion
     }

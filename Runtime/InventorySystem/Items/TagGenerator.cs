@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using fefek5.Toys.Runtime.Attributes;
 using Newtonsoft.Json;
 using SteamToys.Runtime.InventorySystem.Converters;
 using UnityEngine;
@@ -9,15 +10,24 @@ namespace SteamToys.Runtime.InventorySystem
 {
     /// <summary>
     /// ItemDef of type <c>tag_generator</c>: creates no items, it picks one value of a tag category by weight and
-    /// applies it to items created by the bundles and generators that list it in their tag generators.
+    /// applies it to items created by the bundles and generators that list it in their tag generators. Each value is
+    /// a <see cref="Tag"/>, so the category is the one its class names and every value has to be of the same one.
     /// <see href="https://partner.steamgames.com/doc/features/inventory/itemtags"/>
     /// </summary>
-    public abstract class TagGenerator : ItemDef
+    [CreateAssetMenu(fileName = "New Tag Generator", menuName = "SteamToys/Inventory/Tag Generator", order = 5)]
+    public sealed class TagGenerator : ItemDef
     {
+        #region Constants
+
+        private const char VALUE_SEPARATOR = ';';
+        private const char WEIGHT_SEPARATOR = ':';
+
+        #endregion
+
         #region Properties
 
         /// <summary>
-        /// Category token of the generated tag, e.g. <c>"rarity"</c>.
+        /// Category token of the generated tag, e.g. <c>"rarity"</c>: the one of the first value.
         /// </summary>
         public string TagGeneratorName => GetTagGeneratorName();
 
@@ -26,15 +36,66 @@ namespace SteamToys.Runtime.InventorySystem
         /// </summary>
         public string TagGeneratorValues => GetTagGeneratorValues();
 
+        public List<TagWeight> Values
+        {
+            get => GetValues();
+            set => SetValues(value);
+        }
+
         #endregion
 
-        #region Getters
+        #region Inspector Serialized Fields
+
+        [Header("Tag Generator")]
+        [SerializeField, Tooltip("Tag values this generator picks from, with their relative odds. All of one category.")]
+        private List<TagWeight> _values = new();
+
+        #endregion
+
+        #region Getters and Setters
 
         public override ItemType GetItemType() => ItemType.TagGenerator;
 
-        public abstract string GetTagGeneratorName();
+        public List<TagWeight> GetValues() => _values;
 
-        public abstract string GetTagGeneratorValues();
+        public void SetValues(List<TagWeight> value) => _values = value;
+
+        public string GetTagGeneratorName()
+        {
+            if (Values == null)
+                return string.Empty;
+
+            foreach (var weight in Values)
+            {
+                if (weight?.Tag != null)
+                    return weight.Tag.GetName();
+            }
+
+            return string.Empty;
+        }
+
+        public string GetTagGeneratorValues()
+        {
+            if (Values == null)
+                return string.Empty;
+
+            var stringBuilder = new StringBuilder();
+
+            foreach (var weight in Values)
+            {
+                if (weight?.Tag == null || weight.Weight == 0)
+                    continue;
+
+                if (stringBuilder.Length > 0)
+                    stringBuilder.Append(VALUE_SEPARATOR);
+
+                stringBuilder.Append(weight.Tag.GetValue())
+                    .Append(WEIGHT_SEPARATOR)
+                    .Append(weight.Weight);
+            }
+
+            return stringBuilder.ToString();
+        }
 
         #endregion
 
@@ -93,104 +154,11 @@ namespace SteamToys.Runtime.InventorySystem
         #endregion
     }
 
-    /// <summary>
-    /// Tag generator for the <see cref="Tag{TEnum}"/> category of <typeparamref name="TEnum"/>, so the generated
-    /// tags match the ones items declare with that enum.
-    /// </summary>
-    public class TagGenerator<TEnum> : TagGenerator where TEnum : Enum
-    {
-        #region Constants
-
-        private const char VALUE_SEPARATOR = ';';
-        private const char WEIGHT_SEPARATOR = ':';
-
-        #endregion
-
-        #region Properties
-
-        public List<TagWeight<TEnum>> Values
-        {
-            get => GetValues();
-            set => SetValues(value);
-        }
-
-        #endregion
-
-        #region Inspector Serialized Fields
-
-        [Header("Tag Generator")]
-        [SerializeField, Tooltip("Tag values this generator picks from, with their relative odds.")]
-        private List<TagWeight<TEnum>> _values = new();
-
-        #endregion
-
-        #region Getters and Setters
-
-        public virtual List<TagWeight<TEnum>> GetValues() => _values;
-
-        public virtual void SetValues(List<TagWeight<TEnum>> value) => _values = value;
-
-        public override string GetTagGeneratorName() => new Tag<TEnum>().GetName();
-
-        public override string GetTagGeneratorValues()
-        {
-            if (Values == null)
-                return string.Empty;
-
-            var stringBuilder = new StringBuilder();
-
-            foreach (var weight in Values)
-            {
-                if (weight == null || weight.Weight == 0)
-                    continue;
-
-                if (stringBuilder.Length > 0)
-                    stringBuilder.Append(VALUE_SEPARATOR);
-
-                stringBuilder.Append(new Tag<TEnum> { Value = weight.Value }.GetValue())
-                    .Append(WEIGHT_SEPARATOR)
-                    .Append(weight.Weight);
-            }
-
-            return stringBuilder.ToString();
-        }
-
-        #endregion
-
-        #region Validation
-
-        public override void CollectSchemaWarnings(List<string> warnings)
-        {
-            base.CollectSchemaWarnings(warnings);
-
-            if (Values == null || Values.Count == 0)
-            {
-                warnings.Add("Tag generator has no values.");
-                return;
-            }
-
-            var seen = new HashSet<TEnum>();
-
-            foreach (var weight in Values)
-            {
-                if (weight == null)
-                    continue;
-
-                if (weight.Weight == 0)
-                    warnings.Add($"{weight.Value} has a weight of 0 and is skipped.");
-
-                if (!seen.Add(weight.Value))
-                    warnings.Add($"{weight.Value} is listed more than once.");
-            }
-        }
-
-        #endregion
-    }
-
     [Serializable]
-    public class TagWeight<TEnum> where TEnum : Enum
+    public class TagWeight
     {
-        public TEnum Value;
+        [SerializeReference, SelectType, Tooltip("The tag value, e.g. rarity: legendary.")]
+        public Tag Tag;
 
         [Tooltip("Relative odds of this value.")]
         public uint Weight = 1;

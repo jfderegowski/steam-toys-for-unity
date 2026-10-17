@@ -562,7 +562,7 @@ namespace SteamToys.Runtime.InventorySystem
             item.Name = displayName;
             var tags = new DefaultTags();
             TagsConverter.FromString(Read("tags"), tags);
-            item.Tags = tags;
+            // item.Tags = tags;
             item.Description = Read("description");
             item.DisplayType = Read("display_type");
             item.IconUrl = new Url(Read("icon_url"));
