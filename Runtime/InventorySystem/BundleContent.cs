@@ -24,7 +24,7 @@ namespace SteamToys.Runtime.InventorySystem
         }
 
         /// <summary>
-        /// How many are granted in a <see cref="Bundle"/>, or the relative odds in a generator.
+        /// How many are granted in a <see cref="BundleDef"/>, or the relative odds in a generator.
         /// </summary>
         public uint Quantity
         {

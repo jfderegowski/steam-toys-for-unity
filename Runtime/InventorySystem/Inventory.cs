@@ -13,7 +13,7 @@ namespace SteamToys.Runtime.InventorySystem
     /// The Steam inventory of the signed-in player: the items they own, and the calls that change it.
     /// <para>
     /// Every owned item is an <see cref="InventoryItem"/>: the state of that one item (instance ID, quantity, its own
-    /// tags and every other property Steam reports for it) and a reference to its <see cref="Item"/> definition from
+    /// tags and every other property Steam reports for it) and a reference to its <see cref="DefaultItemDef"/> definition from
     /// <see cref="SteamItemsDB"/>. An itemdefid the DB lacks gets a definition made at runtime from the one published
     /// on Steam, shared by every item of it, so its name, icons and colors still show. Items are kept across updates
     /// by their instance ID, so a reference to one stays valid while the player owns it. Only items sit in an
@@ -65,7 +65,7 @@ namespace SteamToys.Runtime.InventorySystem
         private static readonly List<InventoryItem> _items = new();
 
         // Definitions made from the ones published on Steam, for itemdefids the DB lacks; one per itemdefid.
-        private static readonly Dictionary<ulong, Item> _publishedDefinitions = new();
+        private static readonly Dictionary<ulong, DefaultItemDef> _publishedDefinitions = new();
 
         // What each pending result handle is for, and who waits for it.
         private static readonly Dictionary<SteamInventoryResult_t, PendingResult> _pending = new();
@@ -505,12 +505,12 @@ namespace SteamToys.Runtime.InventorySystem
         /// The definition made at runtime for an itemdefid <see cref="SteamItemsDB"/> lacks, so nothing the player owns
         /// goes missing. Made once and shared by every item of the itemdefid.
         /// </summary>
-        private static Item GetPublishedDefinition(ulong itemDefId)
+        private static DefaultItemDef GetPublishedDefinition(ulong itemDefId)
         {
             if (_publishedDefinitions.TryGetValue(itemDefId, out var definition) && definition)
                 return definition;
 
-            definition = ScriptableObject.CreateInstance<Item>();
+            definition = ScriptableObject.CreateInstance<DefaultItemDef>();
             definition.name = $"Item {itemDefId}";
             definition.hideFlags = HideFlags.DontSave;
             definition.ItemDefId = itemDefId;
@@ -547,9 +547,9 @@ namespace SteamToys.Runtime.InventorySystem
         /// Fills a definition made at runtime from the one published on Steam. Steam may not have loaded its
         /// definitions yet; <see cref="OnDefinitionUpdate"/> fills it in once it has.
         /// </summary>
-        private static bool ApplyPublishedDefinition(Item item)
+        private static bool ApplyPublishedDefinition(DefaultItemDef defaultItemDef)
         {
-            var id = ToSteam(item);
+            var id = ToSteam(defaultItemDef);
 
             string Read(string name) => ReadProperty((string propertyName, ref uint size, out string value) =>
                 SteamInventory.GetItemDefinitionProperty(id, propertyName, out value, ref size), name);
@@ -559,19 +559,19 @@ namespace SteamToys.Runtime.InventorySystem
             if (string.IsNullOrEmpty(displayName))
                 return false;
 
-            item.Name = displayName;
+            defaultItemDef.Name = displayName;
             var tags = new DefaultTags();
             TagsConverter.FromString(Read("tags"), tags);
             // item.Tags = tags;
-            item.Description = Read("description");
-            item.DisplayType = Read("display_type");
-            item.IconUrl = new Url(Read("icon_url"));
-            item.IconUrlLarge = new Url(Read("icon_url_large"));
-            item.NameColor = ParseColor(Read("name_color"));
-            item.BackgroundColor = ParseColor(Read("background_color"));
-            item.Tradable = ParseBool(Read("tradable"));
-            item.Marketable = ParseBool(Read("marketable"));
-            item.GameOnly = ParseBool(Read("game_only"));
+            defaultItemDef.Description = Read("description");
+            defaultItemDef.DisplayType = Read("display_type");
+            defaultItemDef.IconUrl = new Url(Read("icon_url"));
+            defaultItemDef.IconUrlLarge = new Url(Read("icon_url_large"));
+            defaultItemDef.NameColor = ParseColor(Read("name_color"));
+            defaultItemDef.BackgroundColor = ParseColor(Read("background_color"));
+            defaultItemDef.Tradable = ParseBool(Read("tradable"));
+            defaultItemDef.Marketable = ParseBool(Read("marketable"));
+            defaultItemDef.GameOnly = ParseBool(Read("game_only"));
 
             return true;
         }

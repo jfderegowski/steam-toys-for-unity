@@ -1,5 +1,3 @@
-using UnityEngine;
-
 namespace SteamToys.Runtime.InventorySystem
 {
     /// <summary>
@@ -8,8 +6,7 @@ namespace SteamToys.Runtime.InventorySystem
     /// <see cref="ItemDef.TagGenerators"/> do apply to them. It is sold only with a price: the sum of its contents, less
     /// the <see cref="ItemDef.PurchaseBundleDiscount"/>, or its own with <see cref="ItemDef.UseBundlePrice"/>.
     /// </summary>
-    [CreateAssetMenu(fileName = "New Bundle", menuName = "SteamToys/Inventory/Bundle", order = 2)]
-    public class Bundle : ItemDef
+    public class BundleDef : ItemDef
     {
         public override ItemType GetItemType() => ItemType.Bundle;
 

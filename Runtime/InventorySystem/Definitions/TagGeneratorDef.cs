@@ -14,7 +14,7 @@ namespace SteamToys.Runtime.InventorySystem
     /// <see href="https://partner.steamgames.com/doc/features/inventory/itemtags"/>
     /// </summary>
     [JsonConverter(typeof(TagGeneratorConverter))]
-    public abstract class TagGenerator : ItemDef
+    public abstract class TagGeneratorDef : ItemDef
     {
         #region Properties
 
@@ -86,7 +86,7 @@ namespace SteamToys.Runtime.InventorySystem
         #endregion
     }
 
-    public class TagGenerator<TEnum> : TagGenerator where TEnum : Enum
+    public class TagGeneratorDef<TEnum> : TagGeneratorDef where TEnum : Enum
     {
         [SerializeField] private SerializableDictionary<TEnum, uint> _tagValuesAndChances = new();
 

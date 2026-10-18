@@ -98,7 +98,7 @@ namespace SteamToys.Runtime.InventorySystem
             set => SetContents(value);
         }
 
-        public List<TagGenerator> TagGenerators
+        public List<TagGeneratorDef> TagGenerators
         {
             get => GetTagGenerators();
             set => SetTagGenerators(value);
@@ -277,7 +277,7 @@ namespace SteamToys.Runtime.InventorySystem
         [SerializeField, Tooltip("What this creates: a bundle every entry with its quantity, a generator one entry picked by weight.")]
         private BundleContent _bundle = new();
         [SerializeField, Tooltip("Tag generators applied to every item this creates.")]
-        private List<TagGenerator> _tagGenerators = new();
+        private List<TagGeneratorDef> _tagGenerators = new();
 
         [Header("Pricing")]
         [SerializeField, Tooltip("Price information for the item.")]
@@ -380,9 +380,9 @@ namespace SteamToys.Runtime.InventorySystem
 
         public virtual void SetContents(BundleContent value) => _bundle = value;
 
-        public virtual List<TagGenerator> GetTagGenerators() => _tagGenerators;
+        public virtual List<TagGeneratorDef> GetTagGenerators() => _tagGenerators;
 
-        public virtual void SetTagGenerators(List<TagGenerator> value) => _tagGenerators = value;
+        public virtual void SetTagGenerators(List<TagGeneratorDef> value) => _tagGenerators = value;
 
         public virtual Price GetPrice() => _price;
 
@@ -767,7 +767,44 @@ namespace SteamToys.Runtime.InventorySystem
 
         #region Shema
 
+        public override ItemType GetItemType() => ItemType.Item;
+
         public override bool SchemaSupportsTags() => true;
+        public override bool SchemaSupportsDescription() => true;
+        public override bool SchemaSupportsHidden() => true;
+        public override bool SchemaSupportsExchange() => true;
+        public override bool SchemaSupportsPromo() => true;
+        public override bool SchemaSupportsDropStartTime() => true;
+        public override bool SchemaSupportsGrantedManually() => true;
+        public override bool SchemaSupportsDropInterval() => true;
+
+        public override bool SchemaSupportsContent() => false;
+        public override bool SchemaSupportsTagGenerators() => false;
+
+        public override bool SchemaSupportsDisplayType() => true;
+        public override bool SchemaSupportsIconUrl() => true;
+        public override bool SchemaSupportsIconUrlLarge() => true;
+        public override bool SchemaSupportsNameColor() => true;
+        public override bool SchemaSupportsBackgroundColor() => true;
+        public override bool SchemaSupportsStoreTags() => true;
+        public override bool SchemaSupportsStoreImages() => true;
+        public override bool SchemaSupportsStoreHidden() => true;
+        public override bool SchemaSupportsPrice() => true;
+        public override bool SchemaSupportsPriceCategory() => true;
+
+        public override bool SchemaSupportsUseBundlePrice() => false;
+        public override bool SchemaSupportsPurchaseBundleDiscount() => false;
+
+        public override bool SchemaSupportsTradable() => true;
+        public override bool SchemaSupportsMarketable() => true;
+        public override bool SchemaSupportsGameOnly() => true;
+        public override bool SchemaSupportsAutoStack() => true;
+        public override bool SchemaSupportsPurchaseLimit() => true;
+        public override bool SchemaSupportsContainerContentsGenerator() => true;
+
+        public override bool SchemaSupportsDropWindow() => false;
+        public override bool SchemaSupportsDropMaxPerWindow() => false;
+        public override bool SchemaSupportsDropLimit() => false;
 
         #endregion
     }

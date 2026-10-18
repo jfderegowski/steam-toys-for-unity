@@ -7,7 +7,7 @@ namespace SteamToys.Runtime.InventorySystem.CodeGenerators
 {
     /// <summary>
     /// Defines one tag category, e.g. <c>rarity</c>, and its values, and generates the enum of it that
-    /// <see cref="Tag{TEnum}"/> and <see cref="TagGenerator{TEnum}"/> are made with. The enum is named after
+    /// <see cref="Tag{TEnum}"/> and <see cref="TagGeneratorDef{TEnum}"/> are made with. The enum is named after
     /// <see cref="CodeGenerator.ClassName"/>, and Steam gets its name and the names of its values in snake_case.
     /// <para>
     /// Unity saves an enum by its number, so every value keeps the number it was given when it was added, and a number

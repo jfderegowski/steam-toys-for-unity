@@ -36,12 +36,11 @@ namespace SteamToys.Editor.InventorySystem
         private const uint PROPERTY_BUFFER_SIZE = 8192;
 
         // The class of the package for each type, taken when no class of the game is a better fit.
-        private static readonly Dictionary<ItemType, Type> PackageTypes = new()
-        {
-            { ItemType.Item, typeof(Item) },
-            { ItemType.Bundle, typeof(Bundle) },
-            { ItemType.Generator, typeof(Generator) },
-            { ItemType.PlaytimeGenerator, typeof(PlaytimeGenerator) }
+        private static readonly Dictionary<ItemType, Type> PackageTypes = new() {
+            { ItemType.Item, typeof(DefaultItemDef) },
+            { ItemType.Bundle, typeof(BundleDef) },
+            { ItemType.Generator, typeof(DefaultGeneratorDef) },
+            { ItemType.PlaytimeGenerator, typeof(DefaultPlaytimeGeneratorDef) }
         };
 
         private static readonly Dictionary<Type, ItemType> ItemTypesOfClasses = new();
@@ -220,21 +219,17 @@ namespace SteamToys.Editor.InventorySystem
         /// <summary>
         /// The class for a new definition: of its type, and with tags, the class of the game whose tags type takes
         /// only a fixed set of categories that holds every one the definition has, by name when several do; the class
-        /// of the package otherwise, whose <see cref="DefaultTags"/> takes any category. A tag generator needs the class of
-        /// its category; without one it is null, with the reason in the report.
+        /// of the package otherwise, whose <see cref="DefaultTags"/> takes any category. A tag generator takes the class
+        /// of its category, or <see cref="DefaultTagGeneratorDef"/> when the game has none.
         /// </summary>
         private static Type ChooseClass(SteamDefinition steam, Report report)
         {
             if (steam.Type == ItemType.TagGenerator)
             {
                 var category = steam.Get("tag_generator_name");
-                var tagGenerator = GetConcreteTypes(ItemType.TagGenerator).FirstOrDefault(type => GetTagName(type) == category);
-
-                if (tagGenerator == null)
-                    report.Problems.Add($"Tag generator {steam.ItemDefId} ({steam.Name}) was skipped: no TagGenerator<TEnum> class " +
-                                        $"of the game has the category \"{category}\".");
-
-                return tagGenerator;
+                // A class of the game for the category, or the one of the package that takes any category.
+                return GetConcreteTypes(ItemType.TagGenerator).FirstOrDefault(type => GetTagName(type) == category) ??
+                       typeof(DefaultTagGeneratorDef);
             }
 
             var packageType = PackageTypes[steam.Type];
@@ -276,7 +271,10 @@ namespace SteamToys.Editor.InventorySystem
                     ? $"{asset.name}: its tags type does not take {string.Join(";", notHeld)}, so they were left out."
                     : $"{asset.name}: Steam has tags on this {asset.Type} ({string.Join(";", notHeld)}), which it does not pass on, so they were left out.");
 
-            if (asset is TagGenerator tagGenerator)
+            if (asset is DefaultTagGeneratorDef defaultTagGenerator)
+                defaultTagGenerator.SetTagName(steam.Get("tag_generator_name"));
+
+            if (asset is TagGeneratorDef tagGenerator)
                 ApplyTagValues(tagGenerator, steam.Get("tag_generator_values"), report);
 
             if (asset.SchemaSupportsDisplayType())
@@ -315,11 +313,11 @@ namespace SteamToys.Editor.InventorySystem
             if (!asset.SchemaSupportsTagGenerators())
                 return;
 
-            var tagGenerators = new List<TagGenerator>();
+            var tagGenerators = new List<TagGeneratorDef>();
 
             foreach (var id in tagGeneratorIds.Split(LIST_SEPARATOR, StringSplitOptions.RemoveEmptyEntries))
             {
-                if (ulong.TryParse(id.Trim(), out var itemDefId) && db.TryGetValue(itemDefId, out var found) && found is TagGenerator tagGenerator)
+                if (ulong.TryParse(id.Trim(), out var itemDefId) && db.TryGetValue(itemDefId, out var found) && found is TagGeneratorDef tagGenerator)
                     tagGenerators.Add(tagGenerator);
                 else
                     report.Problems.Add($"{asset.name}: tag generator {id.Trim()} is not in the DB, so it was left out.");
@@ -364,10 +362,10 @@ namespace SteamToys.Editor.InventorySystem
         }
 
         /// <summary>
-        /// Sets the values of a tag generator and their odds from Steam, e.g. <c>"legendary:1;common:9"</c>. Values its
-        /// enum does not have, and repeats, are reported and left out.
+        /// Sets the values of a tag generator and their odds from Steam, e.g. <c>"legendary:1;common:9"</c>. Values it
+        /// does not take, e.g. ones its enum does not have, and repeats, are reported and left out.
         /// </summary>
-        private static void ApplyTagValues(TagGenerator tagGenerator, string values, Report report)
+        private static void ApplyTagValues(TagGeneratorDef tagGeneratorDef, string values, Report report)
         {
             var tagValuesAndChances = new Dictionary<string, uint>();
 
@@ -378,17 +376,17 @@ namespace SteamToys.Editor.InventorySystem
                 var chance = separator < 0 ? 1u : uint.TryParse(pair[(separator + 1)..].Trim(), out var parsed) ? parsed : 0u;
 
                 if (!tagValuesAndChances.TryAdd(tagValue, chance))
-                    report.Problems.Add($"{tagGenerator.name}: Steam lists {tagValue} more than once; the first chance was kept.");
+                    report.Problems.Add($"{tagGeneratorDef.name}: Steam lists {tagValue} more than once; the first chance was kept.");
             }
 
             if (tagValuesAndChances.Count == 0)
-                report.Problems.Add($"{tagGenerator.name}: Steam reported no values for this tag generator.");
+                report.Problems.Add($"{tagGeneratorDef.name}: Steam reported no values for this tag generator.");
 
-            var notHeld = tagGenerator.SetTagValuesAndChances(tagValuesAndChances);
+            var notHeld = tagGeneratorDef.SetTagValuesAndChances(tagValuesAndChances);
 
             if (notHeld.Count > 0)
-                report.Problems.Add($"{tagGenerator.name}: {string.Join(", ", notHeld)} are not values of the " +
-                                    $"{tagGenerator.TagName} enum, so they were left out.");
+                report.Problems.Add($"{tagGeneratorDef.name}: {string.Join(", ", notHeld)} are not values the " +
+                                    $"{tagGeneratorDef.TagName} tag generator takes, so they were left out.");
         }
 
         private static Material ParseMaterial(string text, IReadOnlyDictionary<ulong, ItemDef> db, out string problem)
@@ -431,7 +429,7 @@ namespace SteamToys.Editor.InventorySystem
             var idText = separator < 0 ? text : text[..separator];
             var itemQuantity = separator < 0 ? 1u : uint.TryParse(text[(separator + 1)..], out var parsedQuantity) ? parsedQuantity : 0u;
 
-            if (!ulong.TryParse(idText, out var itemDefId) || !db.TryGetValue(itemDefId, out var found) || found is not Item item)
+            if (!ulong.TryParse(idText, out var itemDefId) || !db.TryGetValue(itemDefId, out var found) || found is not DefaultItemDef item)
             {
                 problem = $"item {idText} is not an item in the DB.";
                 return null;
@@ -459,7 +457,7 @@ namespace SteamToys.Editor.InventorySystem
 
         private static string GetTagName(Type type)
         {
-            var instance = (TagGenerator)ScriptableObject.CreateInstance(type);
+            var instance = (TagGeneratorDef)ScriptableObject.CreateInstance(type);
 
             try
             {

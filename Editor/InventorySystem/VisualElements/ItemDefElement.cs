@@ -153,7 +153,7 @@ namespace SteamToys.Editor.InventorySystem
             if (item.SchemaSupportsDropWindow() && item.DropWindow.hasValue && item.DropWindow.value == 0)
                 warnings.Add("Drop Window is enabled with 0 minutes, so it is not exported.");
 
-            if (item is TagGenerator tagGenerator)
+            if (item is TagGeneratorDef tagGenerator)
                 CollectTagGeneratorWarnings(tagGenerator, warnings);
         }
 
@@ -223,9 +223,9 @@ namespace SteamToys.Editor.InventorySystem
             }
         }
 
-        private static void CollectTagGeneratorWarnings(TagGenerator generator, List<string> warnings)
+        private static void CollectTagGeneratorWarnings(TagGeneratorDef generatorDef, List<string> warnings)
         {
-            var tagValuesAndChances = generator.TagValuesAndChances;
+            var tagValuesAndChances = generatorDef.TagValuesAndChances;
 
             if (tagValuesAndChances.Count == 0)
             {

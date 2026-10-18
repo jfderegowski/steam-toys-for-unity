@@ -6,18 +6,18 @@ using Newtonsoft.Json;
 namespace SteamToys.Runtime.InventorySystem.Converters
 {
     /// <summary>
-    /// Custom JSON converter for <see cref="TagGenerator"/>: the properties every ItemDef writes, then
+    /// Custom JSON converter for <see cref="TagGeneratorDef"/>: the properties every ItemDef writes, then
     /// <c>tag_generator_name</c> and <c>tag_generator_values</c> in the format of the Steam Inventory Service.
     /// <see href="https://partner.steamgames.com/doc/features/inventory/itemtags"/>
     /// </summary>
-    public class TagGeneratorConverter : JsonConverter<TagGenerator>
+    public class TagGeneratorConverter : JsonConverter<TagGeneratorDef>
     {
         private const char VALUE_SEPARATOR = ';';
         private const char WEIGHT_SEPARATOR = ':';
 
         public override bool CanRead => false;
 
-        public override void WriteJson(JsonWriter writer, TagGenerator value, JsonSerializer serializer)
+        public override void WriteJson(JsonWriter writer, TagGeneratorDef value, JsonSerializer serializer)
         {
             if (value == null)
             {
@@ -35,7 +35,7 @@ namespace SteamToys.Runtime.InventorySystem.Converters
             writer.WriteEndObject();
         }
 
-        public override TagGenerator ReadJson(JsonReader reader, Type objectType, TagGenerator existingValue,
+        public override TagGeneratorDef ReadJson(JsonReader reader, Type objectType, TagGeneratorDef existingValue,
             bool hasExistingValue, JsonSerializer serializer) => null;
 
         /// <summary>

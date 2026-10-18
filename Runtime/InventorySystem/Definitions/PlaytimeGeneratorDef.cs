@@ -1,5 +1,3 @@
-using UnityEngine;
-
 namespace SteamToys.Runtime.InventorySystem
 {
     /// <summary>
@@ -9,7 +7,7 @@ namespace SteamToys.Runtime.InventorySystem
     /// exchange works as a plain generator's: the materials buy one pick of its content, apart from the drops. The
     /// Steam client never gets its definition.
     /// </summary>
-    public class PlaytimeGenerator<TTags> : ItemDef<TTags> where TTags : Tags, new()
+    public class PlaytimeGeneratorDef<TTags> : ItemDef<TTags> where TTags : Tags, new()
     {
         public override ItemType GetItemType() => ItemType.PlaytimeGenerator;
 
@@ -50,8 +48,4 @@ namespace SteamToys.Runtime.InventorySystem
         public override bool SchemaSupportsDropMaxPerWindow() => true;
         public override bool SchemaSupportsDropLimit() => true;
     }
-
-    /// <summary>ItemDef of type <c>playtimegenerator</c> with tags of any category.</summary>
-    [CreateAssetMenu(fileName = "New Playtime Generator", menuName = "SteamToys/Inventory/Playtime Generator", order = 4)]
-    public class PlaytimeGenerator : PlaytimeGenerator<DefaultTags> { }
 }
