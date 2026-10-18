@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using fefek5.Toys.Runtime;
 using Newtonsoft.Json;
 using SteamToys.Runtime.InventorySystem.Converters;
 
