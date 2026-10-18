@@ -9,9 +9,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: eca24080f9bee0942a3a8715b538ee03, type: 3}
-  m_Name: 5 Tag Generator
-  m_EditorClassIdentifier: fefek5.SteamToys.Runtime::SteamToys.Runtime.InventorySystem.TagGenerator
+  m_Script: {fileID: 11500000, guid: 2762d007672d4b80bce92436b6011c4f, type: 3}
+  m_Name: TestTagGenerator
+  m_EditorClassIdentifier: fefek5.SteamToys.Tests::SteamToys.Tests.Tests.TestTagGenerator
   _itemDefId: 0
   _name: 
   _description: 
@@ -63,7 +63,8 @@ MonoBehaviour:
   _dropLimit:
     value: 0
     hasValue: 0
-  _values: []
+  _tagValuesAndChances:
+    entries: []
   references:
     version: 2
     RefIds: []

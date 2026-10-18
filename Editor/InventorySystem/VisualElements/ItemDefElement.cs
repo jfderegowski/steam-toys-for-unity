@@ -225,42 +225,18 @@ namespace SteamToys.Editor.InventorySystem
 
         private static void CollectTagGeneratorWarnings(TagGenerator generator, List<string> warnings)
         {
-            var values = generator.Values;
+            var tagValuesAndChances = generator.TagValuesAndChances;
 
-            if (values == null || values.Count == 0)
+            if (tagValuesAndChances.Count == 0)
             {
                 warnings.Add("Tag generator has no values.");
                 return;
             }
 
-            var category = generator.TagGeneratorName;
-            var seen = new HashSet<string>();
-
-            for (var i = 0; i < values.Count; i++)
+            foreach (var (tagValue, chance) in tagValuesAndChances)
             {
-                var weight = values[i];
-
-                if (weight?.Tag == null)
-                {
-                    warnings.Add($"Value {i} has no tag and is skipped.");
-                    continue;
-                }
-
-                if (weight.Tag.GetName() != category)
-                    warnings.Add($"Value {i} is a {weight.Tag.GetName()} tag, but this generator makes {category} tags.");
-
-                if (weight.Weight == 0)
-                    warnings.Add($"{weight.Tag} has a weight of 0 and is skipped.");
-
-                if (!seen.Add(weight.Tag.ToString()))
-                    warnings.Add($"{weight.Tag} is listed more than once.");
-
-                // A list element added in the inspector can share the tag object of the one it was copied from.
-                for (var j = 0; j < i; j++)
-                {
-                    if (ReferenceEquals(values[j]?.Tag, weight.Tag))
-                        warnings.Add($"Value {i} shares its tag object with value {j}, so changing one changes both.");
-                }
+                if (chance == 0)
+                    warnings.Add($"{tagValue} has a chance of 0 and is skipped.");
             }
         }
 

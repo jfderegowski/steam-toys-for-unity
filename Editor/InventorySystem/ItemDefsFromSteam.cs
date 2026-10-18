@@ -228,14 +228,13 @@ namespace SteamToys.Editor.InventorySystem
             if (steam.Type == ItemType.TagGenerator)
             {
                 var category = steam.Get("tag_generator_name");
+                var tagGenerator = GetConcreteTypes(ItemType.TagGenerator).FirstOrDefault(type => GetTagName(type) == category);
 
-                if (GetTagType(category) != null)
-                    return typeof(TagGenerator);
+                if (tagGenerator == null)
+                    report.Problems.Add($"Tag generator {steam.ItemDefId} ({steam.Name}) was skipped: no TagGenerator<TEnum> class " +
+                                        $"of the game has the category \"{category}\".");
 
-                report.Problems.Add($"Tag generator {steam.ItemDefId} ({steam.Name}) was skipped: no Tag class " +
-                                    $"of the game has the category \"{category}\".");
-
-                return null;
+                return tagGenerator;
             }
 
             var packageType = PackageTypes[steam.Type];
@@ -278,7 +277,7 @@ namespace SteamToys.Editor.InventorySystem
                     : $"{asset.name}: Steam has tags on this {asset.Type} ({string.Join(";", notHeld)}), which it does not pass on, so they were left out.");
 
             if (asset is TagGenerator tagGenerator)
-                tagGenerator.Values = ParseTagWeights(steam.Get("tag_generator_name"), steam.Get("tag_generator_values"), asset, report);
+                ApplyTagValues(tagGenerator, steam.Get("tag_generator_values"), report);
 
             if (asset.SchemaSupportsDisplayType())
             {
@@ -365,38 +364,31 @@ namespace SteamToys.Editor.InventorySystem
         }
 
         /// <summary>
-        /// The values of a tag generator, e.g. <c>"legendary:1;common:9"</c>, as tags of the Tag class of
-        /// <paramref name="category"/>. Values that class does not have are reported and left out.
+        /// Sets the values of a tag generator and their odds from Steam, e.g. <c>"legendary:1;common:9"</c>. Values its
+        /// enum does not have, and repeats, are reported and left out.
         /// </summary>
-        private static List<TagWeight> ParseTagWeights(string category, string values, ItemDef asset, Report report)
+        private static void ApplyTagValues(TagGenerator tagGenerator, string values, Report report)
         {
-            var weights = new List<TagWeight>();
-            var tagType = GetTagType(category);
-
-            if (tagType == null)
-                return weights;
+            var tagValuesAndChances = new Dictionary<string, uint>();
 
             foreach (var pair in values.Split(LIST_SEPARATOR, StringSplitOptions.RemoveEmptyEntries))
             {
                 var separator = pair.IndexOf(TAG_SEPARATOR);
                 var tagValue = (separator < 0 ? pair : pair[..separator]).Trim();
-                var tag = (Tag)Activator.CreateInstance(tagType);
+                var chance = separator < 0 ? 1u : uint.TryParse(pair[(separator + 1)..].Trim(), out var parsed) ? parsed : 0u;
 
-                if (!tag.SetValue(tagValue))
-                {
-                    report.Problems.Add($"{asset.name}: \"{tagValue}\" is not a value of the {category} tag, so it was left out.");
-                    continue;
-                }
-
-                var weight = separator < 0 ? 1u : uint.TryParse(pair[(separator + 1)..].Trim(), out var parsed) ? parsed : 0u;
-
-                weights.Add(new TagWeight { Tag = tag, Weight = weight });
+                if (!tagValuesAndChances.TryAdd(tagValue, chance))
+                    report.Problems.Add($"{tagGenerator.name}: Steam lists {tagValue} more than once; the first chance was kept.");
             }
 
-            if (weights.Count == 0)
-                report.Problems.Add($"{asset.name}: Steam reported no values for this tag generator.");
+            if (tagValuesAndChances.Count == 0)
+                report.Problems.Add($"{tagGenerator.name}: Steam reported no values for this tag generator.");
 
-            return weights;
+            var notHeld = tagGenerator.SetTagValuesAndChances(tagValuesAndChances);
+
+            if (notHeld.Count > 0)
+                report.Problems.Add($"{tagGenerator.name}: {string.Join(", ", notHeld)} are not values of the " +
+                                    $"{tagGenerator.TagName} enum, so they were left out.");
         }
 
         private static Material ParseMaterial(string text, IReadOnlyDictionary<ulong, ItemDef> db, out string problem)
@@ -465,12 +457,19 @@ namespace SteamToys.Editor.InventorySystem
             return byId;
         }
 
-        /// <summary>The concrete Tag class of the game whose category is <paramref name="category"/>, or null.</summary>
-        private static Type GetTagType(string category) =>
-            TypeCache.GetTypesDerivedFrom<Tag>()
-                .Where(type => !type.IsAbstract && !type.ContainsGenericParameters)
-                .OrderBy(type => type.Name)
-                .FirstOrDefault(type => ((Tag)Activator.CreateInstance(type)).GetName() == category);
+        private static string GetTagName(Type type)
+        {
+            var instance = (TagGenerator)ScriptableObject.CreateInstance(type);
+
+            try
+            {
+                return instance.TagName;
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(instance);
+            }
+        }
 
         /// <summary>
         /// The classes a definition of <paramref name="type"/> can be made with: every concrete ItemDef class of that

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Text;
-using fefek5.Toys.Runtime.Attributes;
+using fefek5.Toys.Runtime;
 using Newtonsoft.Json;
 using SteamToys.Runtime.InventorySystem.Converters;
 using UnityEngine;
@@ -14,88 +13,33 @@ namespace SteamToys.Runtime.InventorySystem
     /// a <see cref="Tag"/>, so the category is the one its class names and every value has to be of the same one.
     /// <see href="https://partner.steamgames.com/doc/features/inventory/itemtags"/>
     /// </summary>
-    [CreateAssetMenu(fileName = "New Tag Generator", menuName = "SteamToys/Inventory/Tag Generator", order = 5)]
-    public sealed class TagGenerator : ItemDef
+    [JsonConverter(typeof(TagGeneratorConverter))]
+    public abstract class TagGenerator : ItemDef
     {
-        #region Constants
-
-        private const char VALUE_SEPARATOR = ';';
-        private const char WEIGHT_SEPARATOR = ':';
-
-        #endregion
-
         #region Properties
 
         /// <summary>
         /// Category token of the generated tag, e.g. <c>"rarity"</c>: the one of the first value.
         /// </summary>
-        public string TagGeneratorName => GetTagGeneratorName();
+        public abstract string TagName { get; }
 
         /// <summary>
         /// Tag values with their relative odds, e.g. <c>"legendary:1;common:9"</c>.
         /// </summary>
-        public string TagGeneratorValues => GetTagGeneratorValues();
-
-        public List<TagWeight> Values
-        {
-            get => GetValues();
-            set => SetValues(value);
-        }
+        public abstract Dictionary<string, uint> TagValuesAndChances { get; }
 
         #endregion
 
-        #region Inspector Serialized Fields
-
-        [Header("Tag Generator")]
-        [SerializeField, Tooltip("Tag values this generator picks from, with their relative odds. All of one category.")]
-        private List<TagWeight> _values = new();
-
-        #endregion
+        /// <summary>
+        /// Replaces the tag values and their odds with <paramref name="tagValuesAndChances"/>, given as Steam values,
+        /// e.g. <c>legendary</c>.
+        /// </summary>
+        /// <returns>The values left out: not values of this category, or already set.</returns>
+        public abstract List<string> SetTagValuesAndChances(IReadOnlyDictionary<string, uint> tagValuesAndChances);
 
         #region Getters and Setters
 
         public override ItemType GetItemType() => ItemType.TagGenerator;
-
-        public List<TagWeight> GetValues() => _values;
-
-        public void SetValues(List<TagWeight> value) => _values = value;
-
-        public string GetTagGeneratorName()
-        {
-            if (Values == null)
-                return string.Empty;
-
-            foreach (var weight in Values)
-            {
-                if (weight?.Tag != null)
-                    return weight.Tag.GetName();
-            }
-
-            return string.Empty;
-        }
-
-        public string GetTagGeneratorValues()
-        {
-            if (Values == null)
-                return string.Empty;
-
-            var stringBuilder = new StringBuilder();
-
-            foreach (var weight in Values)
-            {
-                if (weight?.Tag == null || weight.Weight == 0)
-                    continue;
-
-                if (stringBuilder.Length > 0)
-                    stringBuilder.Append(VALUE_SEPARATOR);
-
-                stringBuilder.Append(weight.Tag.GetValue())
-                    .Append(WEIGHT_SEPARATOR)
-                    .Append(weight.Weight);
-            }
-
-            return stringBuilder.ToString();
-        }
 
         #endregion
 
@@ -140,27 +84,43 @@ namespace SteamToys.Runtime.InventorySystem
         public override bool SchemaSupportsDropLimit() => false;
 
         #endregion
-
-        #region Json
-
-        public override void WriteJsonProperties(JsonWriter writer)
-        {
-            base.WriteJsonProperties(writer);
-
-            writer.WriteIfNotEmpty("tag_generator_name", TagGeneratorName);
-            writer.WriteIfNotEmpty("tag_generator_values", TagGeneratorValues);
-        }
-
-        #endregion
     }
 
-    [Serializable]
-    public class TagWeight
+    public class TagGenerator<TEnum> : TagGenerator where TEnum : Enum
     {
-        [SerializeReference, SelectType, Tooltip("The tag value, e.g. rarity: legendary.")]
-        public Tag Tag;
+        [SerializeField] private SerializableDictionary<TEnum, uint> _tagValuesAndChances = new();
 
-        [Tooltip("Relative odds of this value.")]
-        public uint Weight = 1;
+        public override string TagName => typeof(TEnum).Name.ToSnakeCase();
+
+        public override Dictionary<string, uint> TagValuesAndChances
+        {
+            get
+            {
+                var tagValuesAndChances = new Dictionary<string, uint>();
+
+                foreach (var (tagValue, tagChance) in _tagValuesAndChances) 
+                    tagValuesAndChances[tagValue.ToString()] = tagChance;
+                
+                return tagValuesAndChances;
+            }
+        }
+
+        public override List<string> SetTagValuesAndChances(IReadOnlyDictionary<string, uint> tagValuesAndChances)
+        {
+            var notHeld = new List<string>();
+
+            _tagValuesAndChances.Clear();
+
+            foreach (var (tagValue, tagChance) in tagValuesAndChances)
+            {
+                // Tag<TEnum> reads the value, so it takes the same values the tags of items do.
+                var tag = new Tag<TEnum>();
+
+                if (!tag.SetValue(tagValue) || !_tagValuesAndChances.TryAdd(tag.Value, tagChance))
+                    notHeld.Add(tagValue);
+            }
+
+            return notHeld;
+        }
     }
 }
