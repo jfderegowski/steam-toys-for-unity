@@ -9,13 +9,11 @@ using SteamToys.Runtime.InventorySystem.Converters;
 namespace SteamToys.Runtime.InventorySystem
 {
     /// <summary>
-    /// The tags of an ItemDef or an owned item: Steam <c>category:value</c> pairs, one value per category, kept as
-    /// strings. An enum is only a helper for them: <see cref="GetValue{TEnum}"/> and <see cref="SetValue{TEnum}"/>
-    /// read and write the category named after the enum, as <see cref="Tag{TEnum}"/> names it, e.g.
+    /// The tags of an ItemDef or an owned item: Steam <c>category:value</c> pairs, one value per category,
+    /// kept as strings.
     /// <c>Rarity.Legendary</c> as <c>rarity:legendary</c>.
     /// <para>
     /// <see cref="DefaultTags"/> holds any category. A subclass can hold a fixed set instead by overriding
-    /// <see cref="CanHold"/>.
     /// </para>
     /// <see href="https://partner.steamgames.com/doc/features/inventory/itemtags"/>
     /// </summary>

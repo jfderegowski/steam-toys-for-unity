@@ -10,10 +10,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2762d007672d4b80bce92436b6011c4f, type: 3}
-  m_Name: TestTagGenerator
+  m_Name: 5 Test Tag Generator
   m_EditorClassIdentifier: fefek5.SteamToys.Tests::SteamToys.Tests.Tests.TestTagGenerator
   _itemDefId: 0
-  _name: 
+  _name: aaaa
   _description: 
   _hidden: 0
   _displayType: 
@@ -64,7 +64,11 @@ MonoBehaviour:
     value: 0
     hasValue: 0
   _tagValuesAndChances:
-    entries: []
+    entries:
+    - key: 0
+      value: 1
+    - key: 1
+      value: 1
   references:
     version: 2
     RefIds: []
