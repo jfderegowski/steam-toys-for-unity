@@ -12,9 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0ffce8ce27dcd98448064af2424df45d, type: 3}
   m_Name: YearCodeGenerator
   m_EditorClassIdentifier: fefek5.SteamToys.Runtime::SteamToys.Runtime.InventorySystem.CodeGenerators.TagCodeGenerator
-  _tagName: Year
+  _className: Year
   _namespace: ItemTags
   _outputFolder: Assets/Scripts
+  _script: {fileID: 11500000, guid: d3eed82ba7d959044b10b19ed8291ad1, type: 3}
   _values:
   - Name: Y2000
     Number: 0

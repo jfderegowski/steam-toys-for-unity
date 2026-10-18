@@ -12,9 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0ffce8ce27dcd98448064af2424df45d, type: 3}
   m_Name: PlaceCodeGenerator
   m_EditorClassIdentifier: fefek5.SteamToys.Runtime::SteamToys.Runtime.InventorySystem.CodeGenerators.TagCodeGenerator
-  _tagName: Place
+  _className: Place
   _namespace: ItemTags
   _outputFolder: Assets/Scripts
+  _script: {fileID: 11500000, guid: f8b02be77dfe7ea42bc63e38b6343168, type: 3}
   _values:
   - Name: Poznan
     Number: 0
