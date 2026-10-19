@@ -569,6 +569,12 @@ namespace SteamToys.Runtime.InventorySystem
         #region Inventory
 
         /// <summary>
+        /// A new owned item of this definition, before <see cref="Inventory"/> fills it in. A class of the game
+        /// overrides it to make its own <see cref="InventoryItem"/>, e.g. one with typed tags.
+        /// </summary>
+        public virtual InventoryItem CreateInventoryItem() => new();
+
+        /// <summary>
         /// Grants <paramref name="quantity"/> of this definition to the signed-in account through
         /// <see cref="Inventory.GenerateItems"/>. Works only for accounts of the Steamworks partner group and only once
         /// the definition is published on Steam, so it is for testing, never for the game itself.

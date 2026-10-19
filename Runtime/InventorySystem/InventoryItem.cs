@@ -10,6 +10,11 @@ namespace SteamToys.Runtime.InventorySystem
     /// with the state of that one item. Items of one itemdefid differ only in that state (quantity, tags, when and how
     /// they were acquired); the name, icons and colors belong to the definition.
     /// <para>
+    /// Its <see cref="Tags"/> are the ones Steam reports on the item, which tag generators and the generator that made
+    /// it set; the tags of its definition stay on <see cref="Definition"/>. <see cref="ItemDef.CreateInventoryItem"/>
+    /// makes it, so a class of the game can have its own, e.g. <see cref="InventoryItem{TItemDef}"/> with typed tags.
+    /// </para>
+    /// <para>
     /// Kept across updates by its <see cref="InstanceId"/>, so a reference to it stays valid while the player owns it.
     /// </para>
     /// </summary>
@@ -18,6 +23,7 @@ namespace SteamToys.Runtime.InventorySystem
         #region Constants
 
         private const char TAG_SEPARATOR = ';';
+        private const char CATEGORY_SEPARATOR = ':';
         private const string TAGS_PROPERTY = "tags";
         private const string ACQUIRED_PROPERTY = "acquired";
         private const string STATE_CHANGED_PROPERTY = "state_changed_timestamp";
@@ -26,6 +32,12 @@ namespace SteamToys.Runtime.InventorySystem
         private const string ORIGINAL_ITEM_ID_PROPERTY = "originalitemid";
 
         private static readonly IReadOnlyDictionary<string, string> NoProperties = new Dictionary<string, string>();
+
+        #endregion
+
+        #region Fields
+
+        private Tags _tags;
 
         #endregion
 
@@ -42,7 +54,7 @@ namespace SteamToys.Runtime.InventorySystem
         public bool IsDefinitionInDB { get; private set; }
 
         /// <summary>The Steam ID of this one owned item.</summary>
-        public SteamItemInstanceID_t InstanceId { get; }
+        public SteamItemInstanceID_t InstanceId { get; private set; }
 
         public ulong ItemDefId => Definition ? Definition.ItemDefId : 0;
 
@@ -59,16 +71,16 @@ namespace SteamToys.Runtime.InventorySystem
         public bool IsNoTrade => (Flags & ESteamItemFlags.k_ESteamItemNoTrade) != 0;
 
         /// <summary>
-        /// The Steam <c>tags</c> of this item, generated ones included, e.g. <c>"rarity:legendary;wear:worn"</c>.
+        /// The <c>tags</c> Steam reports on this item as it sends them, e.g. <c>"rarity:legendary;wear:worn"</c>: the
+        /// ones tag generators and the generator that made it set, not the ones of its definition.
         /// </summary>
-        public string Tags => GetInstanceProperty(TAGS_PROPERTY);
+        public string SteamTags => GetInstanceProperty(TAGS_PROPERTY);
 
         /// <summary>
-        /// The tags of this item, generated ones included: the ones of its definition overridden by the ones Steam
-        /// reported for it, in the <see cref="InventorySystem.Tags"/> type of the definition. Null when the definition has no tags.
-        /// Its own object, so changing it leaves the definition alone.
+        /// <see cref="SteamTags"/> in the tags object of <see cref="CreateTags"/>. The tags of the definition are on
+        /// <see cref="Definition"/>; <see cref="TryGetTag"/> looks in both.
         /// </summary>
-        public Tags TagsObject { get; private set; }
+        public Tags Tags => _tags;
 
         /// <summary>
         /// Every property Steam reports for this item, by name, e.g. <c>itemid</c>, <c>acquired</c>, <c>Origin</c>,
@@ -96,32 +108,46 @@ namespace SteamToys.Runtime.InventorySystem
 
         #endregion
 
-        internal InventoryItem(SteamItemInstanceID_t instanceId) => InstanceId = instanceId;
-
         #region Tags
 
-        /// <summary>The tags of this item, as long as they are a <typeparamref name="TTags"/>.</summary>
-        public TTags GetTags<TTags>() where TTags : Tags => TagsObject as TTags;
-
-        public bool TryGetTags<TTags>(out TTags tags) where TTags : Tags => (tags = GetTags<TTags>()) != null;
+        /// <summary>
+        /// The tags object <see cref="SteamTags"/> are read into: <see cref="DefaultTags"/>, which takes any category,
+        /// unless a subclass takes a class of the game.
+        /// </summary>
+        protected virtual Tags CreateTags() => new DefaultTags();
 
         /// <summary>
-        /// Whether this item carries the tag value <paramref name="value"/>: one of the tags Steam reported for it, or
-        /// a tag its definition sets.
+        /// The value of the tag <paramref name="tagName"/> of this item: the one Steam reports on it, or else the one
+        /// its definition sets.
+        /// </summary>
+        public bool TryGetTag(string tagName, out string tagValue)
+        {
+            foreach (var pair in SteamTags.Split(TAG_SEPARATOR, StringSplitOptions.RemoveEmptyEntries))
+            {
+                var separator = pair.IndexOf(CATEGORY_SEPARATOR);
+
+                if (separator <= 0 || pair[..separator].Trim() != tagName)
+                    continue;
+
+                tagValue = pair[(separator + 1)..].Trim();
+                return true;
+            }
+
+            tagValue = null;
+
+            return Definition && Definition.SchemaSupportsTags() && Definition.Tags != null &&
+                   Definition.Tags.TryGetValue(tagName, out tagValue);
+        }
+
+        /// <summary>
+        /// Whether this item carries the tag value <paramref name="value"/>: one Steam reports on it, or one its
+        /// definition sets.
         /// </summary>
         public bool HasTag<TEnum>(TEnum value) where TEnum : Enum
         {
             var expected = new Tag<TEnum> { Value = value };
-            var pair = expected.ToString();
 
-            foreach (var tag in Tags.Split(TAG_SEPARATOR))
-            {
-                if (tag.Trim() == pair)
-                    return true;
-            }
-
-            return TagsObject != null && TagsObject.TryGetValue(expected.GetName(), out var held) &&
-                   held == expected.GetValue();
+            return TryGetTag(expected.GetName(), out var held) && held == expected.GetValue();
         }
 
         #endregion
@@ -150,48 +176,41 @@ namespace SteamToys.Runtime.InventorySystem
 
         #region Inventory
 
-        /// <summary>Points this item at its definition, and builds its typed tags from it.</summary>
+        /// <summary>Gives this item, just made by its definition, the Steam ID it has.</summary>
+        internal void SetInstanceId(SteamItemInstanceID_t instanceId) => InstanceId = instanceId;
+
+        /// <summary>Points this item at its definition.</summary>
         internal void SetDefinition(ItemDef definition, bool isInDB)
         {
             Definition = definition;
             IsDefinitionInDB = isInDB;
-
-            UpdateTagsObject();
         }
 
-        /// <summary>Takes the state Steam reported for this item.</summary>
+        /// <summary>Takes the state Steam reported for this item, and reads its tags anew.</summary>
         internal void Update(uint quantity, ESteamItemFlags flags, IReadOnlyDictionary<string, string> properties)
         {
             Quantity = quantity;
             Flags = flags;
             Properties = properties ?? NoProperties;
 
-            UpdateTagsObject();
-        }
+            _tags = CreateTags();
 
-        /// <summary>
-        /// A fresh tags object of the definition's type, holding the definition's values overridden by this item's own.
-        /// </summary>
-        private void UpdateTagsObject()
-        {
-            var definitionTags = Definition && Definition.SchemaSupportsTags() ? Definition.Tags : null;
-
-            if (definitionTags == null)
-            {
-                TagsObject = null;
-                return;
-            }
-
-            var tags = (Tags)Activator.CreateInstance(definitionTags.GetType());
-
-            TagsConverter.FromString(TagsConverter.ToString(definitionTags), tags);
-            TagsConverter.FromString(Tags, tags);
-
-            TagsObject = tags;
+            if (_tags != null)
+                TagsConverter.FromString(SteamTags, _tags);
         }
 
         #endregion
 
         public override string ToString() => $"{Name} x{Quantity} ({InstanceId.m_SteamItemInstanceID})";
+    }
+
+    /// <summary>
+    /// An owned item whose definition is a <typeparamref name="TItemDef"/>, so <see cref="Definition"/> is typed. A
+    /// class of the game subclasses it to type <see cref="InventoryItem.Tags"/> as well, and its definition makes it
+    /// in <see cref="ItemDef.CreateInventoryItem"/>.
+    /// </summary>
+    public class InventoryItem<TItemDef> : InventoryItem where TItemDef : ItemDef
+    {
+        public new TItemDef Definition => (TItemDef)base.Definition;
     }
 }

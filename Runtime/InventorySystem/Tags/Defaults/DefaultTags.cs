@@ -24,9 +24,10 @@ namespace SteamToys.Runtime.InventorySystem
 
         public override bool TrySetValue(string tagName, string tagValue)
         {
-            if (!ContainsKey(tagName))
+            // Any category: a new one is added, a known one gets the new value.
+            if (string.IsNullOrEmpty(tagName))
                 return false;
-            
+
             _tags[tagName] = tagValue;
             
             return true;

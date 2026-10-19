@@ -730,8 +730,9 @@ namespace SteamToys.Editor.InventorySystem
 
             public uint Quantity => Owned?.Quantity ?? 0;
 
-            /// <summary>The tags Steam reported for the owned item, or the ones the definition sets.</summary>
-            public string Tags => Owned != null && !string.IsNullOrEmpty(Owned.Tags) ? Owned.Tags : TagsConverter.ToString(Definition.Tags);
+            /// <summary>The tags the definition sets, then the ones Steam reported for the owned item.</summary>
+            public string Tags => string.Join(";", new[] { TagsConverter.ToString(Definition.Tags), Owned?.SteamTags }
+                .Where(tags => !string.IsNullOrEmpty(tags)));
         }
     }
 }

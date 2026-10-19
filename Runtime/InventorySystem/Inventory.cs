@@ -12,9 +12,9 @@ namespace SteamToys.Runtime.InventorySystem
     /// <summary>
     /// The Steam inventory of the signed-in player: the items they own, and the calls that change it.
     /// <para>
-    /// Every owned item is an <see cref="InventoryItem"/>: the state of that one item (instance ID, quantity, its own
-    /// tags and every other property Steam reports for it) and a reference to its <see cref="DefaultItemDef"/> definition from
-    /// <see cref="SteamItemsDB"/>. An itemdefid the DB lacks gets a definition made at runtime from the one published
+    /// Every owned item is an <see cref="InventoryItem"/>, made by <see cref="ItemDef.CreateInventoryItem"/> of its
+    /// definition from <see cref="SteamItemsDB"/>: the state of that one item (instance ID, quantity, its own tags and
+    /// every other property Steam reports for it) and a reference to the definition. An itemdefid the DB lacks gets a definition made at runtime from the one published
     /// on Steam, shared by every item of it, so its name, icons and colors still show. Items are kept across updates
     /// by their instance ID, so a reference to one stays valid while the player owns it. Only items sit in an
     /// inventory: bundles and generators turn into items when granted.
@@ -93,9 +93,11 @@ namespace SteamToys.Runtime.InventorySystem
 
         #region Items
 
-        /// <summary>Every owned item whose tags are a <typeparamref name="TTags"/>.</summary>
-        public static IEnumerable<InventoryItem> GetItems<TTags>() where TTags : Tags =>
-            _items.Where(item => item.TagsObject is TTags);
+        /// <summary>
+        /// Every owned item that is a <typeparamref name="TItem"/>, the class its definition makes, e.g. one of the
+        /// game with typed tags.
+        /// </summary>
+        public static IEnumerable<TItem> GetItems<TItem>() where TItem : InventoryItem => _items.OfType<TItem>();
 
         /// <summary>Every owned item whose definition is a <typeparamref name="TItem"/>, e.g. a class of the game.</summary>
         public static IEnumerable<InventoryItem> GetItemsOfType<TItem>() where TItem : ItemDef =>
@@ -147,27 +149,13 @@ namespace SteamToys.Runtime.InventorySystem
 
         public static bool TryGet(ulong itemDefId, out InventoryItem item) => (item = Get(itemDefId)) != null;
 
-        /// <summary>
-        /// The first owned item of the definition and its tags, as long as they are a <typeparamref name="TTags"/>.
-        /// </summary>
-        public static bool TryGet<TTags>(ItemDef definition, out InventoryItem item, out TTags tags) where TTags : Tags
-        {
-            item = GetAll(definition).FirstOrDefault(owned => owned.TagsObject is TTags);
-            tags = item?.GetTags<TTags>();
+        /// <summary>The first owned item of the definition that is a <typeparamref name="TItem"/>.</summary>
+        public static bool TryGet<TItem>(ItemDef definition, out TItem item) where TItem : InventoryItem =>
+            (item = GetAll(definition).OfType<TItem>().FirstOrDefault()) != null;
 
-            return item != null;
-        }
-
-        /// <summary>
-        /// The first owned item with the itemdefid and its tags, as long as they are a <typeparamref name="TTags"/>.
-        /// </summary>
-        public static bool TryGet<TTags>(ulong itemDefId, out InventoryItem item, out TTags tags) where TTags : Tags
-        {
-            item = GetAll(itemDefId).FirstOrDefault(owned => owned.TagsObject is TTags);
-            tags = item?.GetTags<TTags>();
-
-            return item != null;
-        }
+        /// <summary>The first owned item with the itemdefid that is a <typeparamref name="TItem"/>.</summary>
+        public static bool TryGet<TItem>(ulong itemDefId, out TItem item) where TItem : InventoryItem =>
+            (item = GetAll(itemDefId).OfType<TItem>().FirstOrDefault()) != null;
 
         public static bool TryGetByName(string name, out InventoryItem item) => (item = GetByName(name)) != null;
 
@@ -487,14 +475,18 @@ namespace SteamToys.Runtime.InventorySystem
         /// <summary>Adds the reported item, pointed at its definition.</summary>
         private static InventoryItem AddItem(SteamItemDetails_t detail)
         {
-            var item = new InventoryItem(detail.m_itemId);
             var itemDefId = (ulong)(int)detail.m_iDefinition;
             var definition = SteamItemsDB.Instance ? SteamItemsDB.Instance.Get(itemDefId) : null;
+            var isInDB = definition && definition.Type == ItemType.Item;
 
-            if (definition && definition.Type == ItemType.Item)
-                item.SetDefinition(definition, true);
-            else
-                item.SetDefinition(GetPublishedDefinition(itemDefId), false);
+            if (!isInDB)
+                definition = GetPublishedDefinition(itemDefId);
+
+            // The definition makes the item, so a class of the game gets its own kind of item.
+            var item = definition.CreateInventoryItem();
+
+            item.SetInstanceId(detail.m_itemId);
+            item.SetDefinition(definition, isInDB);
 
             _items.Add(item);
 
@@ -586,17 +578,8 @@ namespace SteamToys.Runtime.InventorySystem
                     changed |= ApplyPublishedDefinition(definition);
             }
 
-            if (!changed)
-                return;
-
-            // The typed tags of an item start from its definition's, so they are built again.
-            foreach (var item in _items)
-            {
-                if (!item.IsDefinitionInDB)
-                    item.SetDefinition(item.Definition, false);
-            }
-
-            OnChanged?.Invoke();
+            if (changed)
+                OnChanged?.Invoke();
         }
 
         private delegate bool PropertyReader(string name, ref uint size, out string value);

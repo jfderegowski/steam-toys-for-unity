@@ -4,6 +4,7 @@ using System.Text;
 using fefek5.Toys.Editor.Icons;
 using SteamToys.Editor.AchievementsSystem;
 using SteamToys.Editor.InventorySystem;
+using SteamToys.Editor.InventorySystem.CodeGenerators;
 using SteamToys.Editor.StatsSystem;
 using SteamToys.Editor.SteamSettings;
 using SteamToys.Runtime;
@@ -325,6 +326,7 @@ namespace SteamToys.Editor.Core
             AddToolbarItem(menu, SteamStatsDBEditor.MenuPath, true, SteamStatsDBEditor.Open);
             AddToolbarItem(menu, SteamAchievementsDBEditor.MenuPath, true, SteamAchievementsDBEditor.Open);
             AddToolbarItem(menu, SteamItemsDBEditor.MenuPath, true, SteamItemsDBEditor.Open);
+            AddToolbarItem(menu, SteamItemDefinitionsWindow.MenuPath, true, SteamItemDefinitionsWindow.Open);
             AddToolbarItem(menu, SteamInventoryWindow.MenuPath, true, SteamInventoryWindow.Open);
 
             menu.DropDown(rect);
