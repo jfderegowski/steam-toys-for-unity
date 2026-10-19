@@ -18,7 +18,6 @@ namespace SteamToys.Editor.InventorySystem.CodeGenerators
 
         internal const string TITLE = "Steam Item Definitions";
         internal const string MenuPath = "Window/Steam Toys/" + TITLE;
-        private const string DEFAULT_OUTPUT_FOLDER = "Assets/Scripts";
 
         private const string TAGS_PROPERTY = "_tags";
         private const string ITEM_DEFS_PROPERTY = "_itemDefs";
@@ -240,9 +239,7 @@ namespace SteamToys.Editor.InventorySystem.CodeGenerators
         {
             Undo.RecordObject(Definitions, $"Add {generator.Kind}");
 
-            // Next to the definitions there are, as new ones usually go.
-            generator.OutputFolder = Definitions.All.LastOrDefault(other => other != null && !string.IsNullOrWhiteSpace(other.OutputFolder))
-                ?.OutputFolder ?? DEFAULT_OUTPUT_FOLDER;
+            Definitions.PlaceNextToOthers(generator);
 
             generators.Add(generator);
             Definitions.SaveDefinitions();

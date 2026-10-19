@@ -13,6 +13,8 @@ namespace SteamToys.Editor.InventorySystem.CodeGenerators
     [FilePath("ProjectSettings/SteamItemDefinitions.asset", FilePathAttribute.Location.ProjectFolder)]
     public class SteamItemDefinitions : ScriptableSingleton<SteamItemDefinitions>
     {
+        private const string DEFAULT_OUTPUT_FOLDER = "Assets/Scripts";
+
         #region Serialized Fields
 
         [SerializeField] private List<TagCodeGenerator> _tags = new();
@@ -38,6 +40,22 @@ namespace SteamToys.Editor.InventorySystem.CodeGenerators
         /// <summary>The tag with the id <paramref name="id"/>, or null.</summary>
         public TagCodeGenerator FindTag(string id) =>
             string.IsNullOrEmpty(id) ? null : _tags.FirstOrDefault(tag => tag != null && tag.Id == id);
+
+        /// <summary>The tag Steam knows as <paramref name="steamName"/>, e.g. <c>rarity</c>, or null.</summary>
+        public TagCodeGenerator FindTagBySteamName(string steamName) =>
+            _tags.FirstOrDefault(tag => tag != null && tag.SteamName == steamName);
+
+        /// <summary>
+        /// Puts <paramref name="generator"/> in the folder and the namespace of the last definition that has a folder,
+        /// as new ones usually go next to those there are, or in <c>Assets/Scripts</c> when none has.
+        /// </summary>
+        public void PlaceNextToOthers(CodeGenerator generator)
+        {
+            var last = All.LastOrDefault(other => other != null && other != generator && !string.IsNullOrWhiteSpace(other.OutputFolder));
+
+            generator.OutputFolder = last?.OutputFolder ?? DEFAULT_OUTPUT_FOLDER;
+            generator.Namespace = last?.Namespace;
+        }
 
         /// <summary>Writes the definitions to their file.</summary>
         public void SaveDefinitions() => Save(true);

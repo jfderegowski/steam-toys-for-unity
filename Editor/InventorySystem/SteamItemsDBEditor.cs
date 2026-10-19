@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using fefek5.Toys.Editor.VisualElements;
+using SteamToys.Editor.InventorySystem.CodeGenerators;
 using SteamToys.Runtime.InventorySystem;
+using SteamToys.Runtime.InventorySystem.Converters;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
@@ -189,6 +191,15 @@ namespace SteamToys.Editor.InventorySystem
                 return;
             }
 
+            if (EditorApplication.isCompiling)
+            {
+                EditorUtility.DisplayDialog("Create From Steam", "Scripts are compiling; try again once they have.", "OK");
+                return;
+            }
+
+            if (!ProposeDefinitions(definitions) || !ProposeGeneration(definitions, out var packageClasses))
+                return;
+
             // Counted against the loaded list: a lookup by ID reloads the folder on every miss.
             var ids = new HashSet<ulong>(db.Items.Where(item => item).Select(item => item.ItemDefId));
             var existing = definitions.Count(definition => ids.Contains(definition.ItemDefId));
@@ -198,11 +209,12 @@ namespace SteamToys.Editor.InventorySystem
                     $"Create {definitions.Count - existing} in {SteamItemsDB.AssetsFolder} and update {existing} the DB has?\n\n" +
                     "Only these fields are written, each for the types that use it: names, descriptions, icons, colors, " +
                     "trading flags, tags, exchange recipes and tag generators. The others, such as contents, prices, " +
-                    "promo rules and drop settings, are left as they are.",
+                    "promo rules and drop settings, are left as they are." +
+                    (packageClasses ? "\n\nNew definitions get the Default classes of the package." : string.Empty),
                     "Create And Update", "Cancel"))
                 return;
 
-            var report = ItemDefsFromSteam.Apply(db, definitions);
+            var report = ItemDefsFromSteam.Apply(db, definitions, packageClasses);
 
             foreach (var problem in report.Problems)
                 Debug.LogWarning($"[SteamToys] Create From Steam: {problem}");
@@ -213,6 +225,244 @@ namespace SteamToys.Editor.InventorySystem
                 "OK");
 
             Refresh();
+        }
+
+        /// <summary>
+        /// Offers to add to <see cref="SteamItemDefinitions"/> what the definitions on Steam need of it: the tag
+        /// categories and values Steam uses, and a kind of item for each set of tags no kind of item takes.
+        /// <see cref="ProposeGeneration"/> then offers to generate them. False when cancelled.
+        /// </summary>
+        private static bool ProposeDefinitions(IReadOnlyList<ItemDefsFromSteam.SteamDefinition> definitions)
+        {
+            var settings = SteamItemDefinitions.instance;
+            var tags = FindMissingTags(settings, definitions);
+            var kinds = FindMissingKinds(settings, definitions);
+
+            if (tags.Count == 0 && kinds.Count == 0)
+                return true;
+
+            var lines = new List<string>();
+
+            if (tags.Count > 0)
+            {
+                lines.Add("Tags:");
+                lines.AddRange(tags.Select(entry => entry.tag == null
+                    ? $"  {entry.category} (new): {string.Join(", ", entry.values)}"
+                    : $"  {entry.category}: + {string.Join(", ", entry.values)}"));
+            }
+
+            if (kinds.Count > 0)
+            {
+                lines.Add("Item Defs:");
+                lines.AddRange(kinds.Select(kind => "  " + kind.Describe()));
+            }
+
+            var choice = EditorUtility.DisplayDialogComplex("Create From Steam",
+                $"The {SteamItemDefinitionsWindow.TITLE} lack what the definitions on Steam use:\n\n{string.Join("\n", lines)}\n\n" +
+                "Add them? Skip goes on without them.",
+                "Add", "Cancel", "Skip");
+
+            if (choice != 0)
+                return choice == 2;
+
+            Undo.RecordObject(settings, "Add Steam Item Definitions From Steam");
+
+            foreach (var (category, tag, values) in tags)
+            {
+                var target = tag;
+
+                if (target == null)
+                {
+                    target = new TagCodeGenerator { ClassName = category.ToPascalCase() };
+                    settings.PlaceNextToOthers(target);
+                    settings.Tags.Add(target);
+                }
+
+                foreach (var value in values)
+                    target.AddValue(value.ToPascalCase());
+            }
+
+            // After the tags, which the kinds of items refer to by id.
+            foreach (var kind in kinds)
+            {
+                var itemDefs = new ItemDefsCodeGenerator
+                {
+                    ClassName = kind.ClassName,
+                    GenerateItemDef = kind.Types.Contains(ItemType.Item),
+                    GenerateGeneratorDef = kind.Types.Contains(ItemType.Generator),
+                    GeneratePlaytimeGeneratorDef = kind.Types.Contains(ItemType.PlaytimeGenerator)
+                };
+
+                itemDefs.Tags.AddRange(kind.Tags.Select(category =>
+                    new TagsEntry { TagId = settings.FindTagBySteamName(category).Id }));
+                itemDefs.Tags.AddRange(kind.InventoryItemTags.Select(category =>
+                    new TagsEntry { TagId = settings.FindTagBySteamName(category).Id, OnInventoryItem = true }));
+
+                settings.PlaceNextToOthers(itemDefs);
+                settings.ItemDefs.Add(itemDefs);
+            }
+
+            settings.SaveDefinitions();
+
+            return true;
+        }
+
+        /// <summary>
+        /// Offers to generate the scripts of the tags Steam uses and of the kinds of items with them that are not
+        /// generated as they are now, or to make the new definitions with the Default classes of the package instead,
+        /// set in <paramref name="packageClasses"/>. False when the run stops: cancelled, or scripts were generated,
+        /// which are to compile before the definitions are made with their classes.
+        /// </summary>
+        private static bool ProposeGeneration(IReadOnlyList<ItemDefsFromSteam.SteamDefinition> definitions, out bool packageClasses)
+        {
+            packageClasses = false;
+
+            var settings = SteamItemDefinitions.instance;
+            var categories = ItemDefsFromSteam.CollectTags(definitions).Keys;
+            var tags = settings.Tags.Where(tag => tag != null && categories.Contains(tag.SteamName)).ToList();
+            var itemDefs = settings.ItemDefs.Where(kind => kind != null && tags.Any(kind.Uses)).ToList();
+            var stale = tags.Cast<CodeGenerator>().Concat(itemDefs).Where(generator => !CodeGeneration.IsUpToDate(generator)).ToList();
+
+            if (stale.Count == 0)
+                return true;
+
+            var lines = stale.Select(generator =>
+            {
+                var problems = CodeGeneration.GetProblems(generator).Count;
+
+                return $"  {generator.Kind} {generator.DisplayName}" +
+                       (problems > 0 ? $" (has {problems} problem{(problems == 1 ? string.Empty : "s")}, fix it in the window)" : string.Empty);
+            });
+
+            var choice = EditorUtility.DisplayDialogComplex("Create From Steam",
+                $"These {SteamItemDefinitionsWindow.TITLE} are not generated as they are now:\n\n{string.Join("\n", lines)}\n\n" +
+                "Generate them? Run Create From Steam again once the scripts compiled, so the definitions are made with " +
+                "their classes. Use Default Classes makes the new definitions with DefaultItemDef, DefaultGeneratorDef, " +
+                "DefaultPlaytimeGeneratorDef and DefaultTagGeneratorDef instead.",
+                "Generate", "Cancel", "Use Default Classes");
+
+            if (choice == 2)
+                packageClasses = true;
+
+            if (choice != 0)
+                return choice == 2;
+
+            // The tags first, so the kinds of items find their enums.
+            CodeGeneration.Generate(stale.OfType<TagCodeGenerator>());
+            CodeGeneration.Generate(stale.OfType<ItemDefsCodeGenerator>());
+
+            if (stale.Any(generator => !CodeGeneration.IsUpToDate(generator)))
+                SteamItemDefinitionsWindow.Open();
+
+            return false;
+        }
+
+        /// <summary>The tag categories Steam uses that have no tag, and the values the tags lack.</summary>
+        private static List<(string category, TagCodeGenerator tag, List<string> values)> FindMissingTags(
+            SteamItemDefinitions settings, IReadOnlyList<ItemDefsFromSteam.SteamDefinition> definitions)
+        {
+            var missing = new List<(string category, TagCodeGenerator tag, List<string> values)>();
+
+            foreach (var (category, values) in ItemDefsFromSteam.CollectTags(definitions))
+            {
+                var tag = settings.FindTagBySteamName(category);
+                var known = tag == null
+                    ? new HashSet<string>()
+                    : new HashSet<string>(tag.Values.Where(value => value != null).Select(value => value.Name.ToSnakeCase()));
+                var lacking = values.Where(value => !known.Contains(value)).ToList();
+
+                if (tag == null || lacking.Count > 0)
+                    missing.Add((category, tag, lacking));
+            }
+
+            return missing;
+        }
+
+        /// <summary>
+        /// A kind of item for each set of tags of an item or generator on Steam that no kind of item takes: the tags of
+        /// an item go to its ItemDef tags and those of its tag generators to its InventoryItem tags, while a generator
+        /// copies its tags to the item it makes, so its classes take them as InventoryItem tags. Named after the tags.
+        /// </summary>
+        private static List<MissingKind> FindMissingKinds(SteamItemDefinitions settings,
+            IReadOnlyList<ItemDefsFromSteam.SteamDefinition> definitions)
+        {
+            var kinds = new Dictionary<string, MissingKind>();
+
+            foreach (var (type, tags, generatedTags) in ItemDefsFromSteam.CollectTagCategories(definitions))
+            {
+                var kind = type == ItemType.Item
+                    ? new MissingKind(tags, generatedTags.Except(tags))
+                    : new MissingKind(Enumerable.Empty<string>(), tags.Concat(generatedTags));
+
+                if (settings.ItemDefs.Any(itemDefs => itemDefs != null && kind.IsTakenBy(itemDefs, type, settings)))
+                    continue;
+
+                if (kinds.TryGetValue(kind.Key, out var same))
+                    kind = same;
+                else
+                    kinds.Add(kind.Key, kind);
+
+                kind.Types.Add(type);
+            }
+
+            var taken = new HashSet<string>(settings.ItemDefs.Where(itemDefs => itemDefs != null).Select(itemDefs => itemDefs.ClassName));
+
+            foreach (var kind in kinds.Values)
+            {
+                var name = string.Concat(kind.Tags.Concat(kind.InventoryItemTags).Distinct().Select(category => category.ToPascalCase()));
+                kind.ClassName = name;
+
+                for (var number = 2; !taken.Add(kind.ClassName); number++)
+                    kind.ClassName = name + number;
+            }
+
+            return kinds.Values.ToList();
+        }
+
+        private sealed class MissingKind
+        {
+            public readonly SortedSet<string> Tags;
+            public readonly SortedSet<string> InventoryItemTags;
+            public readonly HashSet<ItemType> Types = new();
+            public string ClassName;
+
+            public MissingKind(IEnumerable<string> tags, IEnumerable<string> inventoryItemTags)
+            {
+                Tags = new SortedSet<string>(tags);
+                InventoryItemTags = new SortedSet<string>(inventoryItemTags);
+            }
+
+            public string Key => $"{string.Join(",", Tags)}|{string.Join(",", InventoryItemTags)}";
+
+            /// <summary>Whether <paramref name="itemDefs"/> has a class for <paramref name="type"/> that holds these tags.</summary>
+            public bool IsTakenBy(ItemDefsCodeGenerator itemDefs, ItemType type, SteamItemDefinitions settings)
+            {
+                var generates = type switch
+                {
+                    ItemType.Item => itemDefs.GenerateItemDef,
+                    ItemType.Generator => itemDefs.GenerateGeneratorDef,
+                    ItemType.PlaytimeGenerator => itemDefs.GeneratePlaytimeGeneratorDef,
+                    _ => false
+                };
+
+                if (!generates)
+                    return false;
+
+                var held = new HashSet<(string, bool)>(itemDefs.Tags
+                    .Where(entry => entry != null)
+                    .Select(entry => (settings.FindTag(entry.TagId)?.SteamName, entry.OnInventoryItem)));
+
+                return Tags.All(category => held.Contains((category, false))) &&
+                       InventoryItemTags.All(category => held.Contains((category, true)));
+            }
+
+            public string Describe() =>
+                $"{ClassName} ({string.Join(", ", Types.OrderBy(type => type).Select(type => ObjectNames.NicifyVariableName(type.ToString())))}): " +
+                string.Join("; ", new[]
+                {
+                    Tags.Count > 0 ? $"tags {string.Join(", ", Tags)}" : null,
+                    InventoryItemTags.Count > 0 ? $"on the owned item {string.Join(", ", InventoryItemTags)}" : null
+                }.Where(part => part != null));
         }
 
         private void CopyJson() => EditorGUIUtility.systemCopyBuffer = ((SteamItemsDB)target).ToJson();

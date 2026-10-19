@@ -119,6 +119,82 @@ namespace SteamToys.Editor.InventorySystem
             return SteamInventory.GetItemDefinitionProperty(id, name, out var value, ref size) ? value ?? string.Empty : string.Empty;
         }
 
+        /// <summary>
+        /// Every tag category <paramref name="definitions"/> use, with its values in the order Steam lists them: those
+        /// of <c>tags</c>, of tag generators and of the tag materials of <c>exchange</c>.
+        /// </summary>
+        internal static Dictionary<string, List<string>> CollectTags(IEnumerable<SteamDefinition> definitions)
+        {
+            var tags = new Dictionary<string, List<string>>();
+
+            foreach (var steam in definitions)
+            {
+                foreach (var pair in steam.Get("tags").Split(LIST_SEPARATOR, StringSplitOptions.RemoveEmptyEntries))
+                    AddTag(tags, pair);
+
+                if (steam.Type == ItemType.TagGenerator)
+                {
+                    var category = steam.Get("tag_generator_name");
+
+                    foreach (var pair in steam.Get("tag_generator_values").Split(LIST_SEPARATOR, StringSplitOptions.RemoveEmptyEntries))
+                        AddTag(tags, $"{category}{TAG_SEPARATOR}{pair.Split(TAG_SEPARATOR)[0]}");
+                }
+
+                foreach (var material in steam.Get("exchange").Split(new[] { LIST_SEPARATOR, MATERIAL_SEPARATOR }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    if (material.Contains(TAG_SEPARATOR))
+                        AddTag(tags, material.Split(TAG_QUANTITY_SEPARATOR)[0]);
+                }
+            }
+
+            return tags;
+        }
+
+        /// <summary>
+        /// The tag categories of each item and generator of <paramref name="definitions"/> that has any: those it sets
+        /// itself, and those its tag generators set on the owned item.
+        /// </summary>
+        internal static IEnumerable<(ItemType type, HashSet<string> tags, HashSet<string> generatedTags)> CollectTagCategories(
+            IReadOnlyList<SteamDefinition> definitions)
+        {
+            var tagGeneratorNames = new Dictionary<ulong, string>();
+
+            foreach (var steam in definitions.Where(steam => steam.Type == ItemType.TagGenerator))
+                tagGeneratorNames[steam.ItemDefId] = steam.Get("tag_generator_name").Trim();
+
+            foreach (var steam in definitions)
+            {
+                if (steam.Type is ItemType.Bundle or ItemType.TagGenerator)
+                    continue;
+
+                var tags = GetCategories(steam.Get("tags"));
+                var generatedTags = new HashSet<string>(steam.Get("tag_generators")
+                    .Split(LIST_SEPARATOR, StringSplitOptions.RemoveEmptyEntries)
+                    .Select(id => ulong.TryParse(id.Trim(), out var itemDefId) && tagGeneratorNames.TryGetValue(itemDefId, out var name) ? name : string.Empty)
+                    .Where(name => name.Length > 0));
+
+                if (tags.Count > 0 || generatedTags.Count > 0)
+                    yield return (steam.Type, tags, generatedTags);
+            }
+        }
+
+        // A "category:value" pair; a value already listed is not listed again.
+        private static void AddTag(Dictionary<string, List<string>> tags, string pair)
+        {
+            var separator = pair.IndexOf(TAG_SEPARATOR);
+            var category = (separator < 0 ? pair : pair[..separator]).Trim();
+            var value = separator < 0 ? string.Empty : pair[(separator + 1)..].Trim();
+
+            if (category.Length == 0)
+                return;
+
+            if (!tags.TryGetValue(category, out var values))
+                tags.Add(category, values = new List<string>());
+
+            if (value.Length > 0 && !values.Contains(value))
+                values.Add(value);
+        }
+
         #endregion
 
         #region Creating
@@ -126,9 +202,10 @@ namespace SteamToys.Editor.InventorySystem
         /// <summary>
         /// Makes a definition in the folder of the DB for every one of <paramref name="definitions"/> it lacks, and
         /// overwrites the fields Steam reports of the ones it has. References between definitions are resolved after
-        /// all of them exist, so their order does not matter.
+        /// all of them exist, so their order does not matter. With <paramref name="packageClasses"/>, a new definition
+        /// takes the class of the package for its type, e.g. <see cref="DefaultItemDef"/>, and never one of the game.
         /// </summary>
-        internal static Report Apply(SteamItemsDB db, IReadOnlyList<SteamDefinition> definitions)
+        internal static Report Apply(SteamItemsDB db, IReadOnlyList<SteamDefinition> definitions, bool packageClasses = false)
         {
             var report = new Report();
             var assets = new List<(ItemDef asset, SteamDefinition steam)>();
@@ -161,7 +238,7 @@ namespace SteamToys.Editor.InventorySystem
                     }
                     else
                     {
-                        asset = CreateAsset(steam, report);
+                        asset = CreateAsset(steam, packageClasses);
 
                         if (!asset)
                             continue;
@@ -197,9 +274,9 @@ namespace SteamToys.Editor.InventorySystem
             return report;
         }
 
-        private static ItemDef CreateAsset(SteamDefinition steam, Report report)
+        private static ItemDef CreateAsset(SteamDefinition steam, bool packageClasses)
         {
-            var type = ChooseClass(steam, report);
+            var type = packageClasses ? GetPackageClass(steam.Type) : ChooseClass(steam);
 
             if (type == null)
                 return null;
@@ -222,7 +299,7 @@ namespace SteamToys.Editor.InventorySystem
         /// of the package otherwise, whose <see cref="DefaultTags"/> takes any category. A tag generator takes the class
         /// of its category, or <see cref="DefaultTagGeneratorDef"/> when the game has none.
         /// </summary>
-        private static Type ChooseClass(SteamDefinition steam, Report report)
+        private static Type ChooseClass(SteamDefinition steam)
         {
             if (steam.Type == ItemType.TagGenerator)
             {
@@ -245,6 +322,9 @@ namespace SteamToys.Editor.InventorySystem
                 .Select(candidate => candidate.type)
                 .FirstOrDefault() ?? packageType;
         }
+
+        private static Type GetPackageClass(ItemType type) =>
+            type == ItemType.TagGenerator ? typeof(DefaultTagGeneratorDef) : PackageTypes[type];
 
         // A tags type that turns away a category nobody would name takes a fixed set, so holding the categories of a
         // definition says something about its class.
