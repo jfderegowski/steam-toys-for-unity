@@ -249,90 +249,47 @@ namespace SteamToys.Runtime.InventorySystem
 
         #region Inspector Serialized Fields
         
-        [Header("Basic Item Data")]
-        [SerializeField, Tooltip("Unique identifier for this item definition.")]
-        private ulong _itemDefId;
-        [SerializeField, Tooltip("Display name of the item.")]
-        private string _name;
-        [SerializeField, TextArea, Tooltip("Detailed description of the item.")]
-        private string _description;
+        [SerializeField] private ulong _itemDefId;
+        [SerializeField] private string _name;
+        [SerializeField, TextArea] private string _description;
 
-        [Header("Visibility & Restrictions")]
-        [SerializeField, Tooltip("Hides the definition from clients and makes it unpurchasable. It can still be granted.")]
-        private bool _hidden;
+        [SerializeField] private bool _hidden;
 
-        [Header("Visual & Display")]
-        [SerializeField, Tooltip("Category name displayed in the inventory.")]
-        private string _displayType;
-        [SerializeField, Tooltip("URL to the item's standard icon image.")]
-        private Url _iconUrl;
-        [SerializeField, Tooltip("URL to the item's large icon image.")]
-        private Url _iconUrlLarge;
-        [SerializeField, Tooltip("Color of the item's name in inventory.")]
-        private Color32 _nameColor;
-        [SerializeField, Tooltip("Background color of the item in inventory.")]
-        private Color32 _backgroundColor;
+        [SerializeField] private string _displayType;
+        [SerializeField] private Url _iconUrl;
+        [SerializeField] private Url _iconUrlLarge;
+        [SerializeField] private Color32 _nameColor;
+        [SerializeField] private Color32 _backgroundColor;
 
-        [Header("Contents")]
-        [SerializeField, Tooltip("What this creates: a bundle every entry with its quantity, a generator one entry picked by weight.")]
-        private BundleContent _bundle = new();
-        [SerializeField, Tooltip("Tag generators applied to every item this creates.")]
-        private List<TagGeneratorDef> _tagGenerators = new();
+        [SerializeField] private BundleContent _bundle = new();
+        [SerializeField] private List<TagGeneratorDef> _tagGenerators = new();
 
-        [Header("Pricing")]
-        [SerializeField, Tooltip("Price information for the item.")]
-        private Price _price;
-        [SerializeField, Tooltip("Valve price tier in VLV units (100 is about $0.99). Replaces the price when set.")]
-        private HasValue<uint> _priceCategory;
-        [SerializeField, Tooltip("If true, uses the bundle's own price instead of the sum of its contents.")]
-        private bool _useBundlePrice;
-        [SerializeField, Tooltip("Percentage discount on the summed price of the contents. Ignored with Use Bundle Price.")]
-        private uint _purchaseBundleDiscount;
+        [SerializeField] private Price _price;
+        [SerializeField] private HasValue<uint> _priceCategory;
+        [SerializeField] private bool _useBundlePrice;
+        [SerializeField] private uint _purchaseBundleDiscount;
 
-        [Header("Item Store")]
-        [SerializeField, Tooltip("Tags used to categorize and filter the item in the Item Store.")]
-        private List<string> _storeTags = new();
-        [SerializeField, Tooltip("Images shown on the item's Item Store detail page.")]
-        private List<Url> _storeImages = new();
-        [SerializeField, Tooltip("Whether this item is hidden from the Item Store.")]
-        private bool _storeHidden;
+        [SerializeField] private List<string> _storeTags = new();
+        [SerializeField] private List<Url> _storeImages = new();
+        [SerializeField] private bool _storeHidden;
 
-        [Header("Market & Trading")]
-        [SerializeField, Tooltip("Whether this item can be traded between users.")]
-        private bool _tradable;
-        [SerializeField, Tooltip("Whether this item can be sold on the Steam Community Market.")]
-        private bool _marketable;
-        [SerializeField, Tooltip("Hides the item from the Steam Backpack, for items consumed right away.")]
-        private bool _gameOnly;
-        [SerializeField, Tooltip("Whether grants are added to a single stack.")]
-        private bool _autoStack;
-        [SerializeField, Tooltip("Blocks a purchase when the user already owns this many. 0 means no limit.")]
-        private uint _purchaseLimit;
-        [SerializeField, Tooltip("Generator whose possible drops are listed in this item's description.")]
-        private ItemDef _containerContentsGenerator;
+        [SerializeField] private bool _tradable;
+        [SerializeField] private bool _marketable;
+        [SerializeField] private bool _gameOnly;
+        [SerializeField] private bool _autoStack;
+        [SerializeField] private uint _purchaseLimit;
+        [SerializeField] private ItemDef _containerContentsGenerator;
 
-        [Header("Exchange System")]
-        [SerializeField, Tooltip("Recipes that consume materials to create this item.")]
-        private Exchange _exchange;
+        [SerializeField] private Exchange _exchange;
 
-        [Header("Promo")]
-        [SerializeField, Tooltip("Rules that grant this item automatically.")]
-        private Promo _promo;
-        [SerializeField, Tooltip("Timestamp before which the manual promo does not grant this item.")]
-        private SteamDateTime _dropStartTime;
-        [SerializeField, Tooltip("Granted only by AddPromoItem(s) with its explicit ID. Without it GrantPromoItems grants a manual promo too.")]
-        private bool _grantedManually;
-        [SerializeField, Tooltip("With a manual promo: minutes before it grants this again, e.g. 10080 for once a week; 0 grants it only " +
-                 "once. On a playtime generator: minutes of playtime before a drop, 0 uses the application setting.")]
-        private uint _dropInterval;
+        [SerializeField] private Promo _promo;
+        [SerializeField] private SteamDateTime _dropStartTime;
+        [SerializeField] private bool _grantedManually;
+        [SerializeField] private uint _dropInterval;
 
-        [Header("Drop System")]
-        [SerializeField, Tooltip("Cool-down window in minutes. Drops are limited to the window only when set.")]
-        private HasValue<uint> _dropWindow;
-        [SerializeField, Tooltip("Drops allowed within the drop window (1-10). 0 uses the application setting.")]
-        private uint _dropMaxPerWindow;
-        [SerializeField, Tooltip("Maximum number of drops per user. Enforced only when set; 0 stops all future drops.")]
-        private HasValue<uint> _dropLimit;
+        [SerializeField] private HasValue<uint> _dropWindow;
+        [SerializeField] private uint _dropMaxPerWindow;
+        [SerializeField] private HasValue<uint> _dropLimit;
 
         #endregion
 
@@ -758,8 +715,7 @@ namespace SteamToys.Runtime.InventorySystem
         
         #region Inspector Serialized Field
 
-        [SerializeField, Tooltip("Tags of this definition; a generator copies them to the item it creates.")]
-        private TTags _tags = new();
+        [SerializeField] private TTags _tags = new();
 
         #endregion
 

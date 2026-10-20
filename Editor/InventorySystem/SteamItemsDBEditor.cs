@@ -708,12 +708,12 @@ namespace SteamToys.Editor.InventorySystem
                 steamById.TryGetValue(item.ItemDefId, out var steam);
 
                 var row = new Row(item, steam);
-                var warnings = new List<string>();
+                var warnings = new List<(string Field, string Message)>();
 
                 ItemDefElement.CollectWarnings(item, warnings);
 
-                foreach (var warning in warnings)
-                    row.Add(HelpBoxMessageType.Warning, warning);
+                foreach (var (_, message) in warnings)
+                    row.Add(HelpBoxMessageType.Warning, message);
 
                 if (compared)
                     AddSteamProblems(row);

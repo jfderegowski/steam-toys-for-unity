@@ -21,12 +21,9 @@ namespace SteamToys.Runtime.InventorySystem
 
         #region Inspector Serialized Fields
 
-        [Header("Tag Generator")]
-        [SerializeField, Tooltip("Steam name of the generated tag, e.g. rarity.")]
-        private string _tagName;
+        [SerializeField] private string _tagName;
 
-        [SerializeField, Tooltip("Steam values of the tag with their relative odds, e.g. legendary: 1.")]
-        private SerializableDictionary<string, uint> _tagValuesAndChances = new();
+        [SerializeField] private SerializableDictionary<string, uint> _tagValuesAndChances = new();
 
         #endregion
 

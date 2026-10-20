@@ -1,0 +1,63 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b18c021a99f74444b97fa221f6b71e4d, type: 3}
+  m_Name: EditorIconsDatabase
+  m_EditorClassIdentifier: com.fefek5.toys.Editor::fefek5.Toys.Editor.Icons.EditorIconsDatabase
+  _icons:
+  - path: copy-icon
+    texture: {fileID: 2800000, guid: 3b3eeb035d058db45a9b920bdbf3b4d3, type: 3}
+    sprite: {fileID: -8374156748995898163, guid: 3b3eeb035d058db45a9b920bdbf3b4d3, type: 3}
+  - path: open-icon
+    texture: {fileID: 2800000, guid: 9c65c4e8ad864824eaeb1d1a3b1e90a9, type: 3}
+    sprite: {fileID: 3936296290236624525, guid: 9c65c4e8ad864824eaeb1d1a3b1e90a9, type: 3}
+  - path: paste-icon
+    texture: {fileID: 2800000, guid: 576e910fe4da5494baf9b482febe2fbd, type: 3}
+    sprite: {fileID: -1867574759551022954, guid: 576e910fe4da5494baf9b482febe2fbd, type: 3}
+  - path: section-basic-icon
+    texture: {fileID: 2800000, guid: c4471128e3caa114bb6e6a147f01ff74, type: 3}
+    sprite: {fileID: 0}
+  - path: section-contents-icon
+    texture: {fileID: 2800000, guid: 9dd93f4fcecd0484da266c9a3461f9d4, type: 3}
+    sprite: {fileID: 0}
+  - path: section-display-icon
+    texture: {fileID: 2800000, guid: 57adb05e600bd724081f09a1cc133b06, type: 3}
+    sprite: {fileID: 0}
+  - path: section-drops-icon
+    texture: {fileID: 2800000, guid: ffd914a80e2237848b3ae441f383d316, type: 3}
+    sprite: {fileID: 0}
+  - path: section-exchange-icon
+    texture: {fileID: 2800000, guid: e98915c84f0c5b34595b62a01dca50a4, type: 3}
+    sprite: {fileID: 0}
+  - path: section-market-icon
+    texture: {fileID: 2800000, guid: 11dc46ca6843178438638199b39d14b3, type: 3}
+    sprite: {fileID: 0}
+  - path: section-pricing-icon
+    texture: {fileID: 2800000, guid: cdcb1f332f638c6458db7ac67a1228f0, type: 3}
+    sprite: {fileID: 0}
+  - path: section-promo-icon
+    texture: {fileID: 2800000, guid: 4b6785b527f68cb42a612b6a52d26098, type: 3}
+    sprite: {fileID: 0}
+  - path: section-store-icon
+    texture: {fileID: 2800000, guid: ebc5075622b882047bb9a00854c79ce3, type: 3}
+    sprite: {fileID: 0}
+  - path: section-tag-generator-icon
+    texture: {fileID: 2800000, guid: 00303041f684d3043b7d8e3193b908bf, type: 3}
+    sprite: {fileID: 0}
+  - path: section-tags-icon
+    texture: {fileID: 2800000, guid: 183d1e8fde7e10644938ee3d1a3798fb, type: 3}
+    sprite: {fileID: 0}
+  - path: section-visibility-icon
+    texture: {fileID: 2800000, guid: ba1427e4ddc8820428c80cd38c7c123e, type: 3}
+    sprite: {fileID: 0}
+  - path: steam-item-icon
+    texture: {fileID: 2800000, guid: 3ee981a03fadba74185a07a44c75b47f, type: 3}
+    sprite: {fileID: -4191992297800347076, guid: 3ee981a03fadba74185a07a44c75b47f, type: 3}
