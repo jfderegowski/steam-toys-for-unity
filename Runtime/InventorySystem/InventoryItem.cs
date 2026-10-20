@@ -117,6 +117,11 @@ namespace SteamToys.Runtime.InventorySystem
         protected virtual Tags CreateTags() => new DefaultTags();
 
         /// <summary>
+        /// A new, empty tags object of the kind this item reads its tags into, e.g. to tell which categories it holds.
+        /// </summary>
+        public Tags CreateEmptyTags() => CreateTags();
+
+        /// <summary>
         /// The value of the tag <paramref name="tagName"/> of this item: the one Steam reports on it, or else the one
         /// its definition sets.
         /// </summary>

@@ -33,6 +33,9 @@ namespace SteamToys.Runtime.InventorySystem
         /// <summary>Raised when Steam reported a change of the owned items.</summary>
         public static event Action OnChanged;
 
+        /// <summary>Raised when Steam reported that it loaded the item definitions of the app, or new ones.</summary>
+        public static event Action OnDefinitionsChanged;
+
         #endregion
 
         #region Properties
@@ -580,6 +583,8 @@ namespace SteamToys.Runtime.InventorySystem
 
             if (changed)
                 OnChanged?.Invoke();
+
+            OnDefinitionsChanged?.Invoke();
         }
 
         private delegate bool PropertyReader(string name, ref uint size, out string value);

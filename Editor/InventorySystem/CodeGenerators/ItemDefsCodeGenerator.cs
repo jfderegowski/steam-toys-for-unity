@@ -11,7 +11,7 @@ namespace SteamToys.Editor.InventorySystem.CodeGenerators
     /// A kind of item, e.g. <c>Event</c>, defined by its tags from <see cref="TagCodeGenerator"/>s. It generates
     /// <c>EventTags</c>, holding <c>EventTagsItemDef</c> with the tags its definitions set and
     /// <c>EventTagsInventoryItem</c> with the ones Steam reports on an owned item, each tag a property of its enum that
-    /// is null while it is not set; and one script for each definition class chosen: <c>EventItemDef</c> with
+    /// is null while it is not set; and one script for each class chosen: <c>EventItemDef</c> and
     /// <c>EventInventoryItem</c>, <c>EventGeneratorDef</c> and <c>EventPlaytimeGeneratorDef</c>, all partial, so the
     /// game can add to them.
     /// <para>
@@ -33,6 +33,7 @@ namespace SteamToys.Editor.InventorySystem.CodeGenerators
 
         private const string TAGS_KEY = "Tags";
         private const string ITEM_DEF_KEY = "ItemDef";
+        private const string INVENTORY_ITEM_KEY = "InventoryItem";
         private const string GENERATOR_DEF_KEY = "GeneratorDef";
         private const string PLAYTIME_GENERATOR_DEF_KEY = "PlaytimeGeneratorDef";
 
@@ -53,7 +54,7 @@ namespace SteamToys.Editor.InventorySystem.CodeGenerators
 
         public List<TagsEntry> Tags => _tags;
 
-        /// <summary>Whether <c>ClassNameItemDef</c> and its <c>ClassNameInventoryItem</c> are generated.</summary>
+        /// <summary>Whether <c>ClassNameItemDef</c> and its <c>ClassNameInventoryItem</c> are generated, each in its own script.</summary>
         public bool GenerateItemDef
         {
             get => _generateItemDef;
@@ -127,7 +128,10 @@ namespace SteamToys.Editor.InventorySystem.CodeGenerators
             yield return new ScriptSpec(TAGS_KEY, TagsClassName, BuildTags);
 
             if (GenerateItemDef)
+            {
                 yield return new ScriptSpec(ITEM_DEF_KEY, ItemDefClassName, BuildItemDef);
+                yield return new ScriptSpec(INVENTORY_ITEM_KEY, InventoryItemClassName, BuildInventoryItem);
+            }
 
             if (GenerateGeneratorDef)
                 yield return new ScriptSpec(GENERATOR_DEF_KEY, ClassName + "GeneratorDef",
@@ -146,13 +150,15 @@ namespace SteamToys.Editor.InventorySystem.CodeGenerators
                    CodeGeneration.GetAssetMenuAttribute(this, label) +
                    $"public partial class {ItemDefClassName} : {RUNTIME}.ItemDef<{ItemDefTags}>\n{{\n" +
                    $"    public override {RUNTIME}.InventoryItem CreateInventoryItem() => new {InventoryItemClassName}();\n" +
-                   "}\n\n" +
-                   $"/// <summary>An owned {ClassName} item, its tags typed as {TagsClassName}.{InventoryItemTagsClassName}.</summary>\n" +
-                   $"public partial class {InventoryItemClassName} : {RUNTIME}.InventoryItem<{ItemDefClassName}>\n{{\n" +
-                   $"    public new {InventoryItemTags} Tags => ({InventoryItemTags})base.Tags;\n\n" +
-                   $"    protected override {TAGS_TYPE} CreateTags() => new {InventoryItemTags}();\n" +
                    "}\n";
         }
+
+        private string BuildInventoryItem() =>
+            $"/// <summary>An owned {ClassName} item, its tags typed as {TagsClassName}.{InventoryItemTagsClassName}.</summary>\n" +
+            $"public partial class {InventoryItemClassName} : {RUNTIME}.InventoryItem<{ItemDefClassName}>\n{{\n" +
+            $"    public new {InventoryItemTags} Tags => ({InventoryItemTags})base.Tags;\n\n" +
+            $"    protected override {TAGS_TYPE} CreateTags() => new {InventoryItemTags}();\n" +
+            "}\n";
 
         // A generator copies its tags to the item it makes, where Steam reports them on the owned item.
         private string BuildGeneratorDef(string className, string baseClass, string kind)

@@ -263,7 +263,7 @@ namespace SteamToys.Editor.InventorySystem
         /// <summary>
         /// The first monospaced OS font that is available, or null when none of them are installed.
         /// </summary>
-        private static Font GetMonospaceFont()
+        internal static Font GetMonospaceFont()
         {
             if (_monospaceFont != null)
                 return _monospaceFont;

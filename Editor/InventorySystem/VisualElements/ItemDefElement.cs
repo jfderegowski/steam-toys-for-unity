@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using fefek5.Toys.Editor.VisualElements;
@@ -144,6 +145,9 @@ namespace SteamToys.Editor.InventorySystem
             if (item.SchemaSupportsPromo())
                 CollectPromoWarnings(item, warnings);
 
+            if (item.SchemaSupportsExchange())
+                CollectExchangeWarnings(item, warnings);
+
             if (item.SchemaSupportsPurchaseLimit() && item.PurchaseLimit > 0 && (item.Tradable || item.Marketable))
                 warnings.Add("Purchase Limit does not block repurchasing tradable or marketable items.");
 
@@ -181,6 +185,47 @@ namespace SteamToys.Editor.InventorySystem
 
                 if (element != null && element.Quantity == 0)
                     warnings.Add($"Contents entry {i} has a {amountName} of 0.");
+            }
+        }
+
+        /// <summary>
+        /// The recipe entries the export cannot write. It stops on them rather than leaving them out, since a recipe
+        /// without one of its materials would be cheaper than meant.
+        /// </summary>
+        private static void CollectExchangeWarnings(ItemDef item, List<string> warnings)
+        {
+            var exchange = item.Exchange;
+
+            if (exchange == null)
+                return;
+
+            for (var i = 0; i < exchange.Count; i++)
+            {
+                var recipe = exchange[i];
+
+                if (recipe == null)
+                {
+                    warnings.Add($"Exchange recipe {i} is empty, so the definition cannot be exported.");
+                    continue;
+                }
+
+                for (var j = 0; j < recipe.Count; j++)
+                {
+                    if (recipe[j] == null)
+                    {
+                        warnings.Add($"Exchange recipe {i}, material {j} is empty, so the definition cannot be exported.");
+                        continue;
+                    }
+
+                    try
+                    {
+                        recipe[j].ToSteamString();
+                    }
+                    catch (InvalidOperationException exception)
+                    {
+                        warnings.Add($"Exchange recipe {i}, material {j}: {exception.Message} The definition cannot be exported until it is set.");
+                    }
+                }
             }
         }
 
@@ -271,19 +316,36 @@ namespace SteamToys.Editor.InventorySystem
         {
             var items = LiveItems.ToArray();
 
-            return items.Length switch
+            return TryWriteJson(() => items.Length switch
             {
                 0 => string.Empty,
                 1 => items[0].ToJson(),
                 _ => JsonConvert.SerializeObject(items, Formatting.Indented)
-            };
+            });
         }
 
         /// <summary>
         /// Wraps the items in the envelope the Steam Inventory Service expects when importing item definitions:
         /// an <c>appid</c> (from the Steam Settings) plus an <c>items</c> array.
         /// </summary>
-        private string GetImportJson() => _items.Length == 0 ? string.Empty : SteamItemsDB.ToImportJson(LiveItems);
+        private string GetImportJson() =>
+            _items.Length == 0 ? string.Empty : TryWriteJson(() => SteamItemsDB.ToImportJson(LiveItems));
+
+        /// <summary>
+        /// The JSON, or why it cannot be written: a definition the export stops on, e.g. over an empty exchange
+        /// material, must still open here so it can be fixed. The warnings above say which entry it is.
+        /// </summary>
+        private static string TryWriteJson(Func<string> write)
+        {
+            try
+            {
+                return write();
+            }
+            catch (Exception exception) when (exception is InvalidOperationException or NullReferenceException)
+            {
+                return $"Cannot be written as JSON: {exception.Message}";
+            }
+        }
 
         #endregion
     }
