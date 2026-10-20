@@ -38,6 +38,7 @@ namespace SteamToys.Editor.InventorySystem
             "Copy the selected items wrapped in an appid / items envelope, ready to import into the Steam Inventory Service.";
 
         private const string SCRIPT_PROPERTY = "m_Script";
+        private const string SECTION_SAVE_KEY = "SteamToys.ItemDef.Section.";
 
         // Serialized fields of ItemDef and the definitions of this package.
         private const string ITEM_DEF_ID = "_itemDefId";
@@ -212,7 +213,7 @@ namespace SteamToys.Editor.InventorySystem
         {
             EditorIconsDatabase.TryGetIcon<Texture2D>(iconName, out var icon);
 
-            var section = new SectionElement(title, icon) {
+            var section = new SectionElement(title, icon, SECTION_SAVE_KEY + title) {
                 style = { display = DisplayStyle.None }
             };
 
