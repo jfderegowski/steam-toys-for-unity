@@ -13,8 +13,9 @@ using UnityEngine.UIElements;
 namespace SteamToys.Editor.InventorySystem
 {
     /// <summary>
-    /// Draws the whole <see cref="ItemDef"/> inspector: the fields of the schema properties its type uses, each with
-    /// its tooltip and framed with its warnings when it needs fixing, and the JSON preview / copy buttons. With several
+    /// Draws the whole <see cref="ItemDef"/> inspector: its warnings listed at the top, the fields of the schema
+    /// properties its type uses, each with its tooltip and framed with its warnings when it needs fixing, and the JSON
+    /// preview / copy buttons. With several
     /// definitions selected, a field shows when all of them use it, and the warnings, the JSON and Generate Item cover
     /// all of them.
     /// </summary>
@@ -98,11 +99,11 @@ namespace SteamToys.Editor.InventorySystem
             _items = serializedObject.targetObjects.OfType<ItemDef>().ToArray();
             _serializedObject = serializedObject;
 
-            AddFields();
-
-            // The warnings of fields that are not drawn, e.g. of a field only some of the selected definitions use.
+            // Every warning, one under another at the top, also when its field is drawn framed with it below.
             _warnings = new VisualElement();
             Add(_warnings);
+
+            AddFields();
             RefreshWarnings();
 
             // A tag generator creates no items, so the button is there only when every selected definition does.
@@ -327,9 +328,7 @@ namespace SteamToys.Editor.InventorySystem
                 style.paddingBottom = padding;
                 style.paddingLeft = padding;
 
-                // The frame grows outwards, so the field keeps its place.
-                style.marginLeft = -(border + padding);
-                style.marginRight = -(border + padding);
+                // Kept inside the section: growing outwards clipped the frame's right edge.
                 style.marginTop = framed ? 2 : 0;
                 style.marginBottom = framed ? 2 : 0;
 
@@ -360,9 +359,13 @@ namespace SteamToys.Editor.InventorySystem
                 {
                     var text = named ? $"{item.name}: {message}" : message;
 
+                    // Repeated at the top, so a warning still shows while its section is folded.
+                    _warnings.Add(new HelpBox(text, HelpBoxMessageType.Warning));
+
                     if (!_frames.ContainsKey(field))
-                        _warnings.Add(new HelpBox(text, HelpBoxMessageType.Warning));
-                    else if (byField.TryGetValue(field, out var messages))
+                        continue;
+
+                    if (byField.TryGetValue(field, out var messages))
                         messages.Add(text);
                     else
                         byField[field] = new List<string> { text };
@@ -586,7 +589,7 @@ namespace SteamToys.Editor.InventorySystem
 
         /// <summary>
         /// The JSON, or why it cannot be written: a definition the export stops on, e.g. over an empty exchange
-        /// material, must still open here so it can be fixed. The warnings beside its field say which entry it is.
+        /// material, must still open here so it can be fixed. The warnings at the top say which entry it is.
         /// </summary>
         private static string TryWriteJson(Func<string> write)
         {
