@@ -11,10 +11,13 @@ namespace SteamToys.Runtime.InventorySystem.ExchangeVariable.Materials
     [Serializable]
     public class TagMaterial<TEnum> : Material where TEnum : Enum
     {
-        public Tag<TEnum> Tag
+        /// <summary>The Steam category of <typeparamref name="TEnum"/>, e.g. <c>rarity</c>.</summary>
+        public string TagName => Tags.GetTagName<TEnum>();
+
+        public TEnum Value
         {
-            get => GetTag();
-            set => SetTag(value);
+            get => GetValue();
+            set => SetValue(value);
         }
 
         public uint Quantity
@@ -23,12 +26,23 @@ namespace SteamToys.Runtime.InventorySystem.ExchangeVariable.Materials
             set => SetQuantity(value);
         }
 
-        [SerializeField] private Tag<TEnum> _tag = new();
+        [SerializeField] private TEnum _value;
         [SerializeField] private uint _quantity = 1;
 
-        public Tag<TEnum> GetTag() => _tag;
+        public TEnum GetValue() => _value;
 
-        public void SetTag(Tag<TEnum> value) => _tag = value;
+        public void SetValue(TEnum value) => _value = value;
+
+        /// <summary>Sets <see cref="Value"/> from its Steam value, e.g. <c>legendary</c>.</summary>
+        /// <returns>False when <paramref name="tagValue"/> is not a value of <typeparamref name="TEnum"/>.</returns>
+        public bool TrySetTagValue(string tagValue)
+        {
+            if (!Tags.TryParseTagValue(tagValue, out TEnum value))
+                return false;
+
+            _value = value;
+            return true;
+        }
 
         public uint GetQuantity() => _quantity;
 
@@ -36,13 +50,10 @@ namespace SteamToys.Runtime.InventorySystem.ExchangeVariable.Materials
 
         public override string ToSteamString()
         {
-            if (Tag is null)
-                throw new InvalidOperationException("Tag cannot be null for TagMaterial.");
-
             if (Quantity == 0)
                 throw new InvalidOperationException("Quantity must be greater than zero for TagMaterial.");
 
-            return $"{Tag}*{Quantity}";
+            return $"{TagName}:{Tags.GetTagValue(Value)}*{Quantity}";
         }
     }
 }

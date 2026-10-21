@@ -55,7 +55,50 @@ namespace SteamToys.Runtime.InventorySystem
         public IEnumerable<string> Values => Keys.Select(key => this[key]);
 
         #endregion
-        
+
         public abstract bool TrySetValue(string tagName, string tagValue);
+
+        /// <summary>Whether these tags hold the pair <c>tagName:tagValue</c>, e.g. <c>rarity:legendary</c>.</summary>
+        public bool Contains(string tagName, string tagValue) =>
+            TryGetValue(tagName, out var held) && held == tagValue;
+
+        /// <summary>Whether these tags hold <paramref name="value"/>, e.g. <c>Rarity.Legendary</c> as <c>rarity:legendary</c>.</summary>
+        public bool Contains<TEnum>(TEnum value) where TEnum : Enum =>
+            Contains(GetTagName<TEnum>(), GetTagValue(value));
+
+        #region Enum Tags
+
+        /// <summary>The Steam category of the enum <typeparamref name="TEnum"/>, e.g. <c>rarity</c> for <c>Rarity</c>.</summary>
+        public static string GetTagName<TEnum>() where TEnum : Enum => typeof(TEnum).Name.ToSnakeCase();
+
+        /// <summary>The Steam value of <paramref name="value"/>, e.g. <c>legendary</c> for <c>Rarity.Legendary</c>.</summary>
+        public static string GetTagValue<TEnum>(TEnum value) where TEnum : Enum => value.ToString().ToSnakeCase();
+
+        /// <summary>
+        /// Reads the Steam value <paramref name="tagValue"/>, e.g. <c>legendary</c>, into the value of
+        /// <typeparamref name="TEnum"/> it names.
+        /// </summary>
+        public static bool TryParseTagValue<TEnum>(string tagValue, out TEnum value) where TEnum : Enum
+        {
+            value = default;
+
+            if (string.IsNullOrEmpty(tagValue))
+                return false;
+
+            var normalized = tagValue.ToSnakeCase();
+
+            foreach (var name in Enum.GetNames(typeof(TEnum)))
+            {
+                if (name.ToSnakeCase() != normalized)
+                    continue;
+
+                value = (TEnum)Enum.Parse(typeof(TEnum), name);
+                return true;
+            }
+
+            return false;
+        }
+
+        #endregion
     }
 }

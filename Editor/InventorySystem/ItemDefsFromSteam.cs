@@ -600,12 +600,11 @@ namespace SteamToys.Editor.InventorySystem
                 foreach (var type in GetTagMaterialTypes())
                 {
                     var material = (Material)Activator.CreateInstance(type);
-                    var tag = (Tag)type.GetProperty("Tag")!.GetValue(material);
 
-                    if (tag == null || tag.GetName() != category)
+                    if ((string)type.GetProperty("TagName")!.GetValue(material) != category)
                         continue;
 
-                    if (!tag.SetValue(tagValue))
+                    if (!(bool)type.GetMethod("TrySetTagValue")!.Invoke(material, new object[] { tagValue }))
                     {
                         problem = $"\"{tagValue}\" is not a value of the {category} enum.";
                         return null;

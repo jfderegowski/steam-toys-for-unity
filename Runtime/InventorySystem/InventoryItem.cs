@@ -148,12 +148,8 @@ namespace SteamToys.Runtime.InventorySystem
         /// Whether this item carries the tag value <paramref name="value"/>: one Steam reports on it, or one its
         /// definition sets.
         /// </summary>
-        public bool HasTag<TEnum>(TEnum value) where TEnum : Enum
-        {
-            var expected = new Tag<TEnum> { Value = value };
-
-            return TryGetTag(expected.GetName(), out var held) && held == expected.GetValue();
-        }
+        public bool HasTag<TEnum>(TEnum value) where TEnum : Enum =>
+            TryGetTag(Tags.GetTagName<TEnum>(), out var held) && held == Tags.GetTagValue(value);
 
         #endregion
 

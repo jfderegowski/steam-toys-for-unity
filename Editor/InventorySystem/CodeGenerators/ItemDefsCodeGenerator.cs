@@ -27,7 +27,6 @@ namespace SteamToys.Editor.InventorySystem.CodeGenerators
 
         private const string RUNTIME = "global::SteamToys.Runtime.InventorySystem";
         private const string TAGS_TYPE = RUNTIME + ".Tags";
-        private const string TAG_TYPE = RUNTIME + ".Tag";
         private const string HAS_VALUE_TYPE = "global::fefek5.Toys.Runtime.HasValue";
         private const string TAG_NAMES_FIELD = "TagNames";
 
@@ -40,8 +39,9 @@ namespace SteamToys.Editor.InventorySystem.CodeGenerators
         // A property of one of these names would hide or clash with a member every Tags class has.
         private static readonly HashSet<string> ReservedNames = new()
         {
-            "Keys", "Values", "Count", "Item", "TryGetValue", "TrySetValue", "ContainsKey", "GetEnumerator", "Equals",
-            "GetHashCode", "GetType", "ToString", "MemberwiseClone", "Finalize", TAG_NAMES_FIELD
+            "Keys", "Values", "Count", "Item", "TryGetValue", "TrySetValue", "ContainsKey", "Contains", "GetTagName",
+            "GetTagValue", "TryParseTagValue", "GetEnumerator", "Equals", "GetHashCode", "GetType", "ToString",
+            "MemberwiseClone", "Finalize", TAG_NAMES_FIELD
         };
 
         #endregion
@@ -217,7 +217,7 @@ namespace SteamToys.Editor.InventorySystem.CodeGenerators
 
                 body.Append($"            case \"{tag.SteamName}\":\n");
                 body.Append($"                if (!{field}.hasValue)\n                    return false;\n\n");
-                body.Append($"                tagValue = new {TAG_TYPE}<{tag.EnumName}> {{ Value = {field}.value }}.GetValue();\n");
+                body.Append($"                tagValue = {TAGS_TYPE}.GetTagValue({field}.value);\n");
                 body.Append("                return true;\n");
             }
 
@@ -230,9 +230,8 @@ namespace SteamToys.Editor.InventorySystem.CodeGenerators
             foreach (var tag in tags)
             {
                 body.Append($"            case \"{tag.SteamName}\":\n            {{\n");
-                body.Append($"                var tag = new {TAG_TYPE}<{tag.EnumName}>();\n\n");
-                body.Append("                if (!tag.SetValue(tagValue))\n                    return false;\n\n");
-                body.Append($"                {GetFieldName(tag)} = tag.Value;\n");
+                body.Append($"                if (!{TAGS_TYPE}.TryParseTagValue(tagValue, out {tag.EnumName} value))\n                    return false;\n\n");
+                body.Append($"                {GetFieldName(tag)} = value;\n");
                 body.Append("                return true;\n            }\n");
             }
 

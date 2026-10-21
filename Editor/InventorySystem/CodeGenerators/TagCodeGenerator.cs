@@ -10,7 +10,7 @@ namespace SteamToys.Editor.InventorySystem.CodeGenerators
 {
     /// <summary>
     /// One tag category, e.g. <c>rarity</c>, and its values. It generates the enum of it, e.g.
-    /// <c>public enum Rarity { Common = 0, Rare = 1 }</c>, that <c>Tag&lt;TEnum&gt;</c> and
+    /// <c>public enum Rarity { Common = 0, Rare = 1 }</c>, that the generated <c>Tags</c> classes and
     /// <c>TagGeneratorDef&lt;TEnum&gt;</c> are made with, and with <see cref="GenerateTagGeneratorDef"/> the tag
     /// generator class of it, e.g. <c>RarityTagGeneratorDef</c>. Steam gets the name of the enum and the names of its
     /// values in snake_case.

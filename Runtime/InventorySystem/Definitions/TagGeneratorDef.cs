@@ -10,7 +10,7 @@ namespace SteamToys.Runtime.InventorySystem
     /// <summary>
     /// ItemDef of type <c>tag_generator</c>: creates no items, it picks one value of a tag category by weight and
     /// applies it to items created by the bundles and generators that list it in their tag generators. Each value is
-    /// a <see cref="Tag"/>, so the category is the one its class names and every value has to be of the same one.
+    /// one of an enum, so the category is the one its class names and every value has to be of the same one.
     /// <see href="https://partner.steamgames.com/doc/features/inventory/itemtags"/>
     /// </summary>
     [JsonConverter(typeof(TagGeneratorConverter))]
@@ -90,7 +90,7 @@ namespace SteamToys.Runtime.InventorySystem
     {
         [SerializeField] private SerializableDictionary<TEnum, uint> _tagValuesAndChances = new();
 
-        public override string TagName => typeof(TEnum).Name.ToSnakeCase();
+        public override string TagName => Tags.GetTagName<TEnum>();
 
         public override Dictionary<string, uint> TagValuesAndChances
         {
@@ -113,10 +113,8 @@ namespace SteamToys.Runtime.InventorySystem
 
             foreach (var (tagValue, tagChance) in tagValuesAndChances)
             {
-                // Tag<TEnum> reads the value, so it takes the same values the tags of items do.
-                var tag = new Tag<TEnum>();
-
-                if (!tag.SetValue(tagValue) || !_tagValuesAndChances.TryAdd(tag.Value, tagChance))
+                // Read as the tags of items read it, so it takes the same values they do.
+                if (!Tags.TryParseTagValue(tagValue, out TEnum value) || !_tagValuesAndChances.TryAdd(value, tagChance))
                     notHeld.Add(tagValue);
             }
 
