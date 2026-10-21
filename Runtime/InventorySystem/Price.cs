@@ -10,7 +10,9 @@ namespace SteamToys.Runtime.InventorySystem
     [JsonConverter(typeof(CurrencyTypeConverter))]
     public enum CurrencyType
     {
-        /// <summary>Używa tabeli cenowej Valve (np. VLV100)</summary>
+        /// <summary>
+        /// Używa tabeli cenowej Valve (np. VLV100)
+        /// </summary>
         VLV,
 
         // Główne waluty

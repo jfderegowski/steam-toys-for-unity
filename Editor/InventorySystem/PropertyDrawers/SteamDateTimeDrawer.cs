@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using fefek5.Toys.Editor.Icons;
 using SteamToys.Runtime.InventorySystem;
 using UnityEditor;
 using UnityEditor.UIElements;
@@ -9,217 +10,176 @@ using UnityEngine.UIElements;
 namespace SteamToys.Editor.InventorySystem.PropertyDrawers
 {
     /// <summary>
-    /// Custom property drawer for <see cref="SteamDateTime"/>.
-    /// Displays date and time fields with a clear button,
-    /// and shows the resulting Steam-format string as a read-only preview.
-    /// Uses Unity's aligned-field USS class so the label and value area
-    /// line up identically to a standard <see cref="PropertyField"/>.
+    /// Drawer for <see cref="SteamDateTime"/>: one row with the date and time in UTC and buttons to set it to now or
+    /// clear it. A warning shows under it while the text typed is not a date.
     /// </summary>
     [CustomPropertyDrawer(typeof(SteamDateTime))]
     public class SteamDateTimeDrawer : PropertyDrawer
     {
+        private const string TICKS_FIELD = "_ticks";
+        private const string HAS_VALUE_FIELD = "_hasValue";
+        private const string NOW_ICON = "now-icon";
+        private const string CLEAR_ICON = "clear-icon";
+        private const string DATE_FORMAT = "yyyy-MM-dd";
+        private const string TIME_FORMAT = "HH:mm:ss";
+
+        private const float BUTTON_SIZE = 18;
+        private const float ICON_SIZE = 12;
+        private const float GAP = 2;
+
+        private static readonly Color _invalidColor = new(1f, 0.35f, 0.35f, 1f);
+
         public override VisualElement CreatePropertyGUI(SerializedProperty property)
         {
-            var ticksProp = property.FindPropertyRelative("_ticks");
-            var hasValueProp = property.FindPropertyRelative("_hasValue");
+            var ticksProp = property.FindPropertyRelative(TICKS_FIELD);
+            var hasValueProp = property.FindPropertyRelative(HAS_VALUE_FIELD);
 
             var root = new VisualElement();
 
-            // ── Main row: uses a dummy TextField for label alignment ──
-            // The outermost element is a BaseField so Unity's USS aligns
-            // the label at the standard Inspector width automatically.
-            var wrapper = new TextField(preferredLabel) {
-                style = { flexGrow = 1 }
-            };
-            wrapper.AddToClassList(BaseField<string>.alignedFieldUssClassName);
+            var inputs = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center } };
 
-            // Hide the default text input — we only want the label from it.
-            var defaultInput = wrapper.Q("unity-text-input");
-            if (defaultInput != null)
-                defaultInput.style.display = DisplayStyle.None;
+            var row = new RowField(preferredLabel, inputs);
+            row.AddToClassList(BaseField<string>.alignedFieldUssClassName);
 
-            // Value area: date + time + buttons, placed inside the wrapper
-            // so they sit right after the auto-aligned label.
-            var valueRow = new VisualElement {
-                style = {
-                    flexDirection = FlexDirection.Row,
-                    flexGrow = 1,
-                    alignItems = Align.Center,
-                }
-            };
+            var dateField = new TextField { tooltip = "Date in YYYY-MM-DD format (UTC)" };
+            SetMargins(dateField, 0);
+            dateField.style.flexGrow = 1;
+            dateField.style.flexShrink = 1;
 
-            var dateField = new TextField {
-                tooltip = "Date in YYYY-MM-DD format (UTC)",
-                style = { flexGrow = 3, flexShrink = 1 }
-            };
+            var timeField = new TextField { tooltip = "Time in HH:MM:SS format (UTC)" };
+            SetMargins(timeField, GAP);
+            timeField.style.width = 70;
+            timeField.style.flexShrink = 0;
 
-            var timeField = new TextField {
-                tooltip = "Time in HH:MM:SS format (UTC)",
-                style = { flexGrow = 2, flexShrink = 1, marginLeft = 4 }
-            };
-
-            var nowBtn = new Button(() => {
-                var now = DateTime.UtcNow;
-                hasValueProp.boolValue = true;
-                ticksProp.longValue = now.Ticks;
-                property.serializedObject.ApplyModifiedProperties();
-                UpdateFields(ticksProp, hasValueProp, dateField, timeField, null);
-            }) {
-                text = "Now",
-                tooltip = "Set to current UTC time",
-                style = { marginLeft = 2, paddingLeft = 6, paddingRight = 6 }
-            };
-
-            var clearBtn = new Button(() => {
-                hasValueProp.boolValue = false;
-                ticksProp.longValue = 0;
-                property.serializedObject.ApplyModifiedProperties();
-                UpdateFields(ticksProp, hasValueProp, dateField, timeField, null);
-            }) {
-                text = "✕",
-                tooltip = "Clear date/time",
-                style = { marginLeft = 2, width = 22 }
-            };
-
-            valueRow.Add(dateField);
-            valueRow.Add(timeField);
-            valueRow.Add(nowBtn);
-            valueRow.Add(clearBtn);
-            wrapper.Add(valueRow);
-            root.Add(wrapper);
-
-            // ── Preview label (aligned with the value area) ──
-            var previewLabel = new Label {
-                style = {
+            var warning = new Label("Invalid format (expected YYYY-MM-DD HH:MM:SS)")
+            {
+                style =
+                {
+                    display = DisplayStyle.None,
+                    color = _invalidColor,
                     fontSize = 10,
-                    color = new Color(0.6f, 0.6f, 0.6f),
-                    marginTop = 1,
-                    paddingLeft = 3,
+                    marginLeft = EditorGUIUtility.labelWidth + 3
                 }
             };
 
-            // Wrap in a dummy field so its left padding matches the label width.
-            var previewWrapper = new TextField(" ") {
-                style = { flexGrow = 1 }
-            };
-            previewWrapper.AddToClassList(BaseField<string>.alignedFieldUssClassName);
+            var nowButton = CreateIconButton(NOW_ICON, "Set to the current UTC time", () => Set(DateTime.UtcNow.Ticks, true));
+            var clearButton = CreateIconButton(CLEAR_ICON, "Clear the date and time", () => Set(0, false));
 
-            var previewInput = previewWrapper.Q("unity-text-input");
-            if (previewInput != null)
-                previewInput.style.display = DisplayStyle.None;
+            inputs.Add(dateField);
+            inputs.Add(timeField);
+            inputs.Add(nowButton);
+            inputs.Add(clearButton);
+            root.Add(row);
+            root.Add(warning);
 
-            previewWrapper.Add(previewLabel);
-            root.Add(previewWrapper);
+            dateField.RegisterValueChangedCallback(_ => Apply());
+            timeField.RegisterValueChangedCallback(_ => Apply());
 
-            // ── Callbacks ──
-            dateField.RegisterValueChangedCallback(_ =>
-                TryApplyDateTime(dateField, timeField, ticksProp, hasValueProp, property, previewLabel));
-
-            timeField.RegisterValueChangedCallback(_ =>
-                TryApplyDateTime(dateField, timeField, ticksProp, hasValueProp, property, previewLabel));
-
-            // Initial state after binding
-            root.RegisterCallback<AttachToPanelEvent>(_ => {
-                root.schedule.Execute(() =>
-                    UpdateFields(ticksProp, hasValueProp, dateField, timeField, previewLabel));
-            });
+            Refresh();
+            root.TrackPropertyValue(property, _ => Refresh());
 
             return root;
-        }
 
-        private static void UpdateFields(
-            SerializedProperty ticksProp,
-            SerializedProperty hasValueProp,
-            TextField dateField,
-            TextField timeField,
-            Label previewLabel)
-        {
-            if (!hasValueProp.boolValue)
+            void Set(long ticks, bool hasValue)
             {
-                dateField.SetValueWithoutNotify("");
-                timeField.SetValueWithoutNotify("");
-
-                if (previewLabel == null) return;
-
-                previewLabel.text = "(no date set)";
-                previewLabel.style.color = new Color(0.5f, 0.5f, 0.5f);
-                return;
-            }
-
-            var dt = new DateTime(ticksProp.longValue, DateTimeKind.Utc);
-            dateField.SetValueWithoutNotify(dt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
-            timeField.SetValueWithoutNotify(dt.ToString("HH:mm:ss", CultureInfo.InvariantCulture));
-
-            if (previewLabel == null) return;
-
-            var steam = dt.ToString(SteamDateTime.STEAM_FORMAT, CultureInfo.InvariantCulture);
-            previewLabel.text = $"Steam format: {steam}";
-            previewLabel.style.color = new Color(0.6f, 0.6f, 0.6f);
-        }
-
-        private static void TryApplyDateTime(
-            TextField dateField,
-            TextField timeField,
-            SerializedProperty ticksProp,
-            SerializedProperty hasValueProp,
-            SerializedProperty property,
-            Label previewLabel)
-        {
-            var dateStr = dateField.value?.Trim() ?? "";
-            var timeStr = timeField.value?.Trim() ?? "";
-
-            if (string.IsNullOrEmpty(dateStr) && string.IsNullOrEmpty(timeStr))
-            {
-                ApplyClear(ticksProp, hasValueProp, property, previewLabel);
-                return;
-            }
-
-            if (string.IsNullOrEmpty(timeStr))
-                timeStr = "00:00:00";
-
-            if (string.IsNullOrEmpty(dateStr))
-                dateStr = DateTime.UtcNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-
-            var combined = $"{dateStr} {timeStr}";
-
-            if (DateTime.TryParseExact(combined, "yyyy-MM-dd HH:mm:ss",
-                    CultureInfo.InvariantCulture,
-                    DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
-                    out var dt))
-            {
-                hasValueProp.boolValue = true;
-                ticksProp.longValue = dt.Ticks;
+                ticksProp.longValue = ticks;
+                hasValueProp.boolValue = hasValue;
                 property.serializedObject.ApplyModifiedProperties();
-
-                if (previewLabel == null) return;
-
-                var steam = dt.ToString(SteamDateTime.STEAM_FORMAT, CultureInfo.InvariantCulture);
-                previewLabel.text = $"Steam format: {steam}";
-                previewLabel.style.color = new Color(0.6f, 0.6f, 0.6f);
+                Refresh();
             }
-            else
-            {
-                if (previewLabel == null) return;
 
-                previewLabel.text = "⚠ Invalid format (expected YYYY-MM-DD HH:MM:SS)";
-                previewLabel.style.color = new Color(1f, 0.35f, 0.35f);
+            void Refresh()
+            {
+                warning.style.display = DisplayStyle.None;
+
+                if (!hasValueProp.boolValue)
+                {
+                    dateField.SetValueWithoutNotify(string.Empty);
+                    timeField.SetValueWithoutNotify(string.Empty);
+                    return;
+                }
+
+                var dateTime = new DateTime(ticksProp.longValue, DateTimeKind.Utc);
+
+                dateField.SetValueWithoutNotify(dateTime.ToString(DATE_FORMAT, CultureInfo.InvariantCulture));
+                timeField.SetValueWithoutNotify(dateTime.ToString(TIME_FORMAT, CultureInfo.InvariantCulture));
+            }
+
+            void Apply()
+            {
+                var date = dateField.value?.Trim() ?? string.Empty;
+                var time = timeField.value?.Trim() ?? string.Empty;
+
+                if (date.Length == 0 && time.Length == 0)
+                {
+                    Set(0, false);
+                    return;
+                }
+
+                if (time.Length == 0)
+                    time = "00:00:00";
+
+                if (date.Length == 0)
+                    date = DateTime.UtcNow.ToString(DATE_FORMAT, CultureInfo.InvariantCulture);
+
+                var valid = DateTime.TryParseExact($"{date} {time}", $"{DATE_FORMAT} {TIME_FORMAT}",
+                    CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+                    out var dateTime);
+
+                warning.style.display = valid ? DisplayStyle.None : DisplayStyle.Flex;
+
+                if (!valid)
+                    return;
+
+                ticksProp.longValue = dateTime.Ticks;
+                hasValueProp.boolValue = true;
+                property.serializedObject.ApplyModifiedProperties();
             }
         }
 
-        private static void ApplyClear(
-            SerializedProperty ticksProp,
-            SerializedProperty hasValueProp,
-            SerializedProperty property,
-            Label previewLabel)
+        private static Button CreateIconButton(string iconName, string tooltip, Action onClick)
         {
-            hasValueProp.boolValue = false;
-            ticksProp.longValue = 0;
-            property.serializedObject.ApplyModifiedProperties();
+            EditorIconsDatabase.TryGetIcon<Texture2D>(iconName, out var icon);
 
-            if (previewLabel == null) return;
+            var button = new Button(onClick)
+            {
+                tooltip = tooltip,
+                style =
+                {
+                    width = BUTTON_SIZE,
+                    height = BUTTON_SIZE,
+                    flexShrink = 0,
+                    paddingLeft = 0,
+                    paddingRight = 0,
+                    paddingTop = 0,
+                    paddingBottom = 0,
+                    alignItems = Align.Center,
+                    justifyContent = Justify.Center
+                }
+            };
 
-            previewLabel.text = "(no date set)";
-            previewLabel.style.color = new Color(0.5f, 0.5f, 0.5f);
+            SetMargins(button, GAP);
+            button.Add(new Image { image = icon, style = { width = ICON_SIZE, height = ICON_SIZE } });
+
+            return button;
+        }
+
+        // Every element of the row but the first is GAP after the one before it, and none has other margins.
+        private static void SetMargins(VisualElement element, float left)
+        {
+            element.style.marginLeft = left;
+            element.style.marginRight = 0;
+            element.style.marginTop = 0;
+            element.style.marginBottom = 0;
+        }
+
+        /// <summary>
+        /// A field only for its aligned label. Its input is the row of the date, the time and the buttons, so hovering
+        /// one of them highlights that one alone.
+        /// </summary>
+        private class RowField : BaseField<string>
+        {
+            public RowField(string label, VisualElement input) : base(label, input) { }
         }
     }
 }
