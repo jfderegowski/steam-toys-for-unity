@@ -671,11 +671,11 @@ namespace SteamToys.Editor.InventorySystem
         /// The classes a definition of <paramref name="type"/> can be made with: every concrete ItemDef class of that
         /// type, those of the package included.
         /// </summary>
-        private static IEnumerable<Type> GetConcreteTypes(ItemType type) =>
+        internal static IEnumerable<Type> GetConcreteTypes(ItemType type) =>
             TypeCache.GetTypesDerivedFrom<ItemDef>()
                 .Where(candidate => !candidate.IsAbstract && !candidate.IsGenericTypeDefinition && GetItemType(candidate) == type);
 
-        private static ItemType GetItemType(Type type)
+        internal static ItemType GetItemType(Type type)
         {
             if (ItemTypesOfClasses.TryGetValue(type, out var itemType))
                 return itemType;
@@ -695,10 +695,18 @@ namespace SteamToys.Editor.InventorySystem
         /// <summary>A new tags object of the type <paramref name="type"/> keeps its tags in, or null without tags.</summary>
         private static Tags CreateTags(Type type)
         {
+            var tagsType = GetTagsType(type);
+
+            return tagsType == null ? null : (Tags)Activator.CreateInstance(tagsType);
+        }
+
+        /// <summary>The <c>TTags</c> of the <see cref="ItemDef{TTags}"/> <paramref name="type"/> inherits, or null without tags.</summary>
+        internal static Type GetTagsType(Type type)
+        {
             for (var current = type; current != null; current = current.BaseType)
             {
                 if (current.IsGenericType && current.GetGenericTypeDefinition() == typeof(ItemDef<>))
-                    return (Tags)Activator.CreateInstance(current.GetGenericArguments()[0]);
+                    return current.GetGenericArguments()[0];
             }
 
             return null;
