@@ -203,7 +203,10 @@ namespace SteamToys.Runtime.Core
 
                 if (result != ESteamAPIInitResult.k_ESteamAPIInitResult_OK)
                 {
-                    Debug.LogError($"[SteamToys] SteamAPI.InitEx() returned {result}: {error}");
+                    // A client that is simply not running is the expected case while working
+                    // without Steam, not an error worth a red line on every play.
+                    if (result != ESteamAPIInitResult.k_ESteamAPIInitResult_NoSteamClient)
+                        Debug.LogError($"[SteamToys] SteamAPI.InitEx() returned {result}: {error}");
 
                     return false;
                 }
