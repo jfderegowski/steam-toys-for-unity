@@ -137,8 +137,8 @@ namespace SteamToys.Editor.InventorySystem
             AddField(basic, NAME, "Display name of the item.");
             AddField(basic, DESCRIPTION, "Detailed description of the item.");
 
-            var tags = AddSection("Tags", "section-tags-icon");
-            AddField(tags, TAGS, "Tags of this definition; a generator copies them to the item it creates.");
+            // The tags draw their own section.
+            AddField(this, TAGS, "Tags of this definition; a generator copies them to the item it creates.");
 
             var visibility = AddSection("Visibility & Restrictions", "section-visibility-icon");
             AddField(visibility, HIDDEN, "Hides the definition from clients and makes it unpurchasable. It can still be granted.");
