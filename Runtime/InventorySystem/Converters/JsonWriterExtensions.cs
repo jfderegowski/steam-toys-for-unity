@@ -101,7 +101,7 @@ namespace SteamToys.Runtime.InventorySystem.Converters
             if (value == null)
                 return;
 
-            writer.WriteIfNotEmpty(propertyName, value.ToSteamString());
+            writer.WriteIfNotEmpty(propertyName, Price.PriceConverter.ToString(value));
         }
 
         /// <summary>

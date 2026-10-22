@@ -23,6 +23,9 @@ namespace SteamToys.Runtime.InventorySystem
         /// </summary>
         public const string STEAM_FORMAT = "yyyyMMdd'T'HHmmss'Z'";
 
+        private const string DISPLAY_FORMAT = "yyyy-MM-dd HH:mm";
+        private const string NOT_SET = "—";
+
         [SerializeField] private long _ticks;
         [SerializeField] private bool _hasValue;
 
@@ -135,7 +138,9 @@ namespace SteamToys.Runtime.InventorySystem
 
         #endregion
 
-        public override string ToString() => _hasValue ? ToSteamString() : "(none)";
+        /// <summary>The date and time in UTC, e.g. <c>2026-11-01 08:00</c>, or <c>—</c> when it is not set.</summary>
+        public override string ToString() =>
+            _hasValue ? UtcDateTime.ToString(DISPLAY_FORMAT, CultureInfo.InvariantCulture) : NOT_SET;
     }
 }
 

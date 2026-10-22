@@ -5,6 +5,7 @@ using fefek5.Toys.Editor.Icons;
 using fefek5.Toys.Editor.VisualElements;
 using Newtonsoft.Json;
 using SteamToys.Runtime.InventorySystem;
+using SteamToys.Runtime.InventorySystem.Converters.Price;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
@@ -484,11 +485,21 @@ namespace SteamToys.Editor.InventorySystem
         private static void CollectPriceWarnings(ItemDef item, List<(string Field, string Message)> warnings)
         {
             // On the price, which is the one left out.
-            if (item.PriceCategory.hasValue && !string.IsNullOrEmpty(item.Price?.ToSteamString()))
+            if (item.PriceCategory.hasValue && !string.IsNullOrEmpty(PriceConverter.ToString(item.Price)))
                 warnings.Add((PRICE, "Price and Price Category are both set: only the price category is exported."));
 
             if (item.Price != null && item.Price.RegularPrices.Count == 0 && item.Price.Promotions.Count > 0)
                 warnings.Add((PRICE, "Price has sales but no regular price, which Steam requires first."));
+
+            for (var i = 0; i < (item.Price?.Promotions.Count ?? 0); i++)
+            {
+                var promotion = item.Price.Promotions[i];
+
+                if (string.IsNullOrEmpty(PromotionConverter.ToString(promotion)))
+                    warnings.Add((PRICE, $"Sale {i} needs a start, an end and a price; it is left out."));
+                else if (promotion.EndTime.CompareTo(promotion.StartTime) <= 0)
+                    warnings.Add((PRICE, $"Sale {i} ends before it starts."));
+            }
 
             if (!item.SchemaSupportsPurchaseBundleDiscount())
                 return;
