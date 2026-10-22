@@ -55,3 +55,24 @@ MonoBehaviour:
   - path: icon_logo_steam_64
     texture: {fileID: 2800000, guid: e956e68997156734cb4b99151f48517e, type: 3}
     sprite: {fileID: 0}
+  - path: icon_logo_steam_color_1024
+    texture: {fileID: 2800000, guid: a2cf7d1ff5564a33b0c7e685a0331eb4, type: 3}
+    sprite: {fileID: 0}
+  - path: icon_logo_steam_color_128
+    texture: {fileID: 2800000, guid: 65b99dbad4ac43ebbf86d2b9b2c38414, type: 3}
+    sprite: {fileID: 0}
+  - path: icon_logo_steam_color_16
+    texture: {fileID: 2800000, guid: 67d16fdc6c7d4568a0241f1f448b1fa7, type: 3}
+    sprite: {fileID: 0}
+  - path: icon_logo_steam_color_256
+    texture: {fileID: 2800000, guid: 383e4ec71ed146cfa3351c604d58f430, type: 3}
+    sprite: {fileID: 0}
+  - path: icon_logo_steam_color_32
+    texture: {fileID: 2800000, guid: 20b5dca9db5c496a960bece17b9c11bf, type: 3}
+    sprite: {fileID: 0}
+  - path: icon_logo_steam_color_512
+    texture: {fileID: 2800000, guid: fe4438bce22f47e1838b1b050f3e8778, type: 3}
+    sprite: {fileID: 0}
+  - path: icon_logo_steam_color_64
+    texture: {fileID: 2800000, guid: 219cf0baabe048e18a28236d7dcf57e2, type: 3}
+    sprite: {fileID: 0}

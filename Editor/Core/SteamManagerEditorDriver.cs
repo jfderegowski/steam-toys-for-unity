@@ -36,6 +36,7 @@ namespace SteamToys.Editor.Core
         static SteamManagerEditorDriver()
         {
             EditorApplication.update += Pump;
+            EditorApplication.update += UpdateToolbarStatus;
             EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
 
             // Neither the managed session nor the objects holding it survive these, so hand the
@@ -280,22 +281,79 @@ namespace SteamToys.Editor.Core
 
         private const string ToolbarPath = "Steam Toys";
 
+        // The client is looked up in the process list, which is too slow to ask every tick.
+        private const double StatusCheckInterval = 1.0;
+
+        private enum ToolbarStatus
+        {
+            ClientClosed,
+            ClientRunning,
+            Connected
+        }
+
+        private static ToolbarStatus shownStatus;
+        private static double nextStatusCheck;
+
+        private static ToolbarStatus CurrentStatus =>
+            SteamSession.IsRunning ? ToolbarStatus.Connected
+            : IsClientRunning ? ToolbarStatus.ClientRunning
+            : ToolbarStatus.ClientClosed;
+
         /// <summary>
         /// Puts the "Window/Steam Toys" menu on the left of the main toolbar, as a dropdown holding
         /// the same entries. Where the toolbar shows it is a preference of its own from there on,
         /// so this only decides where it starts out.
+        /// <para>
+        /// The label's colour tells the Steam status the way the friends list does: plain while
+        /// the client is closed, blue once it runs, green once this editor or its game is connected.
+        /// </para>
         /// </summary>
         [MainToolbarElement(ToolbarPath, defaultDockPosition = MainToolbarDockPosition.Left)]
-        private static MainToolbarElement CreateToolbarDropdown() =>
-            new MainToolbarDropdown(
+        private static MainToolbarElement CreateToolbarDropdown()
+        {
+            shownStatus = CurrentStatus;
+
+            var (label, status) = shownStatus switch
+            {
+                ToolbarStatus.Connected => ($"<color=#90BA3C>{ToolbarPath}</color>", "Connected to Steam."),
+                ToolbarStatus.ClientRunning => ($"<color=#57CBDE>{ToolbarPath}</color>", "Steam is running."),
+                _ => (ToolbarPath, "Steam is not running.")
+            };
+
+            return new MainToolbarDropdown(
                 new MainToolbarContent(
-                    ToolbarPath,
-                    EditorIconsDatabase.GetIcon<Texture2D>("icon_logo_steam_32"),
-                    "Window/Steam Toys"
+                    label,
+                    EditorIconsDatabase.GetIcon<Texture2D>("icon_logo_steam_color_32"),
+                    $"Window/Steam Toys\n{status}"
                 ),
                 ShowToolbarMenu
             );
-        
+        }
+
+        /// <summary>
+        /// Rebuilds the dropdown when the status it shows is out of date. Polled rather than
+        /// driven by the toggles, since Steam can be started, closed or refuse a connection
+        /// without going through them.
+        /// </summary>
+        private static void UpdateToolbarStatus()
+        {
+            if (EditorApplication.timeSinceStartup < nextStatusCheck)
+                return;
+
+            nextStatusCheck = EditorApplication.timeSinceStartup + StatusCheckInterval;
+
+            var status = CurrentStatus;
+
+            if (status == shownStatus)
+                return;
+
+            // Set here as well as on creation, since a dropdown switched off in the toolbar is not
+            // rebuilt and would otherwise be refreshed again on every check.
+            shownStatus = status;
+
+            MainToolbar.Refresh(ToolbarPath);
+        }
+
         /// <summary>
         /// Says where to switch the dropdown on. Unity leaves a toolbar element that arrived with a
         /// package switched off until it is picked from the toolbar's own menu, and someone who has
