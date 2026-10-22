@@ -39,7 +39,7 @@ namespace SteamToys.Runtime.InventorySystem.Converters.ExchangeVariable
         /// commas. Empty when it has no materials.
         /// </summary>
         public static string ToString(Recipe value) =>
-            value == null ? string.Empty : string.Join(MATERIAL_SEPARATOR, value.Select(material => material.ToSteamString()));
+            value == null ? string.Empty : string.Join(MATERIAL_SEPARATOR, value.Select(MaterialConverter.ToString));
     }
 }
 

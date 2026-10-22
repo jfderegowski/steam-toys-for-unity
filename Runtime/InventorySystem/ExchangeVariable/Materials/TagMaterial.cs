@@ -1,4 +1,5 @@
 using System;
+using SteamToys.Runtime.InventorySystem.Converters;
 using UnityEngine;
 
 namespace SteamToys.Runtime.InventorySystem.ExchangeVariable.Materials
@@ -44,19 +45,16 @@ namespace SteamToys.Runtime.InventorySystem.ExchangeVariable.Materials
             return true;
         }
 
-        public uint GetQuantity() => _quantity;
+        public override uint GetQuantity() => _quantity;
 
         public void SetQuantity(uint value) => _quantity = value;
 
-        public override string ToSteamString()
-        {
-            if (Quantity == 0)
-                throw new InvalidOperationException("Quantity must be greater than zero for TagMaterial.");
+        public override string GetTagName() => TagName;
 
-            return $"{TagName}:{Tags.GetTagValue(Value)}*{Quantity}";
-        }
+        /// <summary>The Steam value of <see cref="Value"/>, e.g. <c>legendary</c>.</summary>
+        public override string GetTagValue() => Tags.GetTagValue(Value);
 
-        /// <summary>The tag and how many, e.g. <c>rarity: Legendary x3</c>.</summary>
-        public override string ToString() => $"{TagName}: {Value} x{Quantity}";
+        /// <summary>The tag and how many, e.g. <c>Item Rarity: Legendary x3</c>.</summary>
+        public override string ToString() => $"{typeof(TEnum).Name.ToTitleCase()}: {Value} x{Quantity}";
     }
 }

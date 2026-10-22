@@ -5,6 +5,7 @@ using fefek5.Toys.Editor.Icons;
 using fefek5.Toys.Editor.VisualElements;
 using Newtonsoft.Json;
 using SteamToys.Runtime.InventorySystem;
+using SteamToys.Runtime.InventorySystem.Converters.ExchangeVariable;
 using SteamToys.Runtime.InventorySystem.Converters.Price;
 using UnityEditor;
 using UnityEditor.UIElements;
@@ -471,7 +472,7 @@ namespace SteamToys.Editor.InventorySystem
 
                     try
                     {
-                        recipe[j].ToSteamString();
+                        MaterialConverter.ToString(recipe[j]);
                     }
                     catch (InvalidOperationException exception)
                     {

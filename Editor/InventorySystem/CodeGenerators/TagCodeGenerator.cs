@@ -11,9 +11,10 @@ namespace SteamToys.Editor.InventorySystem.CodeGenerators
     /// <summary>
     /// One tag category, e.g. <c>rarity</c>, and its values. It generates the enum of it, e.g.
     /// <c>public enum Rarity { Common = 0, Rare = 1 }</c>, that the generated <c>Tags</c> classes and
-    /// <c>TagGeneratorDef&lt;TEnum&gt;</c> are made with, and with <see cref="GenerateTagGeneratorDef"/> the tag
-    /// generator class of it, e.g. <c>RarityTagGeneratorDef</c>. Steam gets the name of the enum and the names of its
-    /// values in snake_case.
+    /// <c>TagGeneratorDef&lt;TEnum&gt;</c> are made with, with <see cref="GenerateTagGeneratorDef"/> the tag
+    /// generator class of it, e.g. <c>RarityTagGeneratorDef</c>, and with <see cref="GenerateTagMaterial"/> the exchange
+    /// material of it, e.g. <c>RarityTagMaterial</c>. Steam gets the name of the enum and the names of its values in
+    /// snake_case.
     /// <para>
     /// Unity saves an enum by its number, so every value keeps the number it was given when it was added, and a number
     /// is never given twice: renaming, reordering or removing values leaves what is saved in assets as it was.
@@ -28,6 +29,9 @@ namespace SteamToys.Editor.InventorySystem.CodeGenerators
         private const string TAG_GENERATOR_DEF_KEY = "TagGeneratorDef";
         private const string TAG_GENERATOR_DEF_SUFFIX = "TagGeneratorDef";
         private const string TAG_GENERATOR_DEF_TYPE = "global::SteamToys.Runtime.InventorySystem.TagGeneratorDef";
+        private const string TAG_MATERIAL_KEY = "TagMaterial";
+        private const string TAG_MATERIAL_SUFFIX = "TagMaterial";
+        private const string TAG_MATERIAL_TYPE = "global::SteamToys.Runtime.InventorySystem.ExchangeVariable.Materials.TagMaterial";
 
         #endregion
 
@@ -44,6 +48,16 @@ namespace SteamToys.Editor.InventorySystem.CodeGenerators
         {
             get => _generateTagGeneratorDef;
             set => _generateTagGeneratorDef = value;
+        }
+
+        /// <summary>
+        /// Whether the exchange material class of the tag is generated too, e.g. <c>RarityTagMaterial</c>, so a recipe
+        /// can take any item with a value of the tag.
+        /// </summary>
+        public bool GenerateTagMaterial
+        {
+            get => _generateTagMaterial;
+            set => _generateTagMaterial = value;
         }
 
         /// <summary>The enum from the global namespace, e.g. <c>global::Game.Rarity</c>.</summary>
@@ -64,6 +78,10 @@ namespace SteamToys.Editor.InventorySystem.CodeGenerators
 
         [SerializeField, Tooltip("Generate the tag generator class of the tag too, e.g. RarityTagGeneratorDef.")]
         private bool _generateTagGeneratorDef = true;
+
+        [SerializeField, Tooltip("Generate the exchange material class of the tag too, e.g. RarityTagMaterial, so a " +
+                                 "recipe can take any item with a value of the tag.")]
+        private bool _generateTagMaterial = true;
 
         [SerializeField, HideInInspector]
         private int _nextNumber;
@@ -133,6 +151,9 @@ namespace SteamToys.Editor.InventorySystem.CodeGenerators
 
             if (GenerateTagGeneratorDef)
                 yield return new ScriptSpec(TAG_GENERATOR_DEF_KEY, ClassName + TAG_GENERATOR_DEF_SUFFIX, BuildTagGeneratorDef);
+
+            if (GenerateTagMaterial)
+                yield return new ScriptSpec(TAG_MATERIAL_KEY, ClassName + TAG_MATERIAL_SUFFIX, BuildTagMaterial);
         }
 
         private string BuildEnum()
@@ -159,6 +180,12 @@ namespace SteamToys.Editor.InventorySystem.CodeGenerators
                    CodeGeneration.GetAssetMenuAttribute(this, label) +
                    $"public partial class {className} : {TAG_GENERATOR_DEF_TYPE}<{EnumName}> {{ }}\n";
         }
+
+        // Serializable, since a recipe keeps its materials as managed references.
+        private string BuildTagMaterial() =>
+            $"/// <summary>Exchange material of the Steam tag <c>{SteamName}</c>, e.g. <c>{SteamName}:value*1</c>.</summary>\n" +
+            "[global::System.Serializable]\n" +
+            $"public partial class {ClassName + TAG_MATERIAL_SUFFIX} : {TAG_MATERIAL_TYPE}<{EnumName}> {{ }}\n";
 
         public override void CollectProblems(List<string> problems)
         {

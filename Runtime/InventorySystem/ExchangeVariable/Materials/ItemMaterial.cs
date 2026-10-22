@@ -25,19 +25,20 @@ namespace SteamToys.Runtime.InventorySystem.ExchangeVariable.Materials
 
         public void SetItem(ItemDef value) => _item = value;
         
-        public uint GetQuantity() => _quantity;
+        public override uint GetQuantity() => _quantity;
         
         public void SetQuantity(uint value) => _quantity = value;
 
-        public override string ToSteamString()
+        /// <summary>Empty: it is one item, not a tag.</summary>
+        public override string GetTagName() => string.Empty;
+
+        /// <summary>The ID of the item.</summary>
+        public override string GetTagValue()
         {
             if (Item == null)
                 throw new InvalidOperationException("Item cannot be null for ItemMaterial.");
-            
-            if (Quantity == 0)
-                throw new InvalidOperationException("Quantity must be greater than zero for ItemMaterial.");
-            
-            return $"{Item.ItemDefId}x{Quantity}";
+
+            return Item.ItemDefId.ToString();
         }
 
         /// <summary>The item and how many, e.g. <c>Atom x1</c>.</summary>
