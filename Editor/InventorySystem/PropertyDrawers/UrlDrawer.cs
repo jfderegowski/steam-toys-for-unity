@@ -1,3 +1,4 @@
+using fefek5.Toys.Editor.Icons;
 using SteamToys.Runtime.InventorySystem;
 using UnityEditor;
 using UnityEngine;
@@ -8,15 +9,18 @@ namespace SteamToys.Editor.InventorySystem.PropertyDrawers
     [CustomPropertyDrawer(typeof(Url))]
     public class UrlDrawer : PropertyDrawer
     {
-        private static readonly Color _iconTint = new(0.77f, 0.77f, 0.77f, 1f);
-        
         // Approximate average character width relative to font size for the default Inspector font.
         private const float CHAR_WIDTH_RATIO = 0.55f;
 
-        private const string ICONS_PATH = "Packages/com.fefek5.steam-toys/Editor/InventorySystem/Icons";
-        private readonly Texture _openIcon = EditorGUIUtility.IconContent("d_BuildSettings.Web.Small").image;
-        private readonly Texture _copyIcon = EditorGUIUtility.IconContent("Clipboard").image;
-        private readonly Texture _pasteIcon = EditorGUIUtility.IconContent("d_Import").image;
+        private const string OPEN_ICON = "open-icon";
+        private const string COPY_ICON = "copy-icon";
+        private const string PASTE_ICON = "paste-icon";
+
+        private const float BUTTON_SIZE = 18;
+        private const float ICON_SIZE = 12;
+        private const float GAP = 2;
+
+        private const long CLIPBOARD_CHECK_MS = 500;
 
         public override VisualElement CreatePropertyGUI(SerializedProperty property)
         {
@@ -25,15 +29,18 @@ namespace SteamToys.Editor.InventorySystem.PropertyDrawers
             // Root
             var root = new VisualElement();
 
-            // --- Row: TextField + buttons ---
-            var row = new VisualElement {
+            // --- Row: TextField + buttons, under one label, so it ends where the fields around it end ---
+            var inputs = new VisualElement {
                 style = {
                     flexDirection = FlexDirection.Row,
                     alignItems = Align.Center
                 }
             };
 
-            var textField = new TextField(preferredLabel) {
+            var row = new RowField(preferredLabel, inputs);
+            row.AddToClassList(BaseField<string>.alignedFieldUssClassName);
+
+            var textField = new TextField {
                 bindingPath = valueProp.propertyPath,
                 style = {
                     flexGrow = 1,
@@ -41,16 +48,16 @@ namespace SteamToys.Editor.InventorySystem.PropertyDrawers
                 }
             };
 
-            textField.AddToClassList(BaseField<string>.alignedFieldUssClassName);
-        
-            var openBtn = CreateIconButton(_openIcon, "Open in browser");
-            var copyBtn = CreateIconButton(_copyIcon, "Copy to clipboard");
-            var pasteBtn = CreateIconButton(_pasteIcon, "Paste from clipboard");
+            SetMargins(textField, 0);
 
-            row.Add(textField);
-            row.Add(openBtn);
-            row.Add(copyBtn);
-            row.Add(pasteBtn);
+            var openBtn = CreateIconButton(OPEN_ICON, "Open in browser");
+            var copyBtn = CreateIconButton(COPY_ICON, "Copy to clipboard");
+            var pasteBtn = CreateIconButton(PASTE_ICON, "Paste from clipboard (an http:// or https:// URL)");
+
+            inputs.Add(textField);
+            inputs.Add(openBtn);
+            inputs.Add(copyBtn);
+            inputs.Add(pasteBtn);
 
             // --- Warning label ---
             var warningLabel = new Label("⚠ Invalid URL (expected http:// or https://)") {
@@ -116,9 +123,12 @@ namespace SteamToys.Editor.InventorySystem.PropertyDrawers
 
             copyBtn.clicked += () => GUIUtility.systemCopyBuffer = valueProp.stringValue;
 
+            // The clipboard changes outside the inspector, so the button checks it while it is shown.
+            pasteBtn.schedule.Execute(() => pasteBtn.SetEnabled(IsValidUrl(GetClipboardText()))).Every(CLIPBOARD_CHECK_MS);
+
             pasteBtn.clicked += () =>
             {
-                var pasted = GUIUtility.systemCopyBuffer ?? string.Empty;
+                var pasted = GetClipboardText();
                 valueProp.stringValue = pasted;
                 valueProp.serializedObject.ApplyModifiedProperties();
                 url.Value = pasted;
@@ -194,34 +204,42 @@ namespace SteamToys.Editor.InventorySystem.PropertyDrawers
             textField.SetValueWithoutNotify(display);
         }
 
-        private static Button CreateIconButton(Texture icon, string tooltip)
+        private static Button CreateIconButton(string iconName, string tooltip)
         {
+            EditorIconsDatabase.TryGetIcon<Texture2D>(iconName, out var icon);
 
-            var image = new Image {
-                image = icon,
+            var button = new Button {
+                tooltip = tooltip,
                 style = {
-                    width = 12,
-                    height = 12,
-                    unityBackgroundImageTintColor = _iconTint
-                },
-                tintColor = _iconTint
+                    width = BUTTON_SIZE,
+                    height = BUTTON_SIZE,
+                    flexShrink = 0,
+                    paddingLeft = 0,
+                    paddingRight = 0,
+                    paddingTop = 0,
+                    paddingBottom = 0,
+                    alignItems = Align.Center,
+                    justifyContent = Justify.Center
+                }
             };
 
-            var btn = new Button();
-            btn.Add(image);
-            btn.tooltip = tooltip;
-            btn.style.width = 20;
-            btn.style.height = 20;
-            btn.style.marginLeft = 2;
-            btn.style.paddingLeft = 0;
-            btn.style.paddingRight = 0;
-            btn.style.paddingTop = 0;
-            btn.style.paddingBottom = 0;
-            btn.style.alignItems = Align.Center;
-            btn.style.justifyContent = Justify.Center;
+            SetMargins(button, GAP);
+            button.Add(new Image { image = icon, style = { width = ICON_SIZE, height = ICON_SIZE } });
 
-            return btn;
+            return button;
         }
+
+        // Every element of the row but the first is GAP after the one before it, and none has other margins.
+        private static void SetMargins(VisualElement element, float left)
+        {
+            element.style.marginLeft = left;
+            element.style.marginRight = 0;
+            element.style.marginTop = 0;
+            element.style.marginBottom = 0;
+        }
+
+        // Trimmed, so a URL copied with the line break after it pastes as the URL alone.
+        private static string GetClipboardText() => (GUIUtility.systemCopyBuffer ?? string.Empty).Trim();
 
         private static bool IsValidUrl(string url)
         {
@@ -230,6 +248,12 @@ namespace SteamToys.Editor.InventorySystem.PropertyDrawers
 
             return System.Uri.TryCreate(url, System.UriKind.Absolute, out var uri)
                    && (uri.Scheme == System.Uri.UriSchemeHttp || uri.Scheme == System.Uri.UriSchemeHttps);
+        }
+
+        /// <summary>A label with any elements as its input, laid out as every other field of the inspector.</summary>
+        private class RowField : BaseField<string>
+        {
+            public RowField(string label, VisualElement input) : base(label, input) { }
         }
     }
 }
