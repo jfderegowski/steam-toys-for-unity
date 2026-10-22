@@ -55,5 +55,8 @@ namespace SteamToys.Runtime.InventorySystem.ExchangeVariable.Materials
 
             return $"{TagName}:{Tags.GetTagValue(Value)}*{Quantity}";
         }
+
+        /// <summary>The tag and how many, e.g. <c>rarity: Legendary x3</c>.</summary>
+        public override string ToString() => $"{TagName}: {Value} x{Quantity}";
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using Newtonsoft.Json;
 using SteamToys.Runtime.AchievementsSystem;
 using SteamToys.Runtime.InventorySystem.Converters;
@@ -31,6 +32,8 @@ namespace SteamToys.Runtime.InventorySystem
     public class ManualPromoRule : PromoRule
     {
         public override string ToSteamString() => "manual";
+
+        public override string ToString() => "manual";
     }
 
     /// <summary>
@@ -48,6 +51,9 @@ namespace SteamToys.Runtime.InventorySystem
         }
 
         public override string ToSteamString() => $"owns:{_appId}";
+
+        /// <summary>The app it needs, e.g. <c>owns app 480</c>.</summary>
+        public override string ToString() => $"owns app {_appId}";
     }
 
     /// <summary>
@@ -66,6 +72,9 @@ namespace SteamToys.Runtime.InventorySystem
 
         public override string ToSteamString() =>
             _achievement == null || string.IsNullOrEmpty(_achievement.ApiName) ? string.Empty : $"ach:{_achievement.ApiName}";
+
+        /// <summary>The achievement it needs, e.g. <c>achievement Win</c>.</summary>
+        public override string ToString() => $"achievement {(_achievement ? _achievement.name : "—")}";
     }
 
     /// <summary>
@@ -90,6 +99,9 @@ namespace SteamToys.Runtime.InventorySystem
         }
 
         public override string ToSteamString() => $"played:{_appId}/{_minutes}";
+
+        /// <summary>The app and the playtime it needs, e.g. <c>played app 480 for 120 min</c>.</summary>
+        public override string ToString() => $"played app {_appId} for {_minutes} min";
     }
 
     /// <summary>
@@ -141,5 +153,11 @@ namespace SteamToys.Runtime.InventorySystem
         }
 
         #endregion
+
+        /// <summary>Its rules, e.g. <c>manual, owns app 480</c>.</summary>
+        public override string ToString() =>
+            _rules is { Count: > 0 }
+                ? string.Join(", ", _rules.Select(rule => rule?.ToString() ?? "—"))
+                : "no rules";
     }
 }

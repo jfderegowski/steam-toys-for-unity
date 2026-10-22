@@ -1,7 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Text;
+using System.Linq;
 using Newtonsoft.Json;
 using SteamToys.Runtime.InventorySystem.Converters.ExchangeVariable;
 using UnityEngine;
@@ -48,24 +48,10 @@ namespace SteamToys.Runtime.InventorySystem.ExchangeVariable
 
         #endregion
 
-        public string ToSteamString()
-        {
-            if (_materials == null || _materials.Count == 0)
-                return string.Empty;
-
-            var sb = new StringBuilder();
-
-            for (int i = 0; i < _materials.Count; i++)
-            {
-                if (i > 0)
-                    sb.Append(",");
-
-                var material = _materials[i];
-                
-                sb.Append(material.ToSteamString());
-            }
-
-            return sb.ToString();
-        }
+        /// <summary>The materials it takes, e.g. <c>Atom x1 + rarity: Legendary x3</c>.</summary>
+        public override string ToString() =>
+            _materials is { Count: > 0 }
+                ? string.Join(" + ", _materials.Select(material => material?.ToString() ?? "—"))
+                : "no materials";
     }
 }

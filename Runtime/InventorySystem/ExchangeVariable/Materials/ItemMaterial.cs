@@ -39,5 +39,8 @@ namespace SteamToys.Runtime.InventorySystem.ExchangeVariable.Materials
             
             return $"{Item.ItemDefId}x{Quantity}";
         }
+
+        /// <summary>The item and how many, e.g. <c>Atom x1</c>.</summary>
+        public override string ToString() => $"{(Item ? Item.name : "—")} x{Quantity}";
     }
 }

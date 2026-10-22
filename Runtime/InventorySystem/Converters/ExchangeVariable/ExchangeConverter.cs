@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Newtonsoft.Json;
 using SteamToys.Runtime.InventorySystem.ExchangeVariable;
 
@@ -15,6 +16,8 @@ namespace SteamToys.Runtime.InventorySystem.Converters.ExchangeVariable
     /// </summary>
     public class ExchangeConverter : JsonConverter<Exchange>
     {
+        private const string RECIPE_SEPARATOR = ";";
+
         public override bool CanRead => false;
         
         public override void WriteJson(JsonWriter writer, Exchange value, JsonSerializer serializer)
@@ -25,11 +28,18 @@ namespace SteamToys.Runtime.InventorySystem.Converters.ExchangeVariable
                 return;
             }
 
-            writer.WriteValue(value.ToSteamString());
+            writer.WriteValue(ToString(value));
         }
 
         public override Exchange ReadJson(JsonReader reader, Type objectType, Exchange existingValue,
             bool hasExistingValue, JsonSerializer serializer) => null; // Deserialization is not supported for this converter.
+
+        /// <summary>
+        /// Converts an <see cref="Exchange"/> to the Steam exchange format, its recipes separated by semicolons.
+        /// Empty when it has no recipes.
+        /// </summary>
+        public static string ToString(Exchange value) =>
+            value == null ? string.Empty : string.Join(RECIPE_SEPARATOR, value.Select(RecipeConverter.ToString));
     }
 }
 

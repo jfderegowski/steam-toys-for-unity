@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Text;
 using Newtonsoft.Json;
+using SteamToys.Runtime.InventorySystem.Converters.ExchangeVariable;
 using SteamToys.Runtime.InventorySystem.ExchangeVariable;
 using UnityEngine;
 
@@ -93,7 +94,7 @@ namespace SteamToys.Runtime.InventorySystem.Converters
             if (value == null || value.Count == 0)
                 return;
 
-            writer.WriteIfNotEmpty(propertyName, value.ToSteamString());
+            writer.WriteIfNotEmpty(propertyName, ExchangeConverter.ToString(value));
         }
 
         public static void WritePriceIfNotEmpty(this JsonWriter writer, string propertyName, InventorySystem.Price value)

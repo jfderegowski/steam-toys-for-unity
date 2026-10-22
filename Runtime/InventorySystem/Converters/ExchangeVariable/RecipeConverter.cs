@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Newtonsoft.Json;
 using SteamToys.Runtime.InventorySystem.ExchangeVariable;
 
@@ -15,6 +16,8 @@ namespace SteamToys.Runtime.InventorySystem.Converters.ExchangeVariable
     /// </summary>
     public class RecipeConverter : JsonConverter<Recipe>
     {
+        private const string MATERIAL_SEPARATOR = ",";
+
         public override bool CanRead => false;
 
         public override void WriteJson(JsonWriter writer, Recipe value, JsonSerializer serializer)
@@ -25,11 +28,18 @@ namespace SteamToys.Runtime.InventorySystem.Converters.ExchangeVariable
                 return;
             }
 
-            writer.WriteValue(value.ToSteamString());
+            writer.WriteValue(ToString(value));
         }
 
         public override Recipe ReadJson(JsonReader reader, Type objectType, Recipe existingValue, bool hasExistingValue,
             JsonSerializer serializer) => null; // Deserialization is not supported for this converter.
+
+        /// <summary>
+        /// Converts a <see cref="Recipe"/> to one recipe of the Steam exchange format, its materials separated by
+        /// commas. Empty when it has no materials.
+        /// </summary>
+        public static string ToString(Recipe value) =>
+            value == null ? string.Empty : string.Join(MATERIAL_SEPARATOR, value.Select(material => material.ToSteamString()));
     }
 }
 

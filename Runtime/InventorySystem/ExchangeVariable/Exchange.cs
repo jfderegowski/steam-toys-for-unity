@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Text;
 using Newtonsoft.Json;
 using SteamToys.Runtime.InventorySystem.Converters.ExchangeVariable;
 using UnityEngine;
@@ -47,23 +46,5 @@ namespace SteamToys.Runtime.InventorySystem.ExchangeVariable
         }
 
         #endregion
-
-        public string ToSteamString()
-        {
-            if (_recipes == null || _recipes.Count == 0)
-                return string.Empty;
-
-            var sb = new StringBuilder();
-
-            for (int i = 0; i < _recipes.Count; i++)
-            {
-                if (i > 0)
-                    sb.Append(";");
-
-                sb.Append(_recipes[i].ToSteamString());
-            }
-
-            return sb.ToString();
-        }
     }
 }

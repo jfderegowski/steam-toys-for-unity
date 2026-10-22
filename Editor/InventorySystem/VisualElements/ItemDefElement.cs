@@ -177,8 +177,8 @@ namespace SteamToys.Editor.InventorySystem
             AddField(market, PURCHASE_LIMIT, "Blocks a purchase when the user already owns this many. 0 means no limit.");
             AddField(market, CONTAINER_CONTENTS_GENERATOR, "Generator whose possible drops are listed in this item's description.");
 
-            var exchange = AddSection("Exchange System", "section-exchange-icon");
-            AddField(exchange, EXCHANGE, "Recipes that consume materials to create this item.");
+            // The exchange draws its own section.
+            AddField(this, EXCHANGE, "Recipes that consume materials to create this item.");
 
             var promo = AddSection("Promo", "section-promo-icon");
             AddField(promo, PROMO, "Rules that grant this item automatically.");
