@@ -5,7 +5,7 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.6.0] - 2026-10-22
 
 ### Added
 
@@ -16,29 +16,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   folder. "Window/Steam Toys/Steam Items DB" opens it: a table of the definitions, adding one of
   any class with the next free itemdefid, moving one to the trash, and copying or saving the
   JSON. It works on definitions only; owned items are in the Steam Inventory window.
+- The items DB table also lists the definitions the Steam client reports for the app, marks what
+  Steam would reject in each definition and where one differs from the definition on Steam, and
+  shows the inspector of the selected one under it. The last definitions read stay for the
+  comparison after the Steam session ends. The client never lists bundles, tag generators and
+  playtime generators, so those are looked up by itemdefid.
 - Create From Steam in the items DB makes a definition for every one the Steam client has for
   the app and the DB lacks, and overwrites the fields Steam reports of the ones it has: name,
-  description, display type, icons, colors, trading flags, tags, exchange recipes and tag
-  generators, each for the types that use it; the other fields are left as they are. A new
-  definition with tags takes the class of the game whose tags type holds a fixed set of
-  categories covering all of them, and the class of the package otherwise, whose `Tags` holds
-  any category. Tags a class cannot hold, the tags of a bundle, which Steam does not pass on,
-  exchange materials with no `TagMaterial<TEnum>` class and references to definitions not in
-  the DB are listed in the console.
+  description, display type, icons, colors, trading flags, tags, exchange recipes, tag
+  generators and the values of a tag generator, each for the types that use it; the other fields
+  are left as they are. It first offers to add to the Steam Item Definitions the tag categories
+  and values Steam uses and a kind of item for each set of tags none takes, and to generate their
+  scripts. A window then lists the new definitions in groups of the same type and tag categories,
+  each with the class to make them with: a class of the game whose tags hold those categories,
+  or a Default class of the package. Tags a class cannot hold, the tags of a bundle, which Steam
+  does not pass on, exchange materials with no `TagMaterial<TEnum>` class and references to
+  definitions not in the DB are listed in the console.
+- "Window/Steam Toys/Steam Item Definitions" generates the scripts of the game's items from
+  tags and kinds of items, kept in `ProjectSettings/SteamItemDefinitions.asset`, out of builds.
+  A tag generates its enum, whose values keep the number they were given so renaming, reordering
+  or removing values leaves saved assets as they were, and optionally its `TagGeneratorDef<TEnum>`
+  and `TagMaterial<TEnum>` classes. A kind of item, e.g. `Event`, takes tags and generates its
+  tags classes, with each tag a property of its enum that is null while not set, and the partial
+  `ItemDef`, `InventoryItem`, `GeneratorDef` and `PlaytimeGeneratorDef` classes chosen. The window
+  lists what keeps one from generating and the scripts it writes; Generate All writes the tags
+  first. A renamed or moved script is moved, not written anew, and scripts no longer generated
+  can be deleted or kept as the game's own.
 - `Inventory` reads the Steam inventory of the signed-in player. Each owned item is an
   `InventoryItem`, kept across updates while owned: its `Definition` (an `ItemDef` of type
-  `item`), `InstanceId`, `Quantity`, `Flags`, its tags as Steam reported them, generated ones
-  included, and merged over the ones of its definition into a tags object of the definition's
-  type (`TagsObject`, `GetTags<TTags>`, `HasTag`), and every other property Steam reports for it
+  `item`), `InstanceId`, `Quantity`, `Flags`, the tags Steam reports on the item, which its tag
+  generators and the generator that made it set (`Tags`, `TryGetTag`, `HasTag`; the tags of its
+  definition stay on `Definition`), and every other property Steam reports for it
   (`Properties`, with `Acquired`, `StateChanged`, `Origin`, `State` and `OriginalInstanceId`),
-  since items of one itemdefid differ only in those. Lookups by definition, itemdefid, name, tag
-  value, instance ID, definition class or tags type (`Get…`, `TryGet…`, `GetAll…`,
-  `GetItems<TTags>`, `GetItemsOfType<TItem>`, `Contains…`, `Count…`), and the calls that change
-  it: `Refresh`, `TriggerItemDrop`, `AddPromoItem(s)`, `GrantPromoItems`, `ConsumeItem`,
-  `ExchangeItems` and `GenerateItems`, each with an optional completion callback, plus
-  `OnChanged`. An itemdefid the items DB lacks gets a definition made at runtime from the one
-  published on Steam (name, description, tags, display type, icons, colors, trading flags),
-  shared by its items. The flags the client reports as `1` / `0` are read as such.
+  since items of one itemdefid differ only in those. `ItemDef.CreateInventoryItem` makes it, so
+  a class of the game can have its own, e.g. an `InventoryItem<TItemDef>` with typed tags.
+  Lookups by definition, itemdefid, name, tag value, instance ID, definition class or item class
+  (`Get…`, `TryGet…`, `GetAll…`, `GetItems<TItem>`, `GetItemsOfType<TItemDef>`, `Contains…`,
+  `Count…`), and the calls that change it: `Refresh`, `TriggerItemDrop`, `AddPromoItem(s)`,
+  `GrantPromoItems`, `ConsumeItem`, `ExchangeItems` and `GenerateItems`, each with an optional
+  completion callback, plus `OnChanged` and `OnDefinitionsChanged`. An itemdefid the items DB
+  lacks gets a definition made at runtime from the one published on Steam (name, description,
+  tags, display type, icons, colors, trading flags), shared by its items. The flags the client
+  reports as `1` / `0` are read as such.
 - "Window/Steam Toys/Steam Inventory" shows the inventory of the signed-in account like the
   inventory page of Steam: a grid of item tiles in their background and name colors, with the
   icon and the quantity, and the clicked item previewed beside it with its large icon, display
@@ -56,8 +75,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The ItemDef inspector handles several selected definitions: Generate Item grants each of them,
   the schema warnings of all are listed with the definition name in front, and the JSON preview
   and Copy JSON hold an array of them, Copy JSON + AppID all of them in one import file.
-- Inventory: one asset class per ItemDef `type`: `Item`, `Bundle`, `Generator`,
-  `PlaytimeGenerator` and `TagGenerator<TEnum>`, the first four usable without code. Steam keeps
+- Inventory: one asset class per ItemDef `type`: `ItemDef<TTags>`, `BundleDef`,
+  `GeneratorDef<TTags>`, `PlaytimeGeneratorDef<TTags>` and `TagGeneratorDef<TEnum>`, with
+  `DefaultItemDef`, `DefaultBundleDef`, `DefaultGeneratorDef`, `DefaultPlaytimeGeneratorDef` and
+  `DefaultTagGeneratorDef` usable without code. Steam keeps
   every property on every definition and lets the type decide which ones act, so every schema
   property is a field of `ItemDef`, once, and an abstract `SchemaSupports…` method of its own,
   e.g. `SchemaSupportsPrice()`, which each type implements to say whether it uses it, as the
@@ -67,24 +88,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fields on items and the drop settings on playtime generators. A class of the game may override
   them. Only those are shown in the inspector (`SchemaSupportsField` maps a field to its method)
   and exported, and one set on a type that does not use it is warned about.
-  `ItemDef<TTags>` adds tags: `Item<TTags>`, `Generator<TTags>` and `PlaytimeGenerator<TTags>`
-  build on it, and `Item`, `Generator` and `PlaytimeGenerator` are those with `Tags`. A bundle
+  `ItemDef<TTags>` is the type `item` with tags, and `GeneratorDef<TTags>` and
+  `PlaytimeGeneratorDef<TTags>` build on it; the Default classes take `DefaultTags`. A bundle
   has no tags, as Steam does not pass them on to what it creates; a generator copies its tags to
-  the item it creates. Types are told apart by `ItemDef.Type`, since `Item<SwordTags>` is not
-  an `Item`. A tag generator takes its category and values from the same enum a `Tag<TEnum>`
-  uses.
-- `TagsDef`, the tags of a definition or an owned item: `category:value` pairs, one value per
-  category, kept as strings in a `SerializableDictionary<string, string>` (`GetTags`). An enum
-  is a helper only: `GetValue<TEnum>`, `SetValue<TEnum>` and `Has<TEnum>` read the category
-  named after it, e.g. `Rarity.Legendary` as `rarity:legendary`. `Tags` holds any category; a
-  subclass holds a fixed set by overriding `CanHold`. `SetSteamString` and `MergeSteamString`
-  return the pairs they could not hold.
+  the item it creates. Types are told apart by `ItemDef.Type`. A tag generator takes its
+  category and values from an enum (`TagGeneratorDef<TEnum>`), or as Steam has them
+  (`DefaultTagGeneratorDef`).
+- `Tags`, the tags of a definition or an owned item: `category:value` pairs, one value per
+  category, kept as strings, read as an `IReadOnlyDictionary<string, string>` and set with
+  `TrySetValue`. An enum is a helper only: `Contains<TEnum>`, `GetTagName<TEnum>`,
+  `GetTagValue` and `TryParseTagValue` name the category after it, e.g. `Rarity.Legendary` as
+  `rarity:legendary`. `DefaultTags` holds any category in a `SerializableDictionary<string,
+  string>`; a subclass holds a fixed set, as the generated ones do. `TagsConverter` writes them.
 - Inventory: `price_category`, `store_tags`, `store_images`, `purchase_bundle_discount`,
   `container_contents_generator` and `tag_generators`.
 - The item inspector warns about settings Steam would reject or ignore, such as a price together
   with a price category, or a drop start time without a manual promo, and about the ones that
   make Steam reject a definition and stop the upload there: an empty name or a bundle without
   contents.
+- The ItemDef inspector groups the fields in sections with icons that collapse and expand,
+  animated, and remember it; a field that needs fixing is framed with its warnings. A dropdown
+  at the top changes the class of the definition among every class of its Steam type and the
+  others, keeping the values both classes have and warning which tags may not carry over.
+- Drawers: `SteamDateTime` as one row of date and time in UTC with buttons to set it to now or
+  clear it, warning while the text is not a date; `PriceValue` with about how many dollars it
+  is (`PriceValue.GetUsdAmount`); `Promotion`, `Promo` and `Recipe` as foldouts whose header is
+  what they hold, e.g. `owns app 480, manual`, after the field name or, in a list, alone; tags
+  and `Exchange` as sections; a `TagMaterial<TEnum>` as one row of the tag, its value and the
+  quantity. The buttons of a `Url` sit evenly at the right edge with icons of their own, and
+  Paste is enabled only while the clipboard holds an `http://` or `https://` URL, which it
+  pastes trimmed.
+- `ToString` of `Promotion`, `PriceValue`, `SteamDateTime`, `Promo` and its rules, `Recipe`
+  and its materials reads as the inspector shows them, e.g. `2.99 PLN ≈ 0.81 $` or
+  `Atom x1 + Item Rarity: Common x3`.
+- The Steam dropdown of the main toolbar is colored by the Steam status, as the friends list
+  does: plain while the client is closed, blue while it runs and green once this editor or its
+  game is connected.
 - Schema probes (`Tests/SchemaProbes`): edit mode tests that run against the live Steam inventory
   of a partner account and record, per ItemDef type, what Steam does with granting, exchange,
   promos, `granted_manually`, drops, tags, tag generators, `auto_stack`, `tradable`, `hidden`,
@@ -97,20 +136,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Inventory` is no longer an asset holding definitions: those moved to `SteamItemsDB`. An
   existing Inventory asset loses its script and can be deleted.
 - An item definition has no App ID of its own; the JSON takes the one of the Steam Settings.
-- `Item` is the ItemDef of type `item`; the shared base is `ItemDef`, and `Inventory.Items`,
-  `BundleElement.Item` and the item inspector take any `ItemDef`. The `type` comes from the
-  class of the asset, so it is no longer a field.
-- The bundle list is `BundleContent` (with `BundleContentConverter`), since `Bundle` is now
-  the ItemDef of type `bundle`. In generators its entries are weights.
-- Tags are a dictionary of strings (`TagsDef`, `Tags`) instead of a class of `Tag<TEnum>` fields
-  per game; `GeneratedTag<TEnum>` is gone, as an owned item reads any tag Steam reports. A tags
-  class of the game becomes a `Tags` subclass, its fixed categories in `CanHold`, and the tags
+- `Item` is gone: the ItemDef of type `item` is `ItemDef<TTags>`, `DefaultItemDef` with tags of
+  any category; the shared base is `ItemDef`, and `Inventory.Items`, `BundleElement.Item` and
+  the item inspector take any `ItemDef`. The `type` comes from the class of the asset, so it is
+  no longer a field.
+- The bundle list is `BundleContent` (with `BundleContentConverter`), since `BundleDef` is the
+  ItemDef of type `bundle`. In generators its entries are weights.
+- Tags are strings (`Tags`) instead of a class of `Tag<TEnum>` fields per game;
+  `GeneratedTag<TEnum>` is gone, as an owned item reads any tag Steam reports. A tags class of
+  the game becomes a `Tags` subclass, best generated by the Steam Item Definitions, and the tags
   stored in existing definitions have to be set again, e.g. by Create From Steam.
 - A playtime generator has an exchange, which Steam runs like a plain generator's: one pick of
   the content for the materials, apart from the drops.
 - `TagMaterial<TTags>` is `TagMaterial<TEnum>`, holding the one tag it matches. It took the
   first pair of a whole tags class, which comes from a `HashSet` in no set order, so a class with
-  two tags could put either into the recipe. Subclass it per enum to offer it in recipes.
+  two tags could put either into the recipe. Subclass it per enum to offer it in recipes; the
+  Steam Item Definitions generate one for each tag.
+- `Material` is abstract with `GetTagName`, `GetTagValue` and `GetQuantity`, and
+  `MaterialConverter` writes it: an item when it has no tag name, e.g. `100x1`, a tag otherwise,
+  e.g. `rarity:legendary*3`. The Steam strings of prices, promotions, exchanges, recipes and
+  materials are written by their converters (`PriceConverter.ToString`,
+  `ExchangeConverter.ToString`, …); `ToSteamString` of `Price`, `PriceValue`, `Promotion`,
+  `Exchange`, `Recipe` and `Material` is gone.
+- A Steam client that is not running is no longer logged as an error when the session starts.
 - `exchange` separates recipes with `;` and the materials of a recipe with `,`, as Steam reads
   it. They were swapped, so any exchange with more than one recipe or material was exported
   wrong.
