@@ -23,7 +23,7 @@ namespace SteamToys.Runtime.InventorySystem
     public abstract class Tags : IReadOnlyDictionary<string, string>
     {
         [SerializeField] private SerializableDictionary<string, string> _stringTags;
-        
+
         #region IReadOnlyDictionary
 
         public IEnumerator<KeyValuePair<string, string>> GetEnumerator()
@@ -63,7 +63,7 @@ namespace SteamToys.Runtime.InventorySystem
 
         public bool TrySetValue(string tagName, string tagValue)
         {
-            if (!_stringTags.ContainsKey(tagName)) 
+            if (!_stringTags.ContainsKey(tagName))
                 return TrySetTagValue(tagName, tagValue);
             
             _stringTags[tagName] = tagValue;
