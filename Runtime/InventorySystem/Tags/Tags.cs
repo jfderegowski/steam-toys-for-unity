@@ -2,8 +2,10 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using fefek5.Toys.Runtime;
 using Newtonsoft.Json;
 using SteamToys.Runtime.InventorySystem.Converters;
+using UnityEngine;
 
 namespace SteamToys.Runtime.InventorySystem
 {
@@ -20,6 +22,8 @@ namespace SteamToys.Runtime.InventorySystem
     [JsonConverter(typeof(TagsConverter))]
     public abstract class Tags : IReadOnlyDictionary<string, string>
     {
+        [SerializeField] private SerializableDictionary<string, string> _stringTags;
+        
         #region IReadOnlyDictionary
 
         public IEnumerator<KeyValuePair<string, string>> GetEnumerator()
@@ -35,7 +39,8 @@ namespace SteamToys.Runtime.InventorySystem
 
         public bool ContainsKey(string tagName) => Keys.Contains(tagName);
 
-        public abstract bool TryGetValue(string tagName, out string tagValue);
+        public bool TryGetValue(string tagName, out string tagValue) =>
+            _stringTags.TryGetValue(tagName, out tagValue) || TryGetTagValue(tagName, out tagValue);
 
         public string this[string tagName]
         {
@@ -50,13 +55,21 @@ namespace SteamToys.Runtime.InventorySystem
             }
         }
 
-        public abstract IEnumerable<string> Keys { get; }
+        public IEnumerable<string> Keys => _stringTags.Keys.Concat(GetTagNames());
 
         public IEnumerable<string> Values => Keys.Select(key => this[key]);
 
         #endregion
 
-        public abstract bool TrySetValue(string tagName, string tagValue);
+        public bool TrySetValue(string tagName, string tagValue)
+        {
+            if (!_stringTags.ContainsKey(tagName)) 
+                return TrySetTagValue(tagName, tagValue);
+            
+            _stringTags[tagName] = tagValue;
+            
+            return true;
+        }
 
         /// <summary>Whether these tags hold the pair <c>tagName:tagValue</c>, e.g. <c>rarity:legendary</c>.</summary>
         public bool Contains(string tagName, string tagValue) =>
@@ -98,6 +111,16 @@ namespace SteamToys.Runtime.InventorySystem
 
             return false;
         }
+
+        #endregion
+
+        #region Abstract
+
+        public abstract IEnumerable<string> GetTagNames();
+        
+        public abstract bool TryGetTagValue(string tagName, out string tagValue);
+        
+        public abstract bool TrySetTagValue(string tagName, string tagValue);
 
         #endregion
     }

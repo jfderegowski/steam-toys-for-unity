@@ -12,27 +12,14 @@ namespace SteamToys.Runtime.InventorySystem
     [Serializable]
     public class DefaultTags : Tags
     {
-        [SerializeField, Tooltip("Steam tags by category, e.g. rarity: legendary. Each value is sent as category:value.")]
-        private SerializableDictionary<string, string> _tags = new();
+        public override IEnumerable<string> GetTagNames() => null;
 
-        #region Tags
-
-        public override IEnumerable<string> Keys => _tags.Keys;
-
-        public override bool TryGetValue(string tagName, out string tagValue) =>
-            _tags.TryGetValue(tagName, out tagValue);
-
-        public override bool TrySetValue(string tagName, string tagValue)
+        public override bool TryGetTagValue(string tagName, out string tagValue)
         {
-            // Any category: a new one is added, a known one gets the new value.
-            if (string.IsNullOrEmpty(tagName))
-                return false;
-
-            _tags[tagName] = tagValue;
-            
-            return true;
+            tagValue = null;
+            return false;
         }
-
-        #endregion
+        
+        public override bool TrySetTagValue(string tagName, string tagValue) => false;
     }
 }
