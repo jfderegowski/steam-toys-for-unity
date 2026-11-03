@@ -49,7 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   definition stay on `Definition`), and every other property Steam reports for it
   (`Properties`, with `Acquired`, `StateChanged`, `Origin`, `State` and `OriginalInstanceId`),
   since items of one itemdefid differ only in those. `ItemDef.CreateInventoryItem` makes it, so
-  a class of the game can have its own, e.g. an `InventoryItem<TItemDef>` with typed tags.
+  a class of the game can have its own, e.g. an `InventoryItem<TItemDef, TTags>` with typed tags.
   Lookups by definition, itemdefid, name, tag value, instance ID, definition class or item class
   (`Get…`, `TryGet…`, `GetAll…`, `GetItems<TItem>`, `GetItemsOfType<TItemDef>`, `Contains…`,
   `Count…`), and the calls that change it: `Refresh`, `TriggerItemDrop`, `AddPromoItem(s)`,

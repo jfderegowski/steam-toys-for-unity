@@ -155,10 +155,7 @@ namespace SteamToys.Editor.InventorySystem.CodeGenerators
 
         private string BuildInventoryItem() =>
             $"/// <summary>An owned {ClassName} item, its tags typed as {TagsClassName}.{InventoryItemTagsClassName}.</summary>\n" +
-            $"public partial class {InventoryItemClassName} : {RUNTIME}.InventoryItem<{ItemDefClassName}>\n{{\n" +
-            $"    public new {InventoryItemTags} Tags => ({InventoryItemTags})base.Tags;\n\n" +
-            $"    protected override {TAGS_TYPE} CreateTags() => new {InventoryItemTags}();\n" +
-            "}\n";
+            $"public partial class {InventoryItemClassName} : {RUNTIME}.InventoryItem<{ItemDefClassName}, {InventoryItemTags}> {{ }}\n";
 
         // A generator copies its tags to the item it makes, where Steam reports them on the owned item.
         private string BuildGeneratorDef(string className, string baseClass, string kind)

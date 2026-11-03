@@ -97,10 +97,10 @@ namespace SteamToys.Runtime.InventorySystem
         #region Items
 
         /// <summary>
-        /// Every owned item that is a <typeparamref name="TItem"/>, the class its definition makes, e.g. one of the
+        /// Every owned item that is a <typeparamref name="TInventoryItem"/>, the class its definition makes, e.g. one of the
         /// game with typed tags.
         /// </summary>
-        public static IEnumerable<TItem> GetItems<TItem>() where TItem : InventoryItem => _items.OfType<TItem>();
+        public static IEnumerable<TInventoryItem> GetItems<TInventoryItem>() where TInventoryItem : InventoryItem => _items.OfType<TInventoryItem>();
 
         /// <summary>Every owned item whose definition is a <typeparamref name="TItem"/>, e.g. a class of the game.</summary>
         public static IEnumerable<InventoryItem> GetItemsOfType<TItem>() where TItem : ItemDef =>

@@ -8,7 +8,7 @@ namespace SteamToys.Runtime.InventorySystem.Converters
     /// the exact format expected by the Steam Inventory Service.
     /// Each ItemDef type writes its own properties through <see cref="ItemDef.WriteJsonProperties"/>.
     /// </summary>
-    public class ItemConverter : JsonConverter<ItemDef>
+    public class ItemDefConverter : JsonConverter<ItemDef>
     {
         public override bool CanRead => false;
 

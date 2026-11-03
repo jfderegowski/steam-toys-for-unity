@@ -17,7 +17,7 @@ namespace SteamToys.Runtime.InventorySystem
     /// subclass is one ItemDef <c>type</c>; <see cref="ItemDef{TTags}"/> adds tags to the types that have them.
     /// <see href="https://partner.steamgames.com/doc/features/inventory/schema"/>
     /// </summary>
-    [JsonConverter(typeof(ItemConverter))]
+    [JsonConverter(typeof(ItemDefConverter))]
     public abstract class ItemDef : ScriptableObject
     {
         #region Constants

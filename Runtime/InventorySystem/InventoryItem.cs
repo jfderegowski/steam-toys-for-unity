@@ -12,7 +12,7 @@ namespace SteamToys.Runtime.InventorySystem
     /// <para>
     /// Its <see cref="Tags"/> are the ones Steam reports on the item, which tag generators and the generator that made
     /// it set; the tags of its definition stay on <see cref="Definition"/>. <see cref="ItemDef.CreateInventoryItem"/>
-    /// makes it, so a class of the game can have its own, e.g. <see cref="InventoryItem{TItemDef}"/> with typed tags.
+    /// makes it, so a class of the game can have its own, e.g. <see cref="InventoryItem{TItemDef,TTags}"/> with typed tags.
     /// </para>
     /// <para>
     /// Kept across updates by its <see cref="InstanceId"/>, so a reference to it stays valid while the player owns it.
@@ -80,7 +80,7 @@ namespace SteamToys.Runtime.InventorySystem
         /// <see cref="SteamTags"/> in the tags object of <see cref="CreateTags"/>. The tags of the definition are on
         /// <see cref="Definition"/>; <see cref="TryGetTag"/> looks in both.
         /// </summary>
-        public Tags Tags => _tags;
+        public Tags Tags => GetRawTags();
 
         /// <summary>
         /// Every property Steam reports for this item, by name, e.g. <c>itemid</c>, <c>acquired</c>, <c>Origin</c>,
@@ -109,6 +109,8 @@ namespace SteamToys.Runtime.InventorySystem
         #endregion
 
         #region Tags
+
+        public virtual Tags GetRawTags() => _tags;
 
         /// <summary>
         /// The tags object <see cref="SteamTags"/> are read into: <see cref="DefaultTags"/>, which takes any category,
@@ -206,12 +208,28 @@ namespace SteamToys.Runtime.InventorySystem
     }
 
     /// <summary>
-    /// An owned item whose definition is a <typeparamref name="TItemDef"/>, so <see cref="Definition"/> is typed. A
-    /// class of the game subclasses it to type <see cref="InventoryItem.Tags"/> as well, and its definition makes it
-    /// in <see cref="ItemDef.CreateInventoryItem"/>.
+    /// An owned item whose definition is a <typeparamref name="TItemDef"/>, with the tags Steam reports on it in a
+    /// <typeparamref name="TTags"/>, which is not the tags type of the definition. Its definition makes it in
+    /// <see cref="ItemDef.CreateInventoryItem"/>.
     /// </summary>
-    public class InventoryItem<TItemDef> : InventoryItem where TItemDef : ItemDef
+    public class InventoryItem<TItemDef, TTags> : InventoryItem where TItemDef : ItemDef where TTags : Tags, new()
     {
+        #region Properties
+
         public new TItemDef Definition => (TItemDef)base.Definition;
+
+        public new TTags Tags => GetTags();
+
+        #endregion
+
+        #region Tags
+
+        public virtual TTags GetTags() => (TTags)base.GetRawTags();
+
+        public override Tags GetRawTags() => GetTags();
+
+        protected override Tags CreateTags() => new TTags();
+
+        #endregion
     }
 }
