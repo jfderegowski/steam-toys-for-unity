@@ -48,7 +48,7 @@ namespace SteamToys.Runtime.InventorySystem.ExchangeVariable
 
         #endregion
 
-        /// <summary>The materials it takes, e.g. <c>Atom x1 + rarity: Legendary x3</c>.</summary>
+        /// <summary>The materials it takes, e.g. <c>Atom x1 + Legendary x3</c>.</summary>
         public override string ToString() =>
             _materials is { Count: > 0 }
                 ? string.Join(" + ", _materials.Select(material => material?.ToString() ?? "—"))

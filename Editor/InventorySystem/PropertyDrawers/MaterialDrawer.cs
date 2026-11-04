@@ -13,17 +13,36 @@ using Object = UnityEngine.Object;
 namespace SteamToys.Editor.InventorySystem.PropertyDrawers
 {
     /// <summary>
-    /// Drawer for every <see cref="Material"/>: a <see cref="SelectTypeElement"/> with one row in its foldout. An item
-    /// and a tag get the name of what they match, e.g. <c>Item Rarity</c> with the Steam name <c>item_rarity</c> as its
-    /// tooltip, then the value and the quantity; any other material gets its fields.
+    /// Drawer for every <see cref="Material"/>: a <see cref="SelectTypeElement"/> named after the material, e.g.
+    /// <c>Legendary x3</c>, with one row in its foldout. An item and a tag get the name of what they match, e.g.
+    /// <c>Item Rarity</c> with the Steam name <c>item_rarity</c> as its tooltip, then the value and the quantity; any
+    /// other material gets its fields.
     /// </summary>
     [CustomPropertyDrawer(typeof(Material), true)]
     public class MaterialDrawer : PropertyDrawer
     {
         private const string NO_ITEM_LABEL = "(None)";
 
-        public override VisualElement CreatePropertyGUI(SerializedProperty property) =>
-            new SelectTypeElement(property, typeof(Material), CreateContent);
+        public override VisualElement CreatePropertyGUI(SerializedProperty property)
+        {
+            var element = new SelectTypeElement(property, typeof(Material), CreateContent);
+            var path = property.propertyPath;
+
+            Refresh(property);
+
+            // Tracked on a parent, which a pick does not bind again the way it does the element.
+            var root = new VisualElement();
+            root.Add(element);
+            root.TrackSerializedObjectValue(property.serializedObject, changed => Refresh(changed.FindProperty(path)));
+
+            return root;
+
+            void Refresh(SerializedProperty changed)
+            {
+                if (changed != null)
+                    element.Label = changed.managedReferenceValue?.ToString() ?? changed.displayName;
+            }
+        }
 
         private static VisualElement CreateContent(SerializedProperty property)
         {

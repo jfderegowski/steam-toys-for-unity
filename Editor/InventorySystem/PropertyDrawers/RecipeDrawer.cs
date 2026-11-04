@@ -29,9 +29,12 @@ namespace SteamToys.Editor.InventorySystem.PropertyDrawers
             Refresh(property);
 
             // The materials are managed references, whose changes the property of the recipe does not report.
-            field.TrackSerializedObjectValue(property.serializedObject, changed => Refresh(changed.FindProperty(path)));
+            // Tracked on a parent, because on the field itself the callback runs only for the first change.
+            var root = new VisualElement();
+            root.Add(field);
+            root.TrackSerializedObjectValue(property.serializedObject, changed => Refresh(changed.FindProperty(path)));
 
-            return field;
+            return root;
 
             void Refresh(SerializedProperty changed)
             {

@@ -19,7 +19,7 @@ namespace SteamToys.Runtime.InventorySystem.ExchangeVariable.Materials
         }
         
         [SerializeField] private ItemDef _item;
-        [SerializeField] private uint _quantity;
+        [SerializeField] private uint _quantity = 1;
 
         public ItemDef GetItem() => _item;
 

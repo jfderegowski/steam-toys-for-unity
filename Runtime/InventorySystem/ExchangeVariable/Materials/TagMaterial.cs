@@ -54,7 +54,7 @@ namespace SteamToys.Runtime.InventorySystem.ExchangeVariable.Materials
         /// <summary>The Steam value of <see cref="Value"/>, e.g. <c>legendary</c>.</summary>
         public override string GetTagValue() => Tags.GetTagValue(Value);
 
-        /// <summary>The tag and how many, e.g. <c>Item Rarity: Legendary x3</c>.</summary>
-        public override string ToString() => $"{typeof(TEnum).Name.ToTitleCase()}: {Value} x{Quantity}";
+        /// <summary>The value of the tag and how many, e.g. <c>Legendary x3</c>.</summary>
+        public override string ToString() => $"{Value} x{Quantity}";
     }
 }
