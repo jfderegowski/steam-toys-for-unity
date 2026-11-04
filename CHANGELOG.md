@@ -5,6 +5,47 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-11-04
+
+### Added
+
+- Every `Tags` can hold string tags next to its own, added in the inspector or imported from Steam.
+  The tags drawer shows an error, also while its section is folded, for a string tag named like a
+  tag the class already has.
+- `TagsConverter.FromString` takes `addMissing`, which adds the categories the tags do not hold yet
+  as string tags.
+- `PromoRuleConverter` is a JSON converter, with one for each rule: `ManualPromoRuleConverter`,
+  `OwnsPromoRuleConverter`, `AchievementPromoRuleConverter` and `PlayedPromoRuleConverter`.
+- `NamedSelectTypeElement`, a `SelectTypeElement` of toys-for-unity named after its value, e.g.
+  `Legendary x3`. Needs toys-for-unity after 0.2.1, with `createContent` and `Label` on
+  `SelectTypeElement`.
+
+### Changed
+
+- **Breaking:** `InventoryItem<TItemDef>` is `InventoryItem<TItemDef, TTags>`, which types `Tags`
+  and creates them. Scripts generated for a kind of item use it, so generate them again.
+- **Breaking:** a subclass of `Tags` overrides `GetTagNames`, `TryGetTagValue` and `TrySetTagValue`
+  instead of `Keys`, `TryGetValue` and `TrySetValue`. `TrySetValue` only changes a tag that exists.
+- **Breaking:** `DefaultTags` keeps its tags as the string tags of `Tags`, so what it saved in its
+  own dictionary is no longer read. Bring it back with Create From Steam or add it again.
+- **Breaking:** `PromoRule` is abstract, and `GetValue` with the converters replaces `ToSteamString`.
+- **Breaking:** `ItemConverter` is now `ItemDefConverter`.
+- Exchange draws each recipe as its list of materials, without a foldout of its own, named after
+  what it takes, e.g. `Atom x1 + Legendary x3`. Promo draws its rules as a list the same way.
+- Materials and promo rules are a `NamedSelectTypeElement`, with the type dropdown in the header of
+  a foldout, lined up with the other fields. Under it, an item or a tag gets one row of standard
+  fields with the quantity, and a rule gets its fields. `MaterialDrawer` draws items and tags, in
+  place of `ItemMaterialDrawer` and `TagMaterialDrawer`, which are removed.
+- `ToString` of a tag material and of a promo rule is shorter: `Legendary x3`, `App 480`,
+  `App 480, 120 min`, `Win` and `Manual`.
+
+### Fixed
+
+- Create From Steam writes the tags Steam reports to the definition, and to a `DefaultTags` adds the
+  categories it does not hold yet. It also picks a class of the game by its tags with any tags
+  class, not only one with a fixed set.
+- A definition made at runtime from the one published on Steam keeps its tags.
+
 ## [0.6.0] - 2026-10-22
 
 ### Added
