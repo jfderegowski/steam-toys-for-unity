@@ -22,7 +22,7 @@ namespace SteamToys.Runtime.InventorySystem
     [JsonConverter(typeof(TagsConverter))]
     public abstract class Tags : IReadOnlyDictionary<string, string>
     {
-        [SerializeField] private SerializableDictionary<string, string> _stringTags;
+        [SerializeField] private SerializableDictionary<string, string> _stringTags = new();
 
         #region IReadOnlyDictionary
 
@@ -40,7 +40,7 @@ namespace SteamToys.Runtime.InventorySystem
         public bool ContainsKey(string tagName) => Keys.Contains(tagName);
 
         public bool TryGetValue(string tagName, out string tagValue) =>
-            _stringTags.TryGetValue(tagName, out tagValue) || TryGetTagValue(tagName, out tagValue);
+            TryGetTagValue(tagName, out tagValue) || _stringTags.TryGetValue(tagName, out tagValue);
 
         public string this[string tagName]
         {
@@ -55,7 +55,18 @@ namespace SteamToys.Runtime.InventorySystem
             }
         }
 
-        public IEnumerable<string> Keys => _stringTags.Keys.Concat(GetTagNames());
+        public IEnumerable<string> Keys
+        {
+            get
+            {
+                var tagNames = GetTagNames();
+
+                if (tagNames != null)
+                    return tagNames.Union(_stringTags.Keys);
+
+                return _stringTags.Keys;
+            }
+        }
 
         public IEnumerable<string> Values => Keys.Select(key => this[key]);
 
@@ -63,12 +74,15 @@ namespace SteamToys.Runtime.InventorySystem
 
         public bool TrySetValue(string tagName, string tagValue)
         {
-            if (!_stringTags.ContainsKey(tagName))
-                return TrySetTagValue(tagName, tagValue);
+            if (TrySetTagValue(tagName, tagValue))
+                return true;
+
+            if (!_stringTags.ContainsKey(tagName)) 
+                return false;
             
             _stringTags[tagName] = tagValue;
-            
             return true;
+
         }
 
         /// <summary>Whether these tags hold the pair <c>tagName:tagValue</c>, e.g. <c>rarity:legendary</c>.</summary>
