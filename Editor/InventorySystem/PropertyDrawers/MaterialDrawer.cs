@@ -1,179 +1,166 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using System.Text.RegularExpressions;
-using SteamToys.Runtime.InventorySystem.ExchangeVariable;
+using fefek5.Toys.Editor.Extensions;
+using fefek5.Toys.Editor.VisualElements;
+using SteamToys.Runtime.InventorySystem;
+using SteamToys.Runtime.InventorySystem.ExchangeVariable.Materials;
 using UnityEditor;
 using UnityEditor.UIElements;
+using UnityEngine;
 using UnityEngine.UIElements;
+using Material = SteamToys.Runtime.InventorySystem.ExchangeVariable.Material;
+using Object = UnityEngine.Object;
 
 namespace SteamToys.Editor.InventorySystem.PropertyDrawers
 {
     /// <summary>
-    /// Draws any <see cref="Material"/> managed reference.
-    /// Shows a dropdown to pick / change the concrete type, then
-    /// draws the child fields of the selected subclass below.
-    /// All concrete (non-abstract) subclasses of <see cref="Material"/>
-    /// are discovered automatically via reflection.
+    /// Drawer for every <see cref="Material"/>: a <see cref="SelectTypeElement"/> with one row in its foldout. An item
+    /// and a tag get the name of what they match, e.g. <c>Item Rarity</c> with the Steam name <c>item_rarity</c> as its
+    /// tooltip, then the value and the quantity; any other material gets its fields.
     /// </summary>
     [CustomPropertyDrawer(typeof(Material), true)]
     public class MaterialDrawer : PropertyDrawer
     {
-        private static readonly List<(string Label, Type Type)> _materialTypes = DiscoverMaterialTypes();
-        private static readonly List<string> _labels = _materialTypes.Select(m => m.Label).ToList();
+        private const string NO_ITEM_LABEL = "(None)";
 
-        /// <summary>
-        /// Finds all concrete (non-abstract, non-generic) subclasses of <see cref="Material"/>
-        /// across all loaded assemblies and builds a label/type list.
-        /// The label is derived from the class name by stripping "ExchangeMaterial" / "Material"
-        /// suffix and inserting spaces before capital letters.
-        /// </summary>
-        private static List<(string Label, Type Type)> DiscoverMaterialTypes()
+        public override VisualElement CreatePropertyGUI(SerializedProperty property) =>
+            new SelectTypeElement(property, typeof(Material), CreateContent);
+
+        private static VisualElement CreateContent(SerializedProperty property)
         {
-            var baseType = typeof(Material);
+            var material = property.managedReferenceValue as Material;
 
-            var types = AppDomain.CurrentDomain.GetAssemblies()
-                .SelectMany(a => {
-                    try
-                    {
-                        return a.GetTypes();
-                    }
-                    catch (ReflectionTypeLoadException e)
-                    {
-                        return e.Types.Where(t => t != null);
-                    }
-                })
-                .Where(t => t != null
-                            && t != baseType
-                            && !t.IsAbstract
-                            && !t.IsGenericTypeDefinition
-                            && baseType.IsAssignableFrom(t))
-                .OrderBy(t => t.Name)
-                .Select(t => (Label: NicifyTypeName(t), Type: t))
-                .ToList();
+            if (material is ItemMaterial)
+                return CreateItemRow(property);
 
-            return types;
+            if (GetEnumType(material?.GetType()) is { } enumType)
+                return CreateTagRow(property, material, enumType);
+
+            var fields = new VisualElement();
+
+            foreach (var child in property.GetVisibleChildren())
+                fields.Add(new PropertyField(child));
+
+            return fields;
         }
 
-        /// <summary>
-        /// Converts a type name like "ItemExchangeMaterial" into "Item".
-        /// Strips common suffixes and inserts spaces before uppercase letters.
-        /// </summary>
-        private static string NicifyTypeName(Type type)
+        #region Rows
+
+        private static VisualElement CreateItemRow(SerializedProperty property)
         {
-            var name = type.Name;
+            var itemProperty = property.FindPropertyRelative("_item");
 
-            // Strip common suffixes
-            if (name.EndsWith("ExchangeMaterial"))
-                name = name.Substring(0, name.Length - "ExchangeMaterial".Length);
-            else if (name.EndsWith("Material"))
-                name = name.Substring(0, name.Length - "Material".Length);
+            var itemField = new ObjectField {
+                bindingPath = itemProperty.propertyPath,
+                objectType = typeof(ItemDef),
+                allowSceneObjects = false,
+                style = {
+                    flexGrow = 1,
+                    flexShrink = 1
+                }
+            };
+            itemField.AddToClassList(ObjectField.alignedFieldUssClassName);
 
-            // Insert spaces before uppercase letters (e.g. "SomeType" -> "Some Type")
-            name = Regex.Replace(name, "(?<!^)([A-Z])", " $1");
+            SetName(itemProperty.objectReferenceValue);
 
-            return string.IsNullOrWhiteSpace(name) ? type.Name : name;
+            itemField.RegisterValueChangedCallback(evt => SetName(evt.newValue));
+
+            // The name of the item can change without the reference changing.
+            itemField.RegisterCallback<AttachToPanelEvent>(_ =>
+                itemField.schedule.Execute(() => SetName(itemField.value)).Every(500));
+
+            return CreateRow(itemField, property);
+
+            // The label is too narrow for a long name, so the tooltip has all of it.
+            void SetName(Object item) => itemField.label = itemField.tooltip = BuildItemText(item);
         }
 
-        public override VisualElement CreatePropertyGUI(SerializedProperty property)
+        private static VisualElement CreateTagRow(SerializedProperty property, Material material, Type enumType)
         {
-            var root = new VisualElement();
-            root.style.marginBottom = 4;
+            var label = ObjectNames.NicifyVariableName(enumType.Name);
 
-            // --- Type dropdown ---
-            var currentIndex = GetCurrentTypeIndex(property);
+            var valueField = new PropertyField(property.FindPropertyRelative("_value"), label) {
+                tooltip = material.GetTagName(),
+                style = {
+                    flexGrow = 1,
+                    flexShrink = 1
+                }
+            };
 
-            var dropdown = new DropdownField("Type", _labels, currentIndex >= 0 ? currentIndex : 0);
+            return CreateRow(valueField, property);
+        }
 
-            if (currentIndex < 0)
-                dropdown.SetValueWithoutNotify("Select Type…");
+        private static VisualElement CreateRow(VisualElement valueField, SerializedProperty property)
+        {
+            var row = new VisualElement {
+                style = {
+                    flexDirection = FlexDirection.Row,
+                    alignItems = Align.Center,
+                    marginTop = 2,
+                    marginBottom = 2
+                }
+            };
 
-            dropdown.RegisterValueChangedCallback(evt => {
-                var selectedIndex = _labels.IndexOf(evt.newValue);
-                if (selectedIndex < 0) return;
+            var quantityRow = new VisualElement {
+                style = {
+                    flexDirection = FlexDirection.Row,
+                    alignItems = Align.Center,
+                    flexShrink = 0,
+                    flexGrow = 0,
+                    marginLeft = 4
+                }
+            };
 
-                var selectedType = _materialTypes[selectedIndex].Type;
+            var quantityField = new IntegerField {
+                bindingPath = property.FindPropertyRelative("_quantity").propertyPath,
+                label = "",
+                style = {
+                    minWidth = 40,
+                    width = 40,
+                    flexShrink = 0,
+                    flexGrow = 0
+                }
+            };
+            quantityField.labelElement.style.display = DisplayStyle.None;
 
-                // Don't recreate if already this type
-                if (IsCurrentType(property, selectedType)) return;
-
-                property.serializedObject.Update();
-                property.managedReferenceValue = Activator.CreateInstance(selectedType);
-                property.serializedObject.ApplyModifiedProperties();
-
-                if (IsRootClass())
-                    RebuildFields(root, property);
+            quantityRow.Add(new Label("x") {
+                style = {
+                    marginRight = 2,
+                    paddingRight = 0,
+                    unityTextAlign = TextAnchor.MiddleCenter
+                }
             });
+            quantityRow.Add(quantityField);
 
-            root.Add(dropdown);
+            row.Add(valueField);
+            row.Add(quantityRow);
 
-            // --- Child fields ---
-            if (IsRootClass())
-                BuildFields(root, property);
-
-            return root;
-        }
-        
-        private static void RebuildFields(VisualElement root, SerializedProperty property)
-        {
-            // Remove everything after the dropdown
-            while (root.childCount > 1)
-                root.RemoveAt(root.childCount - 1);
-
-            BuildFields(root, property);
-
-            // Re-bind so new PropertyFields pick up serialized data
-            root.Bind(property.serializedObject);
+            return row;
         }
 
-        private static void BuildFields(VisualElement root, SerializedProperty property)
+        #endregion
+
+        private static string BuildItemText(Object itemObject)
         {
-            if (string.IsNullOrEmpty(property.managedReferenceFullTypename))
-                return;
+            var item = itemObject as ItemDef;
 
-            var iterator = property.Copy();
-            var end = iterator.GetEndProperty();
+            if (item == null)
+                return NO_ITEM_LABEL;
 
-            if (!iterator.NextVisible(true)) return;
+            var name = string.IsNullOrEmpty(item.Name) ? item.name : item.Name;
 
-            do
+            return $"{name}  (ID: {item.ItemDefId})";
+        }
+
+        /// <summary>The enum of the tag, the TEnum of the <see cref="TagMaterial{TEnum}"/> it derives from.</summary>
+        private static Type GetEnumType(Type type)
+        {
+            for (var current = type; current != null; current = current.BaseType)
             {
-                if (SerializedProperty.EqualContents(iterator, end)) break;
-
-                var field = new PropertyField(iterator);
-                field.BindProperty(iterator);
-                root.Add(field);
-            } while (iterator.NextVisible(false));
-        }
-
-        private static int GetCurrentTypeIndex(SerializedProperty property)
-        {
-            var fullTypeName = property.managedReferenceFullTypename;
-
-            if (string.IsNullOrEmpty(fullTypeName))
-                return -1;
-
-            for (var i = 0; i < _materialTypes.Count; i++)
-            {
-                if (fullTypeName.EndsWith(_materialTypes[i].Type.FullName ?? _materialTypes[i].Type.Name))
-                    return i;
+                if (current.IsGenericType && current.GetGenericTypeDefinition() == typeof(TagMaterial<>))
+                    return current.GetGenericArguments()[0];
             }
 
-            return -1;
+            return null;
         }
-
-        private static bool IsCurrentType(SerializedProperty property, Type type)
-        {
-            var fullTypeName = property.managedReferenceFullTypename;
-            if (string.IsNullOrEmpty(fullTypeName))
-                return false;
-
-            return fullTypeName.EndsWith(type.FullName ?? type.Name);
-        }
-        
-        private bool IsRootClass() => GetType() == typeof(MaterialDrawer);
     }
 }
-
-
