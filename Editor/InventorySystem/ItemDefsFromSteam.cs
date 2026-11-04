@@ -432,7 +432,7 @@ namespace SteamToys.Editor.InventorySystem
 
             return GetConcreteTypes(steam.Type)
                 .Select(type => (type, tags: CreateTags(type)))
-                .Where(candidate => candidate.tags != null && HoldsFixedCategories(candidate.tags) && categories.All(candidate.tags.ContainsKey))
+                .Where(candidate => candidate.tags != null && categories.All(candidate.tags.ContainsKey))
                 .OrderBy(candidate => candidate.type.Name)
                 .Select(candidate => candidate.type)
                 .FirstOrDefault() ?? packageType;
@@ -440,10 +440,6 @@ namespace SteamToys.Editor.InventorySystem
 
         private static Type GetPackageClass(ItemType type) =>
             type == ItemType.TagGenerator ? typeof(DefaultTagGeneratorDef) : PackageTypes[type];
-
-        // A tags type that turns away a category nobody would name takes a fixed set, so holding the categories of a
-        // definition says something about its class.
-        private static bool HoldsFixedCategories(Tags tags) => !tags.ContainsKey("\u0001");
 
         private static void ApplyFields(ItemDef asset, SteamDefinition steam, Report report)
         {
@@ -453,13 +449,11 @@ namespace SteamToys.Editor.InventorySystem
                 asset.Description = steam.Get("description");
 
             var steamTags = steam.Get("tags");
-            var tags = asset.SchemaSupportsTags() ? CreateTags(asset.GetType()) : null;
+            var tags = asset.SchemaSupportsTags() ? asset.Tags : null;
+            // DefaultTags takes the categories Steam has; a tags class of the game keeps to its own.
             var notHeld = tags != null
-                ? TagsConverter.FromString(steamTags, tags)
+                ? TagsConverter.FromString(steamTags, tags, addMissing: tags is DefaultTags)
                 : new List<string>(steamTags.Split(LIST_SEPARATOR, StringSplitOptions.RemoveEmptyEntries));
-
-            // if (tags != null)
-            //     asset.Tags = tags;
 
             if (notHeld.Count > 0)
                 report.Problems.Add(asset.SchemaSupportsTags()

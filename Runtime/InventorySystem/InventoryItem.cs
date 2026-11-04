@@ -113,8 +113,9 @@ namespace SteamToys.Runtime.InventorySystem
         public virtual Tags GetRawTags() => _tags;
 
         /// <summary>
-        /// The tags object <see cref="SteamTags"/> are read into: <see cref="DefaultTags"/>, which takes any category,
-        /// unless a subclass takes a class of the game.
+        /// The tags object <see cref="SteamTags"/> are read into: <see cref="DefaultTags"/>, unless a subclass takes a
+        /// class of the game. Only the categories it already holds are read, so a new <see cref="DefaultTags"/> stays
+        /// empty; <see cref="TryGetTag"/> reads <see cref="SteamTags"/> directly.
         /// </summary>
         protected virtual Tags CreateTags() => new DefaultTags();
 

@@ -14,7 +14,9 @@ namespace SteamToys.Runtime.InventorySystem
     /// kept as strings.
     /// <c>Rarity.Legendary</c> as <c>rarity:legendary</c>.
     /// <para>
-    /// <see cref="DefaultTags"/> holds any category. A subclass can hold a fixed set instead by overriding
+    /// <see cref="DefaultTags"/> holds the categories added to it in the inspector or imported from Steam. A subclass
+    /// can also hold a fixed set by overriding <see cref="GetTagNames"/>, <see cref="TryGetTagValue"/> and
+    /// <see cref="TrySetTagValue"/>. <see cref="TrySetValue"/> only changes a tag that already exists.
     /// </para>
     /// <see href="https://partner.steamgames.com/doc/features/inventory/itemtags"/>
     /// </summary>
@@ -77,12 +79,25 @@ namespace SteamToys.Runtime.InventorySystem
             if (TrySetTagValue(tagName, tagValue))
                 return true;
 
-            if (!_stringTags.ContainsKey(tagName)) 
+            if (!_stringTags.ContainsKey(tagName))
                 return false;
-            
+
             _stringTags[tagName] = tagValue;
             return true;
+        }
 
+        /// <summary>
+        /// Adds a new string tag. For the tags published on Steam only, through
+        /// <see cref="TagsConverter.FromString(string, Tags, bool)"/>; everything else changes existing tags with
+        /// <see cref="TrySetValue"/>.
+        /// </summary>
+        /// <returns>False if the tag name is empty or these tags already hold it.</returns>
+        internal bool TryAddStringTag(string tagName, string tagValue)
+        {
+            if (string.IsNullOrEmpty(tagName) || GetTagNames()?.Contains(tagName) == true)
+                return false;
+
+            return _stringTags.TryAdd(tagName, tagValue);
         }
 
         /// <summary>Whether these tags hold the pair <c>tagName:tagValue</c>, e.g. <c>rarity:legendary</c>.</summary>

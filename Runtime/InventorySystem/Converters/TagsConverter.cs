@@ -59,10 +59,16 @@ namespace SteamToys.Runtime.InventorySystem.Converters
 
         /// <summary>
         /// Sets the pairs of a Steam tags string (e.g. <c>"rarity:legendary;wear:worn"</c>) on <paramref name="tags"/>
-        /// through <see cref="Tags.TrySetValue"/>.
+        /// through <see cref="Tags.TrySetValue"/>, which only changes tags that already exist.
         /// </summary>
-        /// <returns>The pairs left out: malformed, or turned down by <see cref="Tags.TrySetValue"/>.</returns>
-        public static List<string> FromString(string value, Tags tags)
+        /// <param name="value">The Steam tags string.</param>
+        /// <param name="tags">The tags to set the pairs on.</param>
+        /// <param name="addMissing">
+        /// Also add the categories <paramref name="tags"/> do not hold yet as string tags. For tags published on Steam
+        /// being copied to a definition that holds any category.
+        /// </param>
+        /// <returns>The pairs left out: malformed, or turned down by <paramref name="tags"/>.</returns>
+        public static List<string> FromString(string value, Tags tags, bool addMissing = false)
         {
             var notHeld = new List<string>();
 
@@ -74,8 +80,16 @@ namespace SteamToys.Runtime.InventorySystem.Converters
                 var trimmed = pair.Trim();
                 var separator = trimmed.IndexOf(CATEGORY_SEPARATOR);
 
-                var held = separator > 0 && separator < trimmed.Length - 1 &&
-                           tags.TrySetValue(trimmed[..separator].Trim(), trimmed[(separator + 1)..].Trim());
+                var held = false;
+
+                if (separator > 0 && separator < trimmed.Length - 1)
+                {
+                    var tagName = trimmed[..separator].Trim();
+                    var tagValue = trimmed[(separator + 1)..].Trim();
+
+                    held = tags.TrySetValue(tagName, tagValue) ||
+                           (addMissing && tags.TryAddStringTag(tagName, tagValue));
+                }
 
                 if (!held && trimmed.Length > 0)
                     notHeld.Add(trimmed);
@@ -84,7 +98,8 @@ namespace SteamToys.Runtime.InventorySystem.Converters
             return notHeld;
         }
 
-        // The declared type may be the abstract Tags itself; DefaultTags takes any category then.
+        // The declared type may be the abstract Tags itself; DefaultTags is used then. A new object holds no string
+        // tags, so only an existing value keeps them when read back.
         private static Tags Create(Type objectType) =>
             objectType == null || objectType.IsAbstract
                 ? new DefaultTags()
