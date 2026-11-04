@@ -34,7 +34,7 @@ namespace SteamToys.Runtime.InventorySystem
     {
         public override string GetValue() => string.Empty;
 
-        public override string ToString() => "manual";
+        public override string ToString() => "Manual";
     }
 
     /// <summary>
@@ -54,8 +54,8 @@ namespace SteamToys.Runtime.InventorySystem
 
         public override string GetValue() => _appId.ToString();
 
-        /// <summary>The app it needs, e.g. <c>owns app 480</c>.</summary>
-        public override string ToString() => $"owns app {_appId}";
+        /// <summary>The app it needs, e.g. <c>App 480</c>.</summary>
+        public override string ToString() => $"App {_appId}";
     }
 
     /// <summary>
@@ -75,8 +75,8 @@ namespace SteamToys.Runtime.InventorySystem
 
         public override string GetValue() => _achievement == null ? string.Empty : _achievement.ApiName;
 
-        /// <summary>The achievement it needs, e.g. <c>achievement Win</c>.</summary>
-        public override string ToString() => $"achievement {(_achievement ? _achievement.name : "—")}";
+        /// <summary>The achievement it needs, e.g. <c>Win</c>.</summary>
+        public override string ToString() => _achievement ? _achievement.name : "—";
     }
 
     /// <summary>
@@ -103,8 +103,8 @@ namespace SteamToys.Runtime.InventorySystem
 
         public override string GetValue() => $"{_appId}{PlayedPromoRuleConverter.MINUTES_SEPARATOR}{_minutes}";
 
-        /// <summary>The app and the playtime it needs, e.g. <c>played app 480 for 120 min</c>.</summary>
-        public override string ToString() => $"played app {_appId} for {_minutes} min";
+        /// <summary>The app and the playtime it needs, e.g. <c>App 480, 120 min</c>.</summary>
+        public override string ToString() => $"App {_appId}, {_minutes} min";
     }
 
     /// <summary>
@@ -157,7 +157,7 @@ namespace SteamToys.Runtime.InventorySystem
 
         #endregion
 
-        /// <summary>Its rules, e.g. <c>manual, owns app 480</c>.</summary>
+        /// <summary>Its rules, e.g. <c>Manual, App 480</c>.</summary>
         public override string ToString() =>
             _rules is { Count: > 0 }
                 ? string.Join(", ", _rules.Select(rule => rule?.ToString() ?? "-"))
