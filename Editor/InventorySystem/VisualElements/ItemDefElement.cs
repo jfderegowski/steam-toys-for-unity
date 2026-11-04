@@ -5,6 +5,7 @@ using fefek5.Toys.Editor.Icons;
 using fefek5.Toys.Editor.VisualElements;
 using Newtonsoft.Json;
 using SteamToys.Runtime.InventorySystem;
+using SteamToys.Runtime.InventorySystem.Converters;
 using SteamToys.Runtime.InventorySystem.Converters.ExchangeVariable;
 using SteamToys.Runtime.InventorySystem.Converters.Price;
 using UnityEditor;
@@ -532,7 +533,7 @@ namespace SteamToys.Editor.InventorySystem
 
             for (var i = 0; i < item.Promo.Count; i++)
             {
-                if (string.IsNullOrEmpty(item.Promo[i]?.ToSteamString()))
+                if (string.IsNullOrEmpty(PromoRuleConverter.ToString(item.Promo[i])))
                     warnings.Add((PROMO, $"Promo rule {i} is incomplete and is left out."));
             }
         }

@@ -15,23 +15,24 @@ namespace SteamToys.Runtime.InventorySystem
     /// <see href="https://partner.steamgames.com/doc/features/inventory/schema#PromoItems"/>
     /// </summary>
     [Serializable]
-    public class PromoRule
+    [JsonConverter(typeof(PromoRuleConverter))]
+    public abstract class PromoRule
     {
         /// <summary>
-        /// Converts this rule to the Steam promo string fragment,
-        /// e.g. <c>"manual"</c>, <c>"owns:480"</c>, <c>"ach:WIN_ONE_GAME"</c>, <c>"played:480/120"</c>.
-        /// An empty string means the rule is incomplete and is left out.
+        /// The Steam argument of this rule, e.g. <c>480</c> for <c>owns:480</c>. Empty for a rule that takes none.
+        /// The Steam name of the rule comes from its converter.
         /// </summary>
-        public virtual string ToSteamString() => string.Empty;
+        public abstract string GetValue();
     }
 
     /// <summary>
     /// <c>manual</c> — item is granted manually via API call.
     /// </summary>
     [Serializable]
+    [JsonConverter(typeof(ManualPromoRuleConverter))]
     public class ManualPromoRule : PromoRule
     {
-        public override string ToSteamString() => "manual";
+        public override string GetValue() => string.Empty;
 
         public override string ToString() => "manual";
     }
@@ -40,6 +41,7 @@ namespace SteamToys.Runtime.InventorySystem
     /// <c>owns:&lt;appid&gt;</c> — granted when the user owns the specified app.
     /// </summary>
     [Serializable]
+    [JsonConverter(typeof(OwnsPromoRuleConverter))]
     public class OwnsPromoRule : PromoRule
     {
         [SerializeField] private uint _appId;
@@ -50,7 +52,7 @@ namespace SteamToys.Runtime.InventorySystem
             set => _appId = value;
         }
 
-        public override string ToSteamString() => $"owns:{_appId}";
+        public override string GetValue() => _appId.ToString();
 
         /// <summary>The app it needs, e.g. <c>owns app 480</c>.</summary>
         public override string ToString() => $"owns app {_appId}";
@@ -60,6 +62,7 @@ namespace SteamToys.Runtime.InventorySystem
     /// <c>ach:&lt;achievement API name&gt;</c> — granted when the user unlocks an achievement of this app.
     /// </summary>
     [Serializable]
+    [JsonConverter(typeof(AchievementPromoRuleConverter))]
     public class AchievementPromoRule : PromoRule
     {
         [SerializeField] private SteamAchievement _achievement;
@@ -70,8 +73,7 @@ namespace SteamToys.Runtime.InventorySystem
             set => _achievement = value;
         }
 
-        public override string ToSteamString() =>
-            _achievement == null || string.IsNullOrEmpty(_achievement.ApiName) ? string.Empty : $"ach:{_achievement.ApiName}";
+        public override string GetValue() => _achievement == null ? string.Empty : _achievement.ApiName;
 
         /// <summary>The achievement it needs, e.g. <c>achievement Win</c>.</summary>
         public override string ToString() => $"achievement {(_achievement ? _achievement.name : "—")}";
@@ -81,6 +83,7 @@ namespace SteamToys.Runtime.InventorySystem
     /// <c>played:&lt;appid&gt;/&lt;minutes&gt;</c> — granted after the user has played an app for the given number of minutes.
     /// </summary>
     [Serializable]
+    [JsonConverter(typeof(PlayedPromoRuleConverter))]
     public class PlayedPromoRule : PromoRule
     {
         [SerializeField] private uint _appId;
@@ -98,7 +101,7 @@ namespace SteamToys.Runtime.InventorySystem
             set => _minutes = value;
         }
 
-        public override string ToSteamString() => $"played:{_appId}/{_minutes}";
+        public override string GetValue() => $"{_appId}{PlayedPromoRuleConverter.MINUTES_SEPARATOR}{_minutes}";
 
         /// <summary>The app and the playtime it needs, e.g. <c>played app 480 for 120 min</c>.</summary>
         public override string ToString() => $"played app {_appId} for {_minutes} min";
@@ -157,7 +160,7 @@ namespace SteamToys.Runtime.InventorySystem
         /// <summary>Its rules, e.g. <c>manual, owns app 480</c>.</summary>
         public override string ToString() =>
             _rules is { Count: > 0 }
-                ? string.Join(", ", _rules.Select(rule => rule?.ToString() ?? "—"))
+                ? string.Join(", ", _rules.Select(rule => rule?.ToString() ?? "-"))
                 : "no rules";
     }
 }
