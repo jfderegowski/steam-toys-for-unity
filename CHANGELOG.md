@@ -7,11 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-05
+
 ### Added
 
 - `PlaceholderItemDef` takes an itemdefid out of use, as Steam cannot delete a definition: it exports
   only a hidden, `game_only` `item` named `Placeholder`, and the fields of `ItemDef` keep their old
   values. Choose it in the Type field of the inspector to retire a definition.
+- A generator shows a bar of the odds under its contents, one segment per entry as wide as its share
+  of the total weight. Drag a divider to move weight between the two entries next to it, or with
+  Shift between everything on either side, each side keeping its proportions. Double-click a
+  segment to type its share in percent, and the reset button gives every entry the same weight.
+  After a drag the weights are reduced to the smallest numbers with the same odds, and Ctrl+Z
+  undoes it in one step.
 
 ### Changed
 
@@ -22,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   lists only classes with `CreateAssetMenu`, under the name of their menu entry and in its order.
 - The string tags in the tags section are titled `Tags`. Needs toys-for-unity with the label of a
   `PropertyField` passed on to `SerializableDictionaryElement`.
+- The contents of a bundle or generator are drawn as just their list, titled after the field that
+  holds them, e.g. `Bundle`, without a foldout of their own, like Exchange and Promo.
+- Each entry of the contents is one row of standard fields: the item, labelled with its name and
+  itemdefid without bold, then its quantity, or its weight in a generator.
 
 ## [0.7.0] - 2026-11-04
 

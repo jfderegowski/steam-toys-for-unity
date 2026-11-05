@@ -1,0 +1,3 @@
+.weight-bar__handle {
+    cursor: resize-horizontal;
+}
