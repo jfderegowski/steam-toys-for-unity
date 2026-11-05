@@ -13,7 +13,7 @@ namespace SteamToys.Runtime.InventorySystem
     /// this class on <see cref="InventoryItem.Definition"/> to leave them out of the game.
     /// </para>
     /// </summary>
-    [CreateAssetMenu(fileName = "New Placeholder", menuName = "SteamToys/Inventory/Placeholder", order = 9)]
+    [CreateAssetMenu(fileName = "New Placeholder", menuName = "SteamToys/Inventory/Item/Placeholder", order = -5)]
     public class PlaceholderItemDef : ItemDef
     {
         /// <summary>The name of every placeholder; Steam rejects a definition without one.</summary>

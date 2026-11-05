@@ -15,10 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- `SteamToys` comes first among the packages in the Create menu, under the entries of Unity. In
-  `SteamToys/Inventory` the default definitions come first, then `PlaceholderItemDef` under a
-  separator. A class added there needs an order of 20 or more to go under a separator at the bottom;
-  with the default order it lands between the default definitions and the placeholder.
+- `SteamToys` comes first among the packages in the Create menu, under the entries of Unity.
+  `SteamToys/Inventory` has a submenu for each type, and `Item` lists `Default Item`, then
+  `Placeholder`, then any class added there with the default order.
 - The Type field of the `ItemDef` inspector shows the chosen type and class, e.g. `Item/Item`, and
   lists only classes with `CreateAssetMenu`, under the name of their menu entry and in its order.
 

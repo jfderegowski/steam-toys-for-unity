@@ -9,7 +9,7 @@ namespace SteamToys.Runtime.InventorySystem
     /// <c>rarity</c> with <c>legendary: 1</c> and <c>common: 9</c>, where a <see cref="TagGeneratorDef{TEnum}"/> takes
     /// them from an enum.
     /// </summary>
-    [CreateAssetMenu(fileName = "New Tag Generator", menuName = "SteamToys/Inventory/Tag Generator", order = -2)]
+    [CreateAssetMenu(fileName = "New Tag Generator", menuName = "SteamToys/Inventory/Tag Generator/Default Tag Generator", order = -2)]
     public class DefaultTagGeneratorDef : TagGeneratorDef
     {
         #region Constants
