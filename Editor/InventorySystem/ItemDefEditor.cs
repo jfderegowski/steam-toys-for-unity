@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using SteamToys.Runtime.InventorySystem;
 using UnityEditor;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace SteamToys.Editor.InventorySystem
@@ -42,8 +44,8 @@ namespace SteamToys.Editor.InventorySystem
         #region Type
 
         /// <summary>
-        /// Every class a definition can be made with, under its Steam type, with the class of the selected definitions
-        /// chosen. Null when they are of different classes.
+        /// Every class with a <see cref="CreateAssetMenuAttribute"/>, under its Steam type, with the class of the
+        /// selected definitions chosen. Null when they are of different classes.
         /// </summary>
         private DropdownField CreateTypeField()
         {
@@ -52,14 +54,12 @@ namespace SteamToys.Editor.InventorySystem
             if (targets.Any(item => item.GetType() != current))
                 return null;
 
-            var classes = GetClasses();
-            var labels = classes.Select(GetLabel).ToList();
+            var classes = GetClasses(current);
+            var labels = GetLabels(classes);
             var currentIndex = classes.IndexOf(current);
 
-            // The chosen one shows its type alone, without the class of its submenu.
             var field = new DropdownField(labels, currentIndex) {
-                tooltip = TYPE_TOOLTIP,
-                formatSelectedValueCallback = label => label.Split(SUBMENU_SEPARATOR)[0]
+                tooltip = TYPE_TOOLTIP
             };
 
             field.RegisterValueChangedCallback(change => {
@@ -78,19 +78,54 @@ namespace SteamToys.Editor.InventorySystem
         }
 
         /// <summary>
-        /// The classes inheriting <see cref="ItemDef"/> that Unity can make a ScriptableObject of, in the order of the
-        /// Steam types, then by name. The same list for every definition.
+        /// The classes inheriting <see cref="ItemDef"/> that Unity can make a ScriptableObject of and that have a
+        /// <see cref="CreateAssetMenuAttribute"/>, in the order of the Steam types, then by the order of the attribute,
+        /// then by name. <paramref name="current"/> is always listed, last when it has no attribute, so a definition of
+        /// a class without the attribute still shows what it is.
         /// </summary>
-        private static List<Type> GetClasses() =>
+        private static List<Type> GetClasses(Type current) =>
             Enum.GetValues(typeof(ItemType)).Cast<ItemType>()
                 .SelectMany(type => ItemDefsFromSteam.GetConcreteTypes(type)
-                    .Where(candidate => GetScript(candidate))
-                    .OrderBy(candidate => candidate.Name))
+                    .Where(candidate => GetScript(candidate) && (candidate == current || GetMenuName(candidate) != null))
+                    .OrderBy(candidate => candidate.GetCustomAttribute<CreateAssetMenuAttribute>(false)?.order ?? int.MaxValue)
+                    .ThenBy(GetLabel))
                 .ToList();
 
-        /// <summary>The Steam type with the class in its submenu, e.g. <c>Generator/Default Generator Def</c>.</summary>
+        /// <summary>
+        /// A label for each of <paramref name="classes"/>. The value of the field says which one is chosen, so classes
+        /// with the same menu name under one type also get the name of their class.
+        /// </summary>
+        private static List<string> GetLabels(IReadOnlyCollection<Type> classes)
+        {
+            var labels = classes.Select(GetLabel).ToList();
+
+            return classes
+                .Select(type => (type, label: GetLabel(type)))
+                .Select(entry => labels.Count(label => label == entry.label) > 1
+                    ? $"{entry.label} ({entry.type.Name})"
+                    : entry.label)
+                .ToList();
+        }
+
+        /// <summary>The Steam type with the menu name of the class in its submenu, e.g. <c>Generator/Generator</c>.</summary>
         private static string GetLabel(Type type) =>
-            GetTypeName(type) + SUBMENU_SEPARATOR + ObjectNames.NicifyVariableName(type.Name);
+            GetTypeName(type) + SUBMENU_SEPARATOR + (GetMenuName(type) ?? ObjectNames.NicifyVariableName(type.Name));
+
+        /// <summary>
+        /// The last part of the <see cref="CreateAssetMenuAttribute.menuName"/> of <paramref name="type"/>, or its class
+        /// name when the attribute names no menu, as Unity does. Null without the attribute.
+        /// </summary>
+        private static string GetMenuName(Type type)
+        {
+            var attribute = type.GetCustomAttribute<CreateAssetMenuAttribute>(false);
+
+            if (attribute == null)
+                return null;
+
+            var menuName = attribute.menuName?.Split(SUBMENU_SEPARATOR, StringSplitOptions.RemoveEmptyEntries).LastOrDefault();
+
+            return string.IsNullOrWhiteSpace(menuName) ? ObjectNames.NicifyVariableName(type.Name) : menuName.Trim();
+        }
 
         private static string GetTypeName(Type type) =>
             ObjectNames.NicifyVariableName(ItemDefsFromSteam.GetItemType(type).ToString());

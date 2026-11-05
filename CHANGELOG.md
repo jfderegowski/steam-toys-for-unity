@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `SteamToys/Inventory` the default definitions come first, then `PlaceholderItemDef` under a
   separator. A class added there needs an order of 20 or more to go under a separator at the bottom;
   with the default order it lands between the default definitions and the placeholder.
+- The Type field of the `ItemDef` inspector shows the chosen type and class, e.g. `Item/Item`, and
+  lists only classes with `CreateAssetMenu`, under the name of their menu entry and in its order.
 
 ## [0.7.0] - 2026-11-04
 
