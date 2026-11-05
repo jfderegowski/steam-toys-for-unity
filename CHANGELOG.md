@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Placeholder`, then any class added there with the default order.
 - The Type field of the `ItemDef` inspector shows the chosen type and class, e.g. `Item/Item`, and
   lists only classes with `CreateAssetMenu`, under the name of their menu entry and in its order.
+- The string tags in the tags section are titled `Tags`. Needs toys-for-unity with the label of a
+  `PropertyField` passed on to `SerializableDictionaryElement`.
 
 ## [0.7.0] - 2026-11-04
 

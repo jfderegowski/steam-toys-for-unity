@@ -6,9 +6,16 @@ using UnityEngine.UIElements;
 
 namespace SteamToys.Editor.InventorySystem.PropertyDrawers
 {
+    /// <summary>
+    /// Drawer for <see cref="BundleElement"/>: one row of the item picker, labelled with the item's name and id,
+    /// and its quantity (a weight in a generator).
+    /// </summary>
     [CustomPropertyDrawer(typeof(BundleElement))]
     public class BundleElementDrawer : PropertyDrawer
     {
+        private const string ITEM_PROP_NAME = "_item";
+        private const string QUANTITY_PROP_NAME = "_quantity";
+
         private const string NO_ITEM_LABEL = "(None)";
 
         private const string QUANTITY_LABEL = "x";
@@ -16,113 +23,58 @@ namespace SteamToys.Editor.InventorySystem.PropertyDrawers
         private const string WEIGHT_LABEL = "weight";
         private const string WEIGHT_TOOLTIP = "Relative odds of this entry being picked.";
 
+        private const int QUANTITY_INPUT_WIDTH = 50;
+        private const int REFRESH_INTERVAL_MS = 500;
+
         public override VisualElement CreatePropertyGUI(SerializedProperty property)
         {
-            var itemProp = property.FindPropertyRelative("_item");
-            var quantityProp = property.FindPropertyRelative("_quantity");
+            var itemProp = property.FindPropertyRelative(ITEM_PROP_NAME);
+            var quantityProp = property.FindPropertyRelative(QUANTITY_PROP_NAME);
 
-            // Root container – horizontal row
-            var root = new VisualElement {
-                style = {
-                    flexDirection = FlexDirection.Row,
-                    alignItems = Align.Center,
-                    marginTop = 2,
-                    marginBottom = 2
-                }
-            };
+            var root = new VisualElement { style = { flexDirection = FlexDirection.Row } };
 
-            // Info label: "Name (ID: 123)"
-            // Use the object reference value directly for the initial text to avoid keeping a SerializedProperty reference alive
-            var infoLabel = new Label(BuildInfoText(itemProp.objectReferenceValue)) {
-                style = {
-                    minWidth = 120,
-                    flexShrink = 0,
-                    unityFontStyleAndWeight = FontStyle.Bold,
-                    overflow = Overflow.Hidden,
-                    textOverflow = TextOverflow.Ellipsis,
-                    whiteSpace = WhiteSpace.NoWrap,
-                    marginRight = 6,
-                    color = new Color(0.85f, 0.85f, 0.85f)
-                }
-            };
-
-            // Item object field – just the reference picker, no label
-            var itemField = new ObjectField {
+            // The item picker, labelled with the item itself and aligned like any inspector field.
+            var itemField = new ObjectField(BuildInfoText(itemProp.objectReferenceValue)) {
                 bindingPath = itemProp.propertyPath,
                 objectType = typeof(ItemDef),
                 allowSceneObjects = false,
-                label = "",
-                style = {
-                    flexGrow = 1,
-                    flexShrink = 1
-                }
+                style = { flexGrow = 1, flexShrink = 1 }
             };
-            
-            // Hide the built-in label so only the object picker is visible
-            itemField.labelElement.style.display = DisplayStyle.None;
-
-            // Quantity: custom row with "x" label + integer input (no built-in label gap)
-            var qtyRow = new VisualElement {
-                style = {
-                    flexDirection = FlexDirection.Row,
-                    alignItems = Align.Center,
-                    flexShrink = 0,
-                    flexGrow = 0,
-                    marginLeft = 4
-                }
-            };
+            itemField.AddToClassList(BaseField<Object>.alignedFieldUssClassName);
 
             // The same contents list holds quantities in a bundle and weights in a generator.
             var isBundle = property.serializedObject.targetObject is ItemDef { Type: ItemType.Bundle };
 
-            var xLabel = new Label(isBundle ? QUANTITY_LABEL : WEIGHT_LABEL) {
-                tooltip = isBundle ? QUANTITY_TOOLTIP : WEIGHT_TOOLTIP,
-                style = {
-                    marginRight = 2,
-                    paddingRight = 0,
-                    unityTextAlign = TextAnchor.MiddleCenter
-                }
-            };
-
-            var quantityField = new IntegerField {
+            var quantityField = new IntegerField(isBundle ? QUANTITY_LABEL : WEIGHT_LABEL) {
                 bindingPath = quantityProp.propertyPath,
-                label = "",
-                style = {
-                    minWidth = 40,
-                    width = 40,
-                    flexShrink = 0,
-                    flexGrow = 0
-                }
+                tooltip = isBundle ? QUANTITY_TOOLTIP : WEIGHT_TOOLTIP,
+                style = { flexGrow = 0, flexShrink = 0 }
             };
-            quantityField.labelElement.style.display = DisplayStyle.None;
+            // Only the default label column is too wide for a one-word label next to another field.
+            quantityField.labelElement.style.minWidth = StyleKeyword.Auto;
+            quantityField.labelElement.style.width = StyleKeyword.Auto;
+            quantityField.Q(className: IntegerField.inputUssClassName).style.width = QUANTITY_INPUT_WIDTH;
 
-            qtyRow.Add(xLabel);
-            qtyRow.Add(quantityField);
-
-            root.Add(infoLabel);
             root.Add(itemField);
-            root.Add(qtyRow);
+            root.Add(quantityField);
 
-            // Bind so that changes reflect automatically
-            // Use the ObjectField's value from the change event instead of capturing the SerializedProperty
-            itemField.RegisterValueChangedCallback(evt => {
-                infoLabel.text = BuildInfoText(evt.newValue);
-            });
+            itemField.RegisterValueChangedCallback(evt => SetInfoText(itemField, evt.newValue));
 
-            // Also refresh on undo / external changes
-            // Use the ObjectField.value inside the scheduled callback to avoid accessing a possibly disposed SerializedProperty
-            root.RegisterCallback<AttachToPanelEvent>(_ => {
-                root.schedule.Execute(() => {
-                    try {
-                        infoLabel.text = BuildInfoText(itemField.value);
-                    }
-                    catch {
-                        // Swallow exceptions (element may be destroyed) to avoid repeated errors
-                    }
-                }).Every(500);
-            });
+            // A bound field is not notified on undo, and the item's own name can change elsewhere.
+            root.RegisterCallback<AttachToPanelEvent>(_ =>
+                root.schedule.Execute(() => SetInfoText(itemField, itemField.value)).Every(REFRESH_INTERVAL_MS));
 
             return root;
+        }
+
+        private static void SetInfoText(ObjectField field, Object item)
+        {
+            var text = BuildInfoText(item);
+            if (field.label == text)
+                return;
+
+            field.label = text;
+            field.labelElement.tooltip = text;
         }
 
         private static string BuildInfoText(Object itemObj)

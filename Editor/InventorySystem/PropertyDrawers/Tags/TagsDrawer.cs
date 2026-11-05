@@ -20,6 +20,7 @@ namespace SteamToys.Editor.InventorySystem.PropertyDrawers
     {
         private const string ICON_NAME = "section-tags-icon";
         private const string STRING_TAGS_PROP_NAME = "_stringTags";
+        private const string STRING_TAGS_LABEL = "Tags";
         private const string ENTRIES_PROP_NAME = "entries";
         private const string KEY_PROP_NAME = "key";
 
@@ -27,8 +28,18 @@ namespace SteamToys.Editor.InventorySystem.PropertyDrawers
         {
             EditorIconsDatabase.TryGetIcon<Texture2D>(ICON_NAME, out var icon);
 
-            var entries = property.FindPropertyRelative(STRING_TAGS_PROP_NAME).FindPropertyRelative(ENTRIES_PROP_NAME);
+            var stringTags = property.FindPropertyRelative(STRING_TAGS_PROP_NAME);
+            var entries = stringTags.FindPropertyRelative(ENTRIES_PROP_NAME);
             var errors = new VisualElement();
+            var section = new SectionElement(property, icon);
+
+            // The section makes a field for each property; the string tags read as plain tags.
+            var stringTagsField = section.Query<PropertyField>()
+                .Where(field => field.bindingPath == stringTags.propertyPath)
+                .First();
+
+            if (stringTagsField != null)
+                stringTagsField.label = STRING_TAGS_LABEL;
 
             RefreshErrors(errors, property, entries);
             errors.TrackPropertyValue(entries, _ => RefreshErrors(errors, property, entries));
@@ -36,7 +47,7 @@ namespace SteamToys.Editor.InventorySystem.PropertyDrawers
             // Outside the section, so an error still shows while it is folded.
             var root = new VisualElement();
 
-            root.Add(new SectionElement(property, icon));
+            root.Add(section);
             root.Add(errors);
 
             return root;
