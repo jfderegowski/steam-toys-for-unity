@@ -30,40 +30,40 @@ MonoBehaviour:
     sprite: {fileID: -1867574759551022954, guid: 576e910fe4da5494baf9b482febe2fbd, type: 3}
   - path: section-basic-icon
     texture: {fileID: 2800000, guid: c4471128e3caa114bb6e6a147f01ff74, type: 3}
-    sprite: {fileID: 0}
+    sprite: {fileID: 2029194370926844245, guid: c4471128e3caa114bb6e6a147f01ff74, type: 3}
   - path: section-contents-icon
     texture: {fileID: 2800000, guid: 9dd93f4fcecd0484da266c9a3461f9d4, type: 3}
-    sprite: {fileID: 0}
+    sprite: {fileID: 5041697399814478766, guid: 9dd93f4fcecd0484da266c9a3461f9d4, type: 3}
   - path: section-display-icon
     texture: {fileID: 2800000, guid: 57adb05e600bd724081f09a1cc133b06, type: 3}
-    sprite: {fileID: 0}
+    sprite: {fileID: -3783525124616827440, guid: 57adb05e600bd724081f09a1cc133b06, type: 3}
   - path: section-drops-icon
     texture: {fileID: 2800000, guid: ffd914a80e2237848b3ae441f383d316, type: 3}
-    sprite: {fileID: 0}
+    sprite: {fileID: 4574701553755379387, guid: ffd914a80e2237848b3ae441f383d316, type: 3}
   - path: section-exchange-icon
     texture: {fileID: 2800000, guid: e98915c84f0c5b34595b62a01dca50a4, type: 3}
-    sprite: {fileID: 0}
+    sprite: {fileID: 4811356008758304846, guid: e98915c84f0c5b34595b62a01dca50a4, type: 3}
   - path: section-market-icon
     texture: {fileID: 2800000, guid: 11dc46ca6843178438638199b39d14b3, type: 3}
-    sprite: {fileID: 0}
+    sprite: {fileID: 7152654730160274135, guid: 11dc46ca6843178438638199b39d14b3, type: 3}
   - path: section-pricing-icon
     texture: {fileID: 2800000, guid: cdcb1f332f638c6458db7ac67a1228f0, type: 3}
-    sprite: {fileID: 0}
+    sprite: {fileID: -1041783279456136780, guid: cdcb1f332f638c6458db7ac67a1228f0, type: 3}
   - path: section-promo-icon
     texture: {fileID: 2800000, guid: 4b6785b527f68cb42a612b6a52d26098, type: 3}
-    sprite: {fileID: 0}
+    sprite: {fileID: 5158684248070128554, guid: 4b6785b527f68cb42a612b6a52d26098, type: 3}
   - path: section-store-icon
     texture: {fileID: 2800000, guid: ebc5075622b882047bb9a00854c79ce3, type: 3}
-    sprite: {fileID: 0}
+    sprite: {fileID: -7304996238369214038, guid: ebc5075622b882047bb9a00854c79ce3, type: 3}
   - path: section-tag-generator-icon
     texture: {fileID: 2800000, guid: 00303041f684d3043b7d8e3193b908bf, type: 3}
-    sprite: {fileID: 0}
+    sprite: {fileID: 3188093405159434071, guid: 00303041f684d3043b7d8e3193b908bf, type: 3}
   - path: section-tags-icon
     texture: {fileID: 2800000, guid: 183d1e8fde7e10644938ee3d1a3798fb, type: 3}
-    sprite: {fileID: 0}
+    sprite: {fileID: 4271055805992341470, guid: 183d1e8fde7e10644938ee3d1a3798fb, type: 3}
   - path: section-visibility-icon
     texture: {fileID: 2800000, guid: ba1427e4ddc8820428c80cd38c7c123e, type: 3}
-    sprite: {fileID: 0}
+    sprite: {fileID: -158606266908788234, guid: ba1427e4ddc8820428c80cd38c7c123e, type: 3}
   - path: steam-item-icon
     texture: {fileID: 2800000, guid: 3ee981a03fadba74185a07a44c75b47f, type: 3}
     sprite: {fileID: -4191992297800347076, guid: 3ee981a03fadba74185a07a44c75b47f, type: 3}

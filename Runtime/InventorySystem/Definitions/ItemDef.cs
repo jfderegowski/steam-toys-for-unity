@@ -486,40 +486,40 @@ namespace SteamToys.Runtime.InventorySystem
         /// Whether the serialized field <paramref name="fieldName"/> holds a schema property this definition uses.
         /// Fields that are not schema properties, such as the itemdefid and name or the fields of a subclass, always do.
         /// </summary>
-        public virtual bool SchemaSupportsField(string fieldName) => fieldName switch
-        {
-            nameof(_description) => SchemaSupportsDescription(),
-            nameof(_hidden) => SchemaSupportsHidden(),
-            nameof(_displayType) => SchemaSupportsDisplayType(),
-            nameof(_iconUrl) => SchemaSupportsIconUrl(),
-            nameof(_iconUrlLarge) => SchemaSupportsIconUrlLarge(),
-            nameof(_nameColor) => SchemaSupportsNameColor(),
-            nameof(_backgroundColor) => SchemaSupportsBackgroundColor(),
-            nameof(_bundle) => SchemaSupportsContent(),
-            nameof(_tagGenerators) => SchemaSupportsTagGenerators(),
-            nameof(_price) => SchemaSupportsPrice(),
-            nameof(_priceCategory) => SchemaSupportsPriceCategory(),
-            nameof(_useBundlePrice) => SchemaSupportsUseBundlePrice(),
-            nameof(_purchaseBundleDiscount) => SchemaSupportsPurchaseBundleDiscount(),
-            nameof(_storeTags) => SchemaSupportsStoreTags(),
-            nameof(_storeImages) => SchemaSupportsStoreImages(),
-            nameof(_storeHidden) => SchemaSupportsStoreHidden(),
-            nameof(_tradable) => SchemaSupportsTradable(),
-            nameof(_marketable) => SchemaSupportsMarketable(),
-            nameof(_gameOnly) => SchemaSupportsGameOnly(),
-            nameof(_autoStack) => SchemaSupportsAutoStack(),
-            nameof(_purchaseLimit) => SchemaSupportsPurchaseLimit(),
-            nameof(_containerContentsGenerator) => SchemaSupportsContainerContentsGenerator(),
-            nameof(_exchange) => SchemaSupportsExchange(),
-            nameof(_promo) => SchemaSupportsPromo(),
-            nameof(_dropStartTime) => SchemaSupportsDropStartTime(),
-            nameof(_grantedManually) => SchemaSupportsGrantedManually(),
-            nameof(_dropInterval) => SchemaSupportsDropInterval(),
-            nameof(_dropWindow) => SchemaSupportsDropWindow(),
-            nameof(_dropMaxPerWindow) => SchemaSupportsDropMaxPerWindow(),
-            nameof(_dropLimit) => SchemaSupportsDropLimit(),
-            _ => true
-        };
+        public virtual bool SchemaSupportsField(string fieldName) =>
+            fieldName switch {
+                nameof(_description) or nameof(Description) => SchemaSupportsDescription(),
+                nameof(_hidden) or nameof(Hidden) => SchemaSupportsHidden(),
+                nameof(_displayType) or nameof(DisplayType) => SchemaSupportsDisplayType(),
+                nameof(_iconUrl) or nameof(IconUrl) => SchemaSupportsIconUrl(),
+                nameof(_iconUrlLarge) or nameof(IconUrlLarge) => SchemaSupportsIconUrlLarge(),
+                nameof(_nameColor) or nameof(NameColor) => SchemaSupportsNameColor(),
+                nameof(_backgroundColor) or nameof(BackgroundColor) => SchemaSupportsBackgroundColor(),
+                nameof(_bundle) or nameof(Content) => SchemaSupportsContent(),
+                nameof(_tagGenerators) or nameof(TagGenerators) => SchemaSupportsTagGenerators(),
+                nameof(_price) or nameof(Price) => SchemaSupportsPrice(),
+                nameof(_priceCategory) or nameof(PriceCategory) => SchemaSupportsPriceCategory(),
+                nameof(_useBundlePrice) or nameof(UseBundlePrice) => SchemaSupportsUseBundlePrice(),
+                nameof(_purchaseBundleDiscount) or nameof(PurchaseBundleDiscount) => SchemaSupportsPurchaseBundleDiscount(),
+                nameof(_storeTags) or nameof(StoreTags) => SchemaSupportsStoreTags(),
+                nameof(_storeImages) or nameof(StoreImages) => SchemaSupportsStoreImages(),
+                nameof(_storeHidden) or nameof(StoreHidden) => SchemaSupportsStoreHidden(),
+                nameof(_tradable) or nameof(Tradable) => SchemaSupportsTradable(),
+                nameof(_marketable) or nameof(Marketable) => SchemaSupportsMarketable(),
+                nameof(_gameOnly) or nameof(GameOnly) => SchemaSupportsGameOnly(),
+                nameof(_autoStack) or nameof(AutoStack) => SchemaSupportsAutoStack(),
+                nameof(_purchaseLimit) or nameof(PurchaseLimit) => SchemaSupportsPurchaseLimit(),
+                nameof(_containerContentsGenerator) or nameof(ContainerContentsGenerator) => SchemaSupportsContainerContentsGenerator(),
+                nameof(_exchange) or nameof(Exchange) => SchemaSupportsExchange(),
+                nameof(_promo) or nameof(Promo) => SchemaSupportsPromo(),
+                nameof(_dropStartTime) or nameof(DropStartTime) => SchemaSupportsDropStartTime(),
+                nameof(_grantedManually) or nameof(GrantedManually) => SchemaSupportsGrantedManually(),
+                nameof(_dropInterval) or nameof(DropInterval) => SchemaSupportsDropInterval(),
+                nameof(_dropWindow) or nameof(DropWindow) => SchemaSupportsDropWindow(),
+                nameof(_dropMaxPerWindow) or nameof(DropMaxPerWindow) => SchemaSupportsDropMaxPerWindow(),
+                nameof(_dropLimit) or nameof(DropLimit) => SchemaSupportsDropLimit(),
+                _ => true
+            };
 
         #endregion
 

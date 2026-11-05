@@ -5,6 +5,21 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `PlaceholderItemDef` takes an itemdefid out of use, as Steam cannot delete a definition: it exports
+  only a hidden, `game_only` `item` named `Placeholder`, and the fields of `ItemDef` keep their old
+  values. Choose it in the Type field of the inspector to retire a definition.
+
+### Changed
+
+- `SteamToys` comes first among the packages in the Create menu, under the entries of Unity. In
+  `SteamToys/Inventory` the default definitions come first, then `PlaceholderItemDef` under a
+  separator. A class added there needs an order of 20 or more to go under a separator at the bottom;
+  with the default order it lands between the default definitions and the placeholder.
+
 ## [0.7.0] - 2026-11-04
 
 ### Added

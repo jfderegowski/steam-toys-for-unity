@@ -2,6 +2,6 @@
 
 namespace SteamToys.Runtime.InventorySystem
 {
-    [CreateAssetMenu(fileName = "New Bundle", menuName = "SteamToys/Inventory/Bundle", order = 2)]
+    [CreateAssetMenu(fileName = "New Bundle", menuName = "SteamToys/Inventory/Bundle", order = -5)]
     public class DefaultBundleDef : BundleDef { }
 }
