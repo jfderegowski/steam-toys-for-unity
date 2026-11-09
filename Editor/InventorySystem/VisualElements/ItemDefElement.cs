@@ -31,6 +31,8 @@ namespace SteamToys.Editor.InventorySystem
 
         private const string PREVIEW_TITLE = "Item JSON";
 
+        private const string FIX_BUTTON_TEXT = "Fix";
+        private const string FIX_BUTTON_TOOLTIP = "Changes the definition so this warning goes away. Undo reverts it.";
         private const string COPY_ITEM_BUTTON_TEXT = "Copy JSON";
 
         private const string COPY_ITEM_BUTTON_TOOLTIP =
@@ -45,41 +47,51 @@ namespace SteamToys.Editor.InventorySystem
         private const string SECTION_SAVE_KEY = "SteamToys.ItemDef.Section.";
 
         // Serialized fields of ItemDef and the definitions of this package.
-        private const string ITEM_DEF_ID = "_itemDefId";
-        private const string NAME = "_name";
-        private const string DESCRIPTION = "_description";
-        private const string TAGS = "_tags";
-        private const string HIDDEN = "_hidden";
-        private const string DISPLAY_TYPE = "_displayType";
-        private const string ICON_URL = "_iconUrl";
-        private const string ICON_URL_LARGE = "_iconUrlLarge";
-        private const string NAME_COLOR = "_nameColor";
-        private const string BACKGROUND_COLOR = "_backgroundColor";
-        private const string CONTENT = "_bundle";
-        private const string TAG_GENERATORS = "_tagGenerators";
-        private const string PRICE = "_price";
-        private const string PRICE_CATEGORY = "_priceCategory";
-        private const string USE_BUNDLE_PRICE = "_useBundlePrice";
-        private const string PURCHASE_BUNDLE_DISCOUNT = "_purchaseBundleDiscount";
-        private const string STORE_TAGS = "_storeTags";
-        private const string STORE_IMAGES = "_storeImages";
-        private const string STORE_HIDDEN = "_storeHidden";
-        private const string TRADABLE = "_tradable";
-        private const string MARKETABLE = "_marketable";
-        private const string GAME_ONLY = "_gameOnly";
-        private const string AUTO_STACK = "_autoStack";
-        private const string PURCHASE_LIMIT = "_purchaseLimit";
-        private const string CONTAINER_CONTENTS_GENERATOR = "_containerContentsGenerator";
-        private const string EXCHANGE = "_exchange";
-        private const string PROMO = "_promo";
-        private const string DROP_START_TIME = "_dropStartTime";
-        private const string GRANTED_MANUALLY = "_grantedManually";
-        private const string DROP_INTERVAL = "_dropInterval";
-        private const string DROP_WINDOW = "_dropWindow";
-        private const string DROP_MAX_PER_WINDOW = "_dropMaxPerWindow";
-        private const string DROP_LIMIT = "_dropLimit";
+        internal const string ITEM_DEF_ID = "_itemDefId";
+        internal const string NAME = "_name";
+        internal const string DESCRIPTION = "_description";
+        internal const string TAGS = "_tags";
+        internal const string HIDDEN = "_hidden";
+        internal const string DISPLAY_TYPE = "_displayType";
+        internal const string ICON_URL = "_iconUrl";
+        internal const string ICON_URL_LARGE = "_iconUrlLarge";
+        internal const string NAME_COLOR = "_nameColor";
+        internal const string BACKGROUND_COLOR = "_backgroundColor";
+        internal const string CONTENT = "_bundle";
+        internal const string TAG_GENERATORS = "_tagGenerators";
+        internal const string PRICE = "_price";
+        internal const string PRICE_CATEGORY = "_priceCategory";
+        internal const string USE_BUNDLE_PRICE = "_useBundlePrice";
+        internal const string PURCHASE_BUNDLE_DISCOUNT = "_purchaseBundleDiscount";
+        internal const string STORE_TAGS = "_storeTags";
+        internal const string STORE_IMAGES = "_storeImages";
+        internal const string STORE_HIDDEN = "_storeHidden";
+        internal const string TRADABLE = "_tradable";
+        internal const string MARKETABLE = "_marketable";
+        internal const string GAME_ONLY = "_gameOnly";
+        internal const string AUTO_STACK = "_autoStack";
+        internal const string PURCHASE_LIMIT = "_purchaseLimit";
+        internal const string CONTAINER_CONTENTS_GENERATOR = "_containerContentsGenerator";
+        internal const string EXCHANGE = "_exchange";
+        internal const string PROMO = "_promo";
+        internal const string DROP_START_TIME = "_dropStartTime";
+        internal const string GRANTED_MANUALLY = "_grantedManually";
+        internal const string DROP_INTERVAL = "_dropInterval";
+        internal const string DROP_WINDOW = "_dropWindow";
+        internal const string DROP_MAX_PER_WINDOW = "_dropMaxPerWindow";
+        internal const string DROP_LIMIT = "_dropLimit";
         private const string TAG_NAME = "_tagName";
         private const string TAG_VALUES_AND_CHANCES = "_tagValuesAndChances";
+
+        // Serialized paths inside those fields, for the fixes of the warnings.
+        private const string HAS_VALUE_PATH = ".hasValue";
+        private const string DATE_HAS_VALUE_PATH = "._hasValue";
+        private const string CONTENT_ELEMENTS_PATH = CONTENT + "._elements";
+        private const string EXCHANGE_RECIPES_PATH = EXCHANGE + "._recipes";
+        private const string RECIPE_MATERIALS_PATH = "._materials";
+        private const string PROMO_RULES_PATH = PROMO + "._rules";
+        private const string REGULAR_PRICES = "_regularPrices";
+        private const string PROMOTIONS = "_promotions";
 
         #endregion
 
@@ -91,16 +103,25 @@ namespace SteamToys.Editor.InventorySystem
         private readonly Dictionary<string, FieldFrame> _frames = new();
         private readonly VisualElement _warnings;
         private readonly JsonPreviewElement _preview;
-        private readonly List<(string Field, string Message)> _itemWarnings = new();
+        private readonly List<ItemDefWarnign> _itemWarnings = new();
+        private readonly Func<ItemDef, IEnumerable<ItemDefWarnign>> _getAdditionalWarnings;
 
-        private static readonly List<string> NoWarnings = new();
+        private static readonly List<ItemDefWarnign> NoWarnings = new();
 
         #endregion
 
-        public ItemDefElement(SerializedObject serializedObject)
+        /// <param name="serializedObject">The selected definitions.</param>
+        /// <param name="getAdditionalWarnings">
+        /// Warnings of its own, after the built-in ones, which are always collected. The field of each is the name
+        /// of a serialized field, framed with it when the inspector draws that field, and one with a fix gets a Fix
+        /// button. Called again on every change.
+        /// </param>
+        public ItemDefElement(SerializedObject serializedObject,
+                              Func<ItemDef, IEnumerable<ItemDefWarnign>> getAdditionalWarnings = null)
         {
             _items = serializedObject.targetObjects.OfType<ItemDef>().ToArray();
             _serializedObject = serializedObject;
+            _getAdditionalWarnings = getAdditionalWarnings;
 
             // Every warning, one under another at the top, also when its field is drawn framed with it below.
             _warnings = new VisualElement();
@@ -273,7 +294,7 @@ namespace SteamToys.Editor.InventorySystem
                 });
             }
 
-            var frame = new FieldFrame(field);
+            var frame = new FieldFrame(this, field);
 
             _frames[property.name] = frame;
 
@@ -292,10 +313,13 @@ namespace SteamToys.Editor.InventorySystem
             private static readonly Color BorderColor = new(0.95f, 0.73f, 0.1f);
             private static readonly Color BackgroundColor = new(0.95f, 0.73f, 0.1f, 0.06f);
 
+            private readonly ItemDefElement _owner;
             private readonly VisualElement _messages = new();
 
-            public FieldFrame(VisualElement field)
+            public FieldFrame(ItemDefElement owner, VisualElement field)
             {
+                _owner = owner;
+
                 style.borderTopColor = BorderColor;
                 style.borderRightColor = BorderColor;
                 style.borderBottomColor = BorderColor;
@@ -310,14 +334,14 @@ namespace SteamToys.Editor.InventorySystem
                 Add(_messages);
             }
 
-            public void SetWarnings(IReadOnlyCollection<string> messages)
+            public void SetWarnings(IReadOnlyCollection<ItemDefWarnign> warnings, bool named)
             {
                 _messages.Clear();
 
-                foreach (var message in messages)
-                    _messages.Add(new HelpBox(message, HelpBoxMessageType.Warning));
+                foreach (var warning in warnings)
+                    _messages.Add(_owner.CreateWarningBox(warning, named));
 
-                var framed = messages.Count > 0;
+                var framed = warnings.Count > 0;
                 var border = framed ? BORDER : 0;
                 var padding = framed ? PADDING : 0;
 
@@ -348,7 +372,7 @@ namespace SteamToys.Editor.InventorySystem
             _warnings.Clear();
 
             var named = _items.Length > 1;
-            var byField = new Dictionary<string, List<string>>();
+            var byField = new Dictionary<string, List<ItemDefWarnign>>();
 
             foreach (var item in _items)
             {
@@ -356,75 +380,114 @@ namespace SteamToys.Editor.InventorySystem
                     continue;
 
                 _itemWarnings.Clear();
-                CollectWarnings(item, _itemWarnings);
+                _itemWarnings.AddRange(GetWarnings(item));
 
-                foreach (var (field, message) in _itemWarnings)
+                if (_getAdditionalWarnings != null)
+                    _itemWarnings.AddRange(_getAdditionalWarnings(item));
+
+                foreach (var warning in _itemWarnings)
                 {
-                    var text = named ? $"{item.name}: {message}" : message;
-
                     // Repeated at the top, so a warning still shows while its section is folded.
-                    _warnings.Add(new HelpBox(text, HelpBoxMessageType.Warning));
+                    _warnings.Add(CreateWarningBox(warning, named));
 
-                    if (!_frames.ContainsKey(field))
+                    if (warning.Field == null || !_frames.ContainsKey(warning.Field))
                         continue;
 
-                    if (byField.TryGetValue(field, out var messages))
-                        messages.Add(text);
+                    if (byField.TryGetValue(warning.Field, out var fieldWarnings))
+                        fieldWarnings.Add(warning);
                     else
-                        byField[field] = new List<string> { text };
+                        byField[warning.Field] = new List<ItemDefWarnign> { warning };
                 }
             }
 
             foreach (var (field, frame) in _frames)
-                frame.SetWarnings(byField.TryGetValue(field, out var messages) ? messages : NoWarnings);
+                frame.SetWarnings(byField.TryGetValue(field, out var fieldWarnings) ? fieldWarnings : NoWarnings, named);
         }
 
         /// <summary>
-        /// Adds a message for every setting of <paramref name="item"/> Steam would reject or silently ignore, with the
-        /// serialized field that needs fixing.
+        /// The message of <paramref name="warning"/>, after the name of its definition when <paramref name="named"/>,
+        /// with a Fix button when it has a fix.
         /// </summary>
-        internal static void CollectWarnings(ItemDef item, List<(string Field, string Message)> warnings)
+        private HelpBox CreateWarningBox(ItemDefWarnign warning, bool named)
         {
-            if (string.IsNullOrWhiteSpace(item.Name))
-                warnings.Add((NAME, "Name is empty: Steam rejects the definition, and an upload stops there."));
+            var text = named && warning.ItemDef ? $"{warning.ItemDef.name}: {warning.Message}" : warning.Message;
+            var box = new HelpBox(text, HelpBoxMessageType.Warning);
 
-            if (item.SchemaSupportsContent())
-                CollectContentWarnings(item, warnings);
+            if (warning.CanFix)
+                box.Add(new UnityEngine.UIElements.Button(() => ApplyFix(warning)) {
+                    text = FIX_BUTTON_TEXT,
+                    tooltip = FIX_BUTTON_TOOLTIP
+                });
 
-            if (item.SchemaSupportsPrice())
-                CollectPriceWarnings(item, warnings);
-
-            if (item.SchemaSupportsPromo())
-                CollectPromoWarnings(item, warnings);
-
-            if (item.SchemaSupportsExchange())
-                CollectExchangeWarnings(item, warnings);
-
-            if (item.SchemaSupportsPurchaseLimit() && item.PurchaseLimit > 0 && (item.Tradable || item.Marketable))
-                warnings.Add((PURCHASE_LIMIT,
-                    "Purchase Limit does not block repurchasing tradable or marketable items."));
-
-            if (item.SchemaSupportsDropMaxPerWindow() && item.DropMaxPerWindow > MAX_DROPS_PER_WINDOW)
-                warnings.Add((DROP_MAX_PER_WINDOW, $"Drop Max Per Window cannot exceed {MAX_DROPS_PER_WINDOW}."));
-
-            if (item.SchemaSupportsDropWindow() && item.DropWindow.hasValue && item.DropWindow.value == 0)
-                warnings.Add((DROP_WINDOW, "Drop Window is enabled with 0 minutes, so it is not exported."));
-
-            if (item is TagGeneratorDef tagGenerator)
-                CollectTagGeneratorWarnings(tagGenerator, warnings);
+            return box;
         }
 
-        private static void CollectContentWarnings(ItemDef item, List<(string Field, string Message)> warnings)
+        /// <summary>Fixes the definition, then shows the fields, warnings and JSON as they are now.</summary>
+        private void ApplyFix(ItemDefWarnign warning)
+        {
+            warning.Fix();
+
+            _serializedObject.Update();
+            RefreshWarnings();
+            _preview.SetJson(GetItemJson());
+        }
+
+        /// <summary>
+        /// Every serialized field the built-in checks look at, with the method returning its warnings: the settings Steam
+        /// would reject or silently ignore.
+        /// </summary>
+        private static readonly (string Field, Func<ItemDef, IEnumerable<Warning>> Get)[] FieldWarnings = {
+            (NAME, GetNameWarnings),
+            (CONTENT, GetContentWarnings),
+            (PRICE, GetPriceWarnings),
+            (PURCHASE_BUNDLE_DISCOUNT, GetPurchaseBundleDiscountWarnings),
+            (PURCHASE_LIMIT, GetPurchaseLimitWarnings),
+            (EXCHANGE, GetExchangeWarnings),
+            (PROMO, GetPromoWarnings),
+            (DROP_START_TIME, GetDropStartTimeWarnings),
+            (DROP_INTERVAL, GetDropIntervalWarnings),
+            (DROP_WINDOW, GetDropWindowWarnings),
+            (DROP_MAX_PER_WINDOW, GetDropMaxPerWindowWarnings),
+            (TAG_VALUES_AND_CHANCES, GetTagValuesAndChancesWarnings)
+        };
+
+        /// <summary>The built-in warnings of <paramref name="item"/>, each with the serialized field that needs fixing.</summary>
+        internal static IEnumerable<ItemDefWarnign> GetWarnings(ItemDef item) => GetFieldWarnings(item, FieldWarnings);
+
+        /// <summary>
+        /// The warnings of each of <paramref name="fieldWarnings"/> the type of <paramref name="item"/> uses, about
+        /// <paramref name="item"/> and that field.
+        /// </summary>
+        internal static IEnumerable<ItemDefWarnign> GetFieldWarnings(ItemDef item,
+            IEnumerable<(string Field, Func<ItemDef, IEnumerable<Warning>> Get)> fieldWarnings)
+        {
+            foreach (var (field, get) in fieldWarnings)
+            {
+                if (!item.SchemaSupportsField(field))
+                    continue;
+
+                foreach (var warning in get(item))
+                    yield return new ItemDefWarnign(item, field, warning);
+            }
+        }
+
+        private static IEnumerable<Warning> GetNameWarnings(ItemDef item)
+        {
+            if (string.IsNullOrWhiteSpace(item.Name))
+                yield return new Warning("Name is empty: Steam rejects the definition, and an upload stops there.");
+        }
+
+        private static IEnumerable<Warning> GetContentWarnings(ItemDef item)
         {
             var content = item.Content;
             var amountName = item.Type == ItemType.Bundle ? "quantity" : "weight";
 
             if (content == null || content.Count == 0)
             {
-                warnings.Add((CONTENT, item.Type == ItemType.Bundle
+                yield return new Warning(item.Type == ItemType.Bundle
                     ? "Bundle has no contents: Steam rejects it, and an upload stops there."
-                    : $"{item.Type} has no contents, so it grants nothing."));
-                return;
+                    : $"{item.Type} has no contents, so it grants nothing.");
+                yield break;
             }
 
             for (var i = 0; i < content.Count; i++)
@@ -432,25 +495,69 @@ namespace SteamToys.Editor.InventorySystem
                 var element = content[i];
 
                 if (element is not { HasItem: true })
-                    warnings.Add((CONTENT, $"Contents entry {i} has no item and is skipped."));
+                    yield return new Warning($"Contents entry {i} has no item and is skipped.",
+                        RemoveElement(item, CONTENT_ELEMENTS_PATH, i));
                 else if (element.Item == item)
-                    warnings.Add((CONTENT, $"Contents entry {i} references this {item.Type} itself."));
+                    yield return new Warning($"Contents entry {i} references this {item.Type} itself.",
+                        RemoveElement(item, CONTENT_ELEMENTS_PATH, i));
 
                 if (element != null && element.Quantity == 0)
-                    warnings.Add((CONTENT, $"Contents entry {i} has a {amountName} of 0."));
+                    yield return new Warning($"Contents entry {i} has a {amountName} of 0.");
             }
+        }
+
+        private static IEnumerable<Warning> GetPriceWarnings(ItemDef item)
+        {
+            // On the price, which is the one left out.
+            if (item.PriceCategory.hasValue && !string.IsNullOrEmpty(PriceConverter.ToString(item.Price)))
+                yield return new Warning("Price and Price Category are both set: only the price category is exported.",
+                    FixProperty(item, PRICE, property => {
+                        property.FindPropertyRelative(REGULAR_PRICES).ClearArray();
+                        property.FindPropertyRelative(PROMOTIONS).ClearArray();
+                    }));
+
+            if (item.Price != null && item.Price.RegularPrices.Count == 0 && item.Price.Promotions.Count > 0)
+                yield return new Warning("Price has sales but no regular price, which Steam requires first.");
+
+            for (var i = 0; i < (item.Price?.Promotions.Count ?? 0); i++)
+            {
+                var promotion = item.Price.Promotions[i];
+
+                if (string.IsNullOrEmpty(PromotionConverter.ToString(promotion)))
+                    yield return new Warning($"Sale {i} needs a start, an end and a price; it is left out.",
+                        RemoveElement(item, PRICE + "." + PROMOTIONS, i));
+                else if (promotion.EndTime.CompareTo(promotion.StartTime) <= 0)
+                    yield return new Warning($"Sale {i} ends before it starts.");
+            }
+        }
+
+        private static IEnumerable<Warning> GetPurchaseBundleDiscountWarnings(ItemDef item)
+        {
+            if (item.PurchaseBundleDiscount > MAX_DISCOUNT)
+                yield return new Warning($"Purchase Bundle Discount is a percentage and cannot exceed {MAX_DISCOUNT}.",
+                    FixProperty(item, PURCHASE_BUNDLE_DISCOUNT, property => property.uintValue = MAX_DISCOUNT));
+
+            if (item.PurchaseBundleDiscount > 0 && item.UseBundlePrice)
+                yield return new Warning("Purchase Bundle Discount is ignored when Use Bundle Price is on.",
+                    FixProperty(item, PURCHASE_BUNDLE_DISCOUNT, property => property.uintValue = 0));
+        }
+
+        private static IEnumerable<Warning> GetPurchaseLimitWarnings(ItemDef item)
+        {
+            if (item.PurchaseLimit > 0 && (item.Tradable || item.Marketable))
+                yield return new Warning("Purchase Limit does not block repurchasing tradable or marketable items.");
         }
 
         /// <summary>
         /// The recipe entries the export cannot write. It stops on them rather than leaving them out, since a recipe
         /// without one of its materials would be cheaper than meant.
         /// </summary>
-        private static void CollectExchangeWarnings(ItemDef item, List<(string Field, string Message)> warnings)
+        private static IEnumerable<Warning> GetExchangeWarnings(ItemDef item)
         {
             var exchange = item.Exchange;
 
             if (exchange == null)
-                return;
+                yield break;
 
             for (var i = 0; i < exchange.Count; i++)
             {
@@ -458,7 +565,8 @@ namespace SteamToys.Editor.InventorySystem
 
                 if (recipe == null)
                 {
-                    warnings.Add((EXCHANGE, $"Exchange recipe {i} is empty, so the definition cannot be exported."));
+                    yield return new Warning($"Exchange recipe {i} is empty, so the definition cannot be exported.",
+                        RemoveElement(item, EXCHANGE_RECIPES_PATH, i));
                     continue;
                 }
 
@@ -466,95 +574,136 @@ namespace SteamToys.Editor.InventorySystem
                 {
                     if (recipe[j] == null)
                     {
-                        warnings.Add((EXCHANGE,
-                            $"Exchange recipe {i}, material {j} is empty, so the definition cannot be exported."));
+                        yield return new Warning(
+                            $"Exchange recipe {i}, material {j} is empty, so the definition cannot be exported.",
+                            RemoveElement(item, $"{EXCHANGE_RECIPES_PATH}.Array.data[{i}]{RECIPE_MATERIALS_PATH}", j));
                         continue;
                     }
 
-                    try
-                    {
-                        MaterialConverter.ToString(recipe[j]);
-                    }
-                    catch (InvalidOperationException exception)
-                    {
-                        warnings.Add((EXCHANGE,
-                            $"Exchange recipe {i}, material {j}: {exception.Message} The definition cannot be exported until it is set."));
-                    }
+                    var problem = GetMaterialProblem(recipe[j]);
+
+                    if (problem != null)
+                        yield return new Warning(
+                            $"Exchange recipe {i}, material {j}: {problem} The definition cannot be exported until it is set.");
                 }
             }
         }
 
-        private static void CollectPriceWarnings(ItemDef item, List<(string Field, string Message)> warnings)
+        /// <summary>Why the export cannot write <paramref name="material"/>; null when it can.</summary>
+        private static string GetMaterialProblem(SteamToys.Runtime.InventorySystem.ExchangeVariable.Material material)
         {
-            // On the price, which is the one left out.
-            if (item.PriceCategory.hasValue && !string.IsNullOrEmpty(PriceConverter.ToString(item.Price)))
-                warnings.Add((PRICE, "Price and Price Category are both set: only the price category is exported."));
-
-            if (item.Price != null && item.Price.RegularPrices.Count == 0 && item.Price.Promotions.Count > 0)
-                warnings.Add((PRICE, "Price has sales but no regular price, which Steam requires first."));
-
-            for (var i = 0; i < (item.Price?.Promotions.Count ?? 0); i++)
+            // An iterator cannot yield inside a try with a catch, so the check is in a method of its own.
+            try
             {
-                var promotion = item.Price.Promotions[i];
+                MaterialConverter.ToString(material);
 
-                if (string.IsNullOrEmpty(PromotionConverter.ToString(promotion)))
-                    warnings.Add((PRICE, $"Sale {i} needs a start, an end and a price; it is left out."));
-                else if (promotion.EndTime.CompareTo(promotion.StartTime) <= 0)
-                    warnings.Add((PRICE, $"Sale {i} ends before it starts."));
+                return null;
             }
-
-            if (!item.SchemaSupportsPurchaseBundleDiscount())
-                return;
-
-            if (item.PurchaseBundleDiscount > MAX_DISCOUNT)
-                warnings.Add((PURCHASE_BUNDLE_DISCOUNT,
-                    $"Purchase Bundle Discount is a percentage and cannot exceed {MAX_DISCOUNT}."));
-
-            if (item.PurchaseBundleDiscount > 0 && item.UseBundlePrice)
-                warnings.Add((PURCHASE_BUNDLE_DISCOUNT,
-                    "Purchase Bundle Discount is ignored when Use Bundle Price is on."));
+            catch (InvalidOperationException exception)
+            {
+                return exception.Message;
+            }
         }
 
-        private static void CollectPromoWarnings(ItemDef item, List<(string Field, string Message)> warnings)
+        private static IEnumerable<Warning> GetPromoWarnings(ItemDef item)
         {
-            var manual = item.Promo != null && item.Promo.Any(rule => rule is ManualPromoRule);
-
-            if (item.DropStartTime is { HasValue: true } && !manual)
-                warnings.Add((DROP_START_TIME,
-                    "Drop Start Time only applies to a manual promo; add a Manual promo rule or clear it."));
-
-            // On a playtime generator the interval also paces its drops.
-            if (item.DropInterval > 0 && !manual && item.Type != ItemType.PlaytimeGenerator)
-                warnings.Add((DROP_INTERVAL,
-                    "Drop Interval only applies to a manual promo; add a Manual promo rule or clear it."));
-
             if (item.Promo == null)
-                return;
+                yield break;
 
             for (var i = 0; i < item.Promo.Count; i++)
             {
                 if (string.IsNullOrEmpty(PromoRuleConverter.ToString(item.Promo[i])))
-                    warnings.Add((PROMO, $"Promo rule {i} is incomplete and is left out."));
+                    yield return new Warning($"Promo rule {i} is incomplete and is left out.",
+                        RemoveElement(item, PROMO_RULES_PATH, i));
             }
         }
 
-        private static void CollectTagGeneratorWarnings(TagGeneratorDef generatorDef,
-            List<(string Field, string Message)> warnings)
+        private static IEnumerable<Warning> GetDropStartTimeWarnings(ItemDef item)
         {
+            if (item.DropStartTime is { HasValue: true } && !HasManualPromo(item))
+                yield return new Warning("Drop Start Time only applies to a manual promo; add a Manual promo rule or clear it.",
+                    FixProperty(item, DROP_START_TIME + DATE_HAS_VALUE_PATH, property => property.boolValue = false));
+        }
+
+        private static IEnumerable<Warning> GetDropIntervalWarnings(ItemDef item)
+        {
+            // On a playtime generator the interval also paces its drops.
+            if (item.DropInterval > 0 && !HasManualPromo(item) && item.Type != ItemType.PlaytimeGenerator)
+                yield return new Warning("Drop Interval only applies to a manual promo; add a Manual promo rule or clear it.",
+                    FixProperty(item, DROP_INTERVAL, property => property.uintValue = 0));
+        }
+
+        private static bool HasManualPromo(ItemDef item) =>
+            item.Promo != null && item.Promo.Any(rule => rule is ManualPromoRule);
+
+        private static IEnumerable<Warning> GetDropWindowWarnings(ItemDef item)
+        {
+            if (item.DropWindow.hasValue && item.DropWindow.value == 0)
+                yield return new Warning("Drop Window is enabled with 0 minutes, so it is not exported.",
+                    FixProperty(item, DROP_WINDOW + HAS_VALUE_PATH, property => property.boolValue = false));
+        }
+
+        private static IEnumerable<Warning> GetDropMaxPerWindowWarnings(ItemDef item)
+        {
+            if (item.DropMaxPerWindow > MAX_DROPS_PER_WINDOW)
+                yield return new Warning($"Drop Max Per Window cannot exceed {MAX_DROPS_PER_WINDOW}.",
+                    FixProperty(item, DROP_MAX_PER_WINDOW, property => property.uintValue = MAX_DROPS_PER_WINDOW));
+        }
+
+        /// <summary>A field of <see cref="TagGeneratorDef"/>, so the other definitions have none.</summary>
+        private static IEnumerable<Warning> GetTagValuesAndChancesWarnings(ItemDef item)
+        {
+            if (item is not TagGeneratorDef generatorDef)
+                yield break;
+
             var tagValuesAndChances = generatorDef.TagValuesAndChances;
 
             if (tagValuesAndChances.Count == 0)
             {
-                warnings.Add((TAG_VALUES_AND_CHANCES, "Tag generator has no values."));
-                return;
+                yield return new Warning("Tag generator has no values.");
+                yield break;
             }
 
             foreach (var (tagValue, chance) in tagValuesAndChances)
             {
                 if (chance == 0)
-                    warnings.Add((TAG_VALUES_AND_CHANCES, $"{tagValue} has a chance of 0 and is skipped."));
+                    yield return new Warning($"{tagValue} has a chance of 0 and is skipped.", () => {
+                        var values = new Dictionary<string, uint>(generatorDef.TagValuesAndChances);
+
+                        values.Remove(tagValue);
+                        generatorDef.SetTagValuesAndChances(values);
+                    });
             }
         }
+
+        /// <summary>A fix that changes the serialized property at <paramref name="path"/> of <paramref name="item"/>.</summary>
+        private static Action FixProperty(ItemDef item, string path, Action<SerializedProperty> change) => () => {
+            using var serializedItem = new SerializedObject(item);
+            var property = serializedItem.FindProperty(path);
+
+            if (property == null)
+                return;
+
+            change(property);
+
+            // The undo step is recorded by ItemDefWarnign.Fix.
+            serializedItem.ApplyModifiedPropertiesWithoutUndo();
+        };
+
+        /// <summary>A fix that removes element <paramref name="index"/> of the serialized list at <paramref name="path"/>.</summary>
+        private static Action RemoveElement(ItemDef item, string path, int index) =>
+            FixProperty(item, path, list => {
+                if (index >= list.arraySize)
+                    return;
+
+                var count = list.arraySize;
+
+                list.DeleteArrayElementAtIndex(index);
+
+                // An object reference is only cleared by the first delete.
+                if (list.arraySize == count)
+                    list.DeleteArrayElementAtIndex(index);
+            });
 
         #endregion
 

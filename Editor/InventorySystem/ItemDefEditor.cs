@@ -36,10 +36,100 @@ namespace SteamToys.Editor.InventorySystem
             if (typeField != null)
                 root.Add(typeField);
 
-            root.Add(new ItemDefElement(serializedObject));
+            root.Add(new ItemDefElement(serializedObject, GetWarnings));
 
             return root;
         }
+
+        #region Warnings
+
+        private (string Field, Func<ItemDef, IEnumerable<Warning>> Get)[] _fieldWarnings;
+
+        /// <summary>
+        /// The warnings of an editor of a subclass for <paramref name="item"/>; the built-in ones are collected
+        /// anyway. They are shown in the inspector, a warning with a fix with a Fix button, and in the list of the
+        /// Steam Items DB. By default it returns those of each field the type of <paramref name="item"/> uses, so
+        /// overriding one of those is usually enough; override this for warnings that belong to no single field.
+        /// </summary>
+        protected internal virtual IEnumerable<ItemDefWarnign> GetWarnings(ItemDef item) =>
+            ItemDefElement.GetFieldWarnings(item, FieldWarnings);
+
+        /// <summary>Each serialized field of <see cref="ItemDef"/> with the method returning its warnings.</summary>
+        private (string Field, Func<ItemDef, IEnumerable<Warning>> Get)[] FieldWarnings =>
+            _fieldWarnings ??= new (string, Func<ItemDef, IEnumerable<Warning>>)[] {
+                (ItemDefElement.ITEM_DEF_ID, GetItemDefIdWarnings),
+                (ItemDefElement.NAME, GetNameWarnings),
+                (ItemDefElement.DESCRIPTION, GetDescriptionWarnings),
+                (ItemDefElement.TAGS, GetTagsWarnings),
+                (ItemDefElement.HIDDEN, GetHiddenWarnings),
+                (ItemDefElement.DISPLAY_TYPE, GetDisplayTypeWarnings),
+                (ItemDefElement.ICON_URL, GetIconUrlWarnings),
+                (ItemDefElement.ICON_URL_LARGE, GetIconUrlLargeWarnings),
+                (ItemDefElement.NAME_COLOR, GetNameColorWarnings),
+                (ItemDefElement.BACKGROUND_COLOR, GetBackgroundColorWarnings),
+                (ItemDefElement.CONTENT, GetContentWarnings),
+                (ItemDefElement.TAG_GENERATORS, GetTagGeneratorsWarnings),
+                (ItemDefElement.PRICE, GetPriceWarnings),
+                (ItemDefElement.PRICE_CATEGORY, GetPriceCategoryWarnings),
+                (ItemDefElement.USE_BUNDLE_PRICE, GetUseBundlePriceWarnings),
+                (ItemDefElement.PURCHASE_BUNDLE_DISCOUNT, GetPurchaseBundleDiscountWarnings),
+                (ItemDefElement.STORE_TAGS, GetStoreTagsWarnings),
+                (ItemDefElement.STORE_IMAGES, GetStoreImagesWarnings),
+                (ItemDefElement.STORE_HIDDEN, GetStoreHiddenWarnings),
+                (ItemDefElement.TRADABLE, GetTradableWarnings),
+                (ItemDefElement.MARKETABLE, GetMarketableWarnings),
+                (ItemDefElement.GAME_ONLY, GetGameOnlyWarnings),
+                (ItemDefElement.AUTO_STACK, GetAutoStackWarnings),
+                (ItemDefElement.PURCHASE_LIMIT, GetPurchaseLimitWarnings),
+                (ItemDefElement.CONTAINER_CONTENTS_GENERATOR, GetContainerContentsGeneratorWarnings),
+                (ItemDefElement.EXCHANGE, GetExchangeWarnings),
+                (ItemDefElement.PROMO, GetPromoWarnings),
+                (ItemDefElement.DROP_START_TIME, GetDropStartTimeWarnings),
+                (ItemDefElement.GRANTED_MANUALLY, GetGrantedManuallyWarnings),
+                (ItemDefElement.DROP_INTERVAL, GetDropIntervalWarnings),
+                (ItemDefElement.DROP_WINDOW, GetDropWindowWarnings),
+                (ItemDefElement.DROP_MAX_PER_WINDOW, GetDropMaxPerWindowWarnings),
+                (ItemDefElement.DROP_LIMIT, GetDropLimitWarnings),
+            };
+
+        // One per serialized field of ItemDef, each called only when the type of the item uses the field. Each warning
+        // is about that field, so the inspector frames it there.
+
+        protected virtual IEnumerable<Warning> GetItemDefIdWarnings(ItemDef item) => Enumerable.Empty<Warning>();
+        protected virtual IEnumerable<Warning> GetNameWarnings(ItemDef item) => Enumerable.Empty<Warning>();
+        protected virtual IEnumerable<Warning> GetDescriptionWarnings(ItemDef item) => Enumerable.Empty<Warning>();
+        protected virtual IEnumerable<Warning> GetTagsWarnings(ItemDef item) => Enumerable.Empty<Warning>();
+        protected virtual IEnumerable<Warning> GetHiddenWarnings(ItemDef item) => Enumerable.Empty<Warning>();
+        protected virtual IEnumerable<Warning> GetDisplayTypeWarnings(ItemDef item) => Enumerable.Empty<Warning>();
+        protected virtual IEnumerable<Warning> GetIconUrlWarnings(ItemDef item) => Enumerable.Empty<Warning>();
+        protected virtual IEnumerable<Warning> GetIconUrlLargeWarnings(ItemDef item) => Enumerable.Empty<Warning>();
+        protected virtual IEnumerable<Warning> GetNameColorWarnings(ItemDef item) => Enumerable.Empty<Warning>();
+        protected virtual IEnumerable<Warning> GetBackgroundColorWarnings(ItemDef item) => Enumerable.Empty<Warning>();
+        protected virtual IEnumerable<Warning> GetContentWarnings(ItemDef item) => Enumerable.Empty<Warning>();
+        protected virtual IEnumerable<Warning> GetTagGeneratorsWarnings(ItemDef item) => Enumerable.Empty<Warning>();
+        protected virtual IEnumerable<Warning> GetPriceWarnings(ItemDef item) => Enumerable.Empty<Warning>();
+        protected virtual IEnumerable<Warning> GetPriceCategoryWarnings(ItemDef item) => Enumerable.Empty<Warning>();
+        protected virtual IEnumerable<Warning> GetUseBundlePriceWarnings(ItemDef item) => Enumerable.Empty<Warning>();
+        protected virtual IEnumerable<Warning> GetPurchaseBundleDiscountWarnings(ItemDef item) => Enumerable.Empty<Warning>();
+        protected virtual IEnumerable<Warning> GetStoreTagsWarnings(ItemDef item) => Enumerable.Empty<Warning>();
+        protected virtual IEnumerable<Warning> GetStoreImagesWarnings(ItemDef item) => Enumerable.Empty<Warning>();
+        protected virtual IEnumerable<Warning> GetStoreHiddenWarnings(ItemDef item) => Enumerable.Empty<Warning>();
+        protected virtual IEnumerable<Warning> GetTradableWarnings(ItemDef item) => Enumerable.Empty<Warning>();
+        protected virtual IEnumerable<Warning> GetMarketableWarnings(ItemDef item) => Enumerable.Empty<Warning>();
+        protected virtual IEnumerable<Warning> GetGameOnlyWarnings(ItemDef item) => Enumerable.Empty<Warning>();
+        protected virtual IEnumerable<Warning> GetAutoStackWarnings(ItemDef item) => Enumerable.Empty<Warning>();
+        protected virtual IEnumerable<Warning> GetPurchaseLimitWarnings(ItemDef item) => Enumerable.Empty<Warning>();
+        protected virtual IEnumerable<Warning> GetContainerContentsGeneratorWarnings(ItemDef item) => Enumerable.Empty<Warning>();
+        protected virtual IEnumerable<Warning> GetExchangeWarnings(ItemDef item) => Enumerable.Empty<Warning>();
+        protected virtual IEnumerable<Warning> GetPromoWarnings(ItemDef item) => Enumerable.Empty<Warning>();
+        protected virtual IEnumerable<Warning> GetDropStartTimeWarnings(ItemDef item) => Enumerable.Empty<Warning>();
+        protected virtual IEnumerable<Warning> GetGrantedManuallyWarnings(ItemDef item) => Enumerable.Empty<Warning>();
+        protected virtual IEnumerable<Warning> GetDropIntervalWarnings(ItemDef item) => Enumerable.Empty<Warning>();
+        protected virtual IEnumerable<Warning> GetDropWindowWarnings(ItemDef item) => Enumerable.Empty<Warning>();
+        protected virtual IEnumerable<Warning> GetDropMaxPerWindowWarnings(ItemDef item) => Enumerable.Empty<Warning>();
+        protected virtual IEnumerable<Warning> GetDropLimitWarnings(ItemDef item) => Enumerable.Empty<Warning>();
+
+        #endregion
 
         #region Type
 

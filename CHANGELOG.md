@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-09
+
+### Added
+
+- A warning of the `ItemDef` inspector that has a safe fix gets a Fix button, at the top and in the
+  frame of its field. A fix only removes what the export leaves out anyway or brings a value into
+  its limit, e.g. a contents entry without an item, an incomplete sale or promo rule, a Drop Max
+  Per Window over 10 or a Purchase Bundle Discount over 100, and Ctrl+Z undoes it in one step.
+  Warnings that need a decision, such as an empty name or a bundle without contents, have none.
+- An editor of a subclass of `ItemDef` can add its own warnings: inherit `ItemDefEditor` and
+  override the method of a field, e.g. `GetPriceWarnings`, which returns a `Warning` with a message
+  and an optional fix. There is one for each serialized field of `ItemDef`, called only when the
+  type of the item uses that field, and `GetWarnings` for warnings that belong to no single field.
+  The built-in warnings are always shown, and the added ones also appear in the list of the Steam
+  Items DB.
+- `Warning`, a message with an optional fix, and `ItemDefWarnign`, one about a field of an
+  `ItemDef`, whose fix is recorded for undo.
+
+### Changed
+
+- The warnings of the `ItemDef` inspector are listed in the order of their fields, and a warning
+  about a field is shown only when the type of the item uses that field.
+
 ## [0.8.0] - 2026-11-05
 
 ### Added

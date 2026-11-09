@@ -699,26 +699,43 @@ namespace SteamToys.Editor.InventorySystem
             var compared = steamById.Count > 0;
             var inDb = new HashSet<ulong>();
 
-            foreach (var item in db.Items)
+            // The editor Unity picks for each class, for the warnings an editor of a subclass adds.
+            var editors = new Dictionary<Type, UnityEditor.Editor>();
+
+            try
             {
-                if (!item)
-                    continue;
+                foreach (var item in db.Items)
+                {
+                    if (!item)
+                        continue;
 
-                inDb.Add(item.ItemDefId);
-                steamById.TryGetValue(item.ItemDefId, out var steam);
+                    inDb.Add(item.ItemDefId);
+                    steamById.TryGetValue(item.ItemDefId, out var steam);
 
-                var row = new Row(item, steam);
-                var warnings = new List<(string Field, string Message)>();
+                    var row = new Row(item, steam);
+                    var warnings = ItemDefElement.GetWarnings(item).ToList();
 
-                ItemDefElement.CollectWarnings(item, warnings);
+                    if (!editors.TryGetValue(item.GetType(), out var editor))
+                        editors[item.GetType()] = editor = CreateEditor(item);
 
-                foreach (var (_, message) in warnings)
-                    row.Add(HelpBoxMessageType.Warning, message);
+                    if (editor is ItemDefEditor itemDefEditor)
+                        warnings.AddRange(itemDefEditor.GetWarnings(item));
 
-                if (compared)
-                    AddSteamProblems(row);
+                    // Fixed in the inspector of the definition, under the table.
+                    foreach (var warning in warnings)
+                        row.Add(HelpBoxMessageType.Warning, warning.Message);
 
-                _rows.Add(row);
+                    if (compared)
+                        AddSteamProblems(row);
+
+                    _rows.Add(row);
+                }
+            }
+            finally
+            {
+                foreach (var editor in editors.Values)
+                    if (editor)
+                        DestroyImmediate(editor);
             }
 
             foreach (var steam in steamById.Values.Where(steam => !inDb.Contains(steam.ItemDefId)))
