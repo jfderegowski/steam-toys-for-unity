@@ -50,11 +50,9 @@ namespace SteamToys.Editor.InventorySystem
 
         private const int MAP_HEIGHT = 240;
         private const int MAP_RADIUS = 8;
-        private const float TILE_BORDER_WIDTH = 1f;
+        private const float LINE_WIDTH = 1f;
         private const float ICON_INSET = 2f;
         private const int MAX_DEPTH = 8;
-        private const float TILE_GAP = 1f;
-        private const float GROUP_GAP = 2f;
         private const float HEADER_HEIGHT = 16f;
         private const float MIN_NEST_SIZE = 12f;
         private const float MIN_LABEL_WIDTH = 24f;
@@ -78,7 +76,7 @@ namespace SteamToys.Editor.InventorySystem
 
         private static readonly Color BackgroundColor = new(0.09f, 0.09f, 0.09f);
         private static readonly Color HeaderTextColor = new(0.85f, 0.85f, 0.85f);
-        private static readonly Color TileBorderColor = new(0.42f, 0.42f, 0.42f);
+        private static readonly Color LineColor = new(0.42f, 0.42f, 0.42f);
         private static readonly Color HandleIdleColor = new(1f, 1f, 1f, 0f);
         private static readonly Color HandleActiveColor = new(1f, 1f, 1f, 0.35f);
         private static readonly Color GripIdleColor = new(1f, 1f, 1f, 0.55f);
@@ -136,8 +134,17 @@ namespace SteamToys.Editor.InventorySystem
             /// <summary>The object and the list of the item's own entries; null when they cannot be edited.</summary>
             public SerializedObject ContentSource;
 
+            /// <summary>The node's place in its level and the level's whole area, in canvas coordinates.</summary>
             public Rect Rect;
+            public Rect Area;
+
+            /// <summary>Where the tile is drawn: the tile without the line it leaves for its neighbours.</summary>
             public Rect Box;
+
+            /// <summary>The element the tile is drawn in and that element's place in canvas coordinates.</summary>
+            public VisualElement Host;
+            public Vector2 HostOrigin;
+
             public Node RowNext;
             public Node NextRowAlone;
             public bool RowStacked;
@@ -164,7 +171,7 @@ namespace SteamToys.Editor.InventorySystem
                 style = {
                     flexGrow = 1,
                     overflow = Overflow.Hidden,
-                    backgroundColor = BackgroundColor,
+                    backgroundColor = LineColor,
                     borderTopLeftRadius = MAP_RADIUS,
                     borderTopRightRadius = MAP_RADIUS,
                     borderBottomLeftRadius = MAP_RADIUS,
@@ -324,30 +331,42 @@ namespace SteamToys.Editor.InventorySystem
             if (_roots.Count == 0 || float.IsNaN(size.x) || size.x <= 0 || size.y <= 0)
                 return;
 
-            Squarify(_roots, new Rect(0, 0, size.x, size.y));
+            // The canvas is the grey frame of the first level: the tiles leave a line of it around and between them.
+            var area = new Rect(LINE_WIDTH, LINE_WIDTH, size.x - 2 * LINE_WIDTH, size.y - 2 * LINE_WIDTH);
+            Squarify(_roots, area);
 
             foreach (var node in _roots)
+            {
+                node.Host = _canvas;
+                node.HostOrigin = Vector2.zero;
                 DrawNode(node);
+            }
 
             AddHandles(_roots, _rootDrawn);
             _canvas.Add(_overlay);
         }
 
         /// <summary>
-        /// Draws the node: a leaf as a colored tile, an item with content as a group, its name on top over the dark
-        /// background and its own entries tiled below. Every element is a direct child of the canvas, so a child drawn
-        /// later lies on top of its group and takes the click.
+        /// Draws the node into its host: a leaf as a colored tile, an item with content as a group, its name on top
+        /// over the dark background and below it one grey element that holds its own entries. The entries leave a
+        /// line between each other and around themselves, and the grey shows through only there, so every tile is
+        /// framed by exactly one line and no edge gets two.
         /// </summary>
         private void DrawNode(Node node)
         {
             node.Drawn.Clear();
 
-            var nested = node.Children.Count > 0 && node.Rect.width >= MIN_NEST_SIZE + 2 * GROUP_GAP &&
-                         node.Rect.height >= HEADER_HEIGHT + MIN_NEST_SIZE + 2 * GROUP_GAP;
+            var nested = node.Children.Count > 0 && node.Rect.width >= MIN_NEST_SIZE + LINE_WIDTH &&
+                         node.Rect.height >= HEADER_HEIGHT + MIN_NEST_SIZE + 2 * LINE_WIDTH;
 
-            // Groups stand apart from their neighbours by a wider gap than the tiles inside them.
-            var gap = nested ? GROUP_GAP : TILE_GAP;
-            var box = new Rect(node.Rect.x + gap, node.Rect.y + gap, node.Rect.width - 2 * gap, node.Rect.height - 2 * gap);
+            // A tile gives up a line on its right and bottom edges for the next tile, unless it ends the level there,
+            // where the frame around the level is already drawn.
+            var box = node.Rect;
+            if (box.xMax < node.Area.xMax - 0.5f)
+                box.width -= LINE_WIDTH;
+            if (box.yMax < node.Area.yMax - 0.5f)
+                box.height -= LINE_WIDTH;
+
             node.Box = box;
             if (box.width <= 0 || box.height <= 0)
                 return;
@@ -356,8 +375,8 @@ namespace SteamToys.Editor.InventorySystem
                 tooltip = Tooltip(node, nested),
                 style = {
                     position = Position.Absolute,
-                    left = box.x,
-                    top = box.y,
+                    left = box.x - node.HostOrigin.x,
+                    top = box.y - node.HostOrigin.y,
                     width = box.width,
                     height = box.height,
                     overflow = Overflow.Hidden,
@@ -366,9 +385,6 @@ namespace SteamToys.Editor.InventorySystem
             };
 
             RoundOuterCorners(tile, box);
-
-            // Groups get the border too, so a group right inside another one does not melt into its dark background.
-            SetBorder(tile, TILE_BORDER_WIDTH, TileBorderColor);
 
             // A leaf is three layers, one on another: its color, its icon, its label.
             if (!nested && GetIcon(node.Item) is { } icon)
@@ -390,6 +406,10 @@ namespace SteamToys.Editor.InventorySystem
             });
 
             tile.AddManipulator(new ContextualMenuManipulator(evt => {
+                // A tile inside a group lies in the group's element, so its menu event goes on up to the group.
+                if (evt.target != tile)
+                    return;
+
                 if (node.Editable)
                 {
                     // Opened a frame later, so the menu closing does not take the focus from the new field.
@@ -401,18 +421,37 @@ namespace SteamToys.Editor.InventorySystem
                     evt.menu.AppendAction(EQUALIZE_INSIDE_MENU, _ => Equalize(node.ContentSource, CONTENT_ELEMENTS_PATH));
             }));
 
-            _canvas.Add(tile);
+            node.Host.Add(tile);
             node.Drawn.Add(tile);
 
             if (!nested)
                 return;
 
-            // The entries keep clear of the group's border, so it stays a line of its own around them.
-            var inner = TILE_BORDER_WIDTH;
-            Squarify(node.Children, new Rect(box.x + inner, box.y + HEADER_HEIGHT,
-                                             box.width - 2 * inner, box.height - HEADER_HEIGHT - inner));
+            // One grey element under the header holds the group's entries; it shows as the line under the header
+            // and between the entries, while the group's own frame comes from the level around it.
+            var frame = new Rect(box.x, box.y + HEADER_HEIGHT, box.width, box.height - HEADER_HEIGHT);
+            var content = new VisualElement {
+                pickingMode = PickingMode.Ignore,
+                style = {
+                    position = Position.Absolute,
+                    left = 0,
+                    top = HEADER_HEIGHT,
+                    width = frame.width,
+                    height = frame.height,
+                    backgroundColor = LineColor
+                }
+            };
+
+            RoundOuterCorners(content, frame);
+            tile.Add(content);
+
+            Squarify(node.Children, new Rect(frame.x, frame.y + LINE_WIDTH, frame.width, frame.height - LINE_WIDTH));
             foreach (var child in node.Children)
+            {
+                child.Host = content;
+                child.HostOrigin = frame.position;
                 DrawNode(child);
+            }
 
             AddHandles(node.Children, node.Drawn);
         }
@@ -435,18 +474,6 @@ namespace SteamToys.Editor.InventorySystem
         }
 
         private static float CornerRadius(float insetX, float insetY) => Mathf.Max(0, MAP_RADIUS - Mathf.Max(insetX, insetY));
-
-        private static void SetBorder(VisualElement element, float width, Color color)
-        {
-            element.style.borderLeftWidth = width;
-            element.style.borderRightWidth = width;
-            element.style.borderTopWidth = width;
-            element.style.borderBottomWidth = width;
-            element.style.borderLeftColor = color;
-            element.style.borderRightColor = color;
-            element.style.borderTopColor = color;
-            element.style.borderBottomColor = color;
-        }
 
         /// <summary>The item's icon over the whole tile, kept whole and centred, under the label.</summary>
         private static VisualElement IconLayer(Sprite icon) => new() {
@@ -729,21 +756,24 @@ namespace SteamToys.Editor.InventorySystem
             return handle;
         }
 
-        /// <summary>Lays the handle along the edge after <paramref name="a"/>: its bottom edge when dragged vertically, else its right one.</summary>
+        /// <summary>
+        /// Lays the handle over the line <paramref name="a"/> leaves after itself: its bottom one when dragged
+        /// vertically, else its right one.
+        /// </summary>
         private static void PlaceHandle(VisualElement handle, Node a, bool vertical)
         {
             if (vertical)
             {
                 handle.style.left = a.Rect.x;
                 handle.style.width = a.Rect.width;
-                handle.style.top = a.Rect.yMax - HANDLE_WIDTH / 2f;
+                handle.style.top = a.Rect.yMax - (LINE_WIDTH + HANDLE_WIDTH) / 2f;
                 handle.style.height = HANDLE_WIDTH;
             }
             else
             {
                 handle.style.top = a.Rect.y;
                 handle.style.height = a.Rect.height;
-                handle.style.left = a.Rect.xMax - HANDLE_WIDTH / 2f;
+                handle.style.left = a.Rect.xMax - (LINE_WIDTH + HANDLE_WIDTH) / 2f;
                 handle.style.width = HANDLE_WIDTH;
             }
         }
@@ -1088,6 +1118,7 @@ namespace SteamToys.Editor.InventorySystem
             {
                 node.RowNext = null;
                 node.NextRowAlone = null;
+                node.Area = area;
             }
 
             double total = sorted.Sum(n => (double)n.Weight);
