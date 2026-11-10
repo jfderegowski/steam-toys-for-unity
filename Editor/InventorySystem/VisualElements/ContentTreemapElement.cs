@@ -48,8 +48,9 @@ namespace SteamToys.Editor.InventorySystem
         private const string EQUALIZE_INSIDE_MENU = "Equalize Weights Inside";
 
         private const int MAP_HEIGHT = 240;
-        private const int MAP_RADIUS = 6;
-        private const int CORNER_RADIUS = 5;
+        private const int MAP_RADIUS = 8;
+        private const float TILE_BORDER_WIDTH = 1f;
+        private const float ICON_INSET = 2f;
         private const int MAX_DEPTH = 8;
         private const float TILE_GAP = 1f;
         private const float GROUP_GAP = 2f;
@@ -76,6 +77,7 @@ namespace SteamToys.Editor.InventorySystem
 
         private static readonly Color BackgroundColor = new(0.09f, 0.09f, 0.09f);
         private static readonly Color HeaderTextColor = new(0.85f, 0.85f, 0.85f);
+        private static readonly Color TileBorderColor = new(0.42f, 0.42f, 0.42f);
         private static readonly Color HandleIdleColor = new(1f, 1f, 1f, 0f);
         private static readonly Color HandleActiveColor = new(1f, 1f, 1f, 0.35f);
         private static readonly Color GripIdleColor = new(1f, 1f, 1f, 0.55f);
@@ -362,7 +364,16 @@ namespace SteamToys.Editor.InventorySystem
                 }
             };
 
-            RoundOuterCorners(tile, node, box);
+            RoundOuterCorners(tile, box);
+
+            // A leaf is three layers, one on another: its color, its icon, its label.
+            if (!nested)
+            {
+                SetBorder(tile, TILE_BORDER_WIDTH, TileBorderColor);
+
+                if (GetIcon(node.Item) is { } icon)
+                    tile.Add(IconLayer(icon));
+            }
 
             if (box.width >= MIN_LABEL_WIDTH && box.height >= MIN_LABEL_HEIGHT)
                 tile.Add(nested ? HeaderLabel(node) : TileLabel(node, box));
@@ -401,24 +412,49 @@ namespace SteamToys.Editor.InventorySystem
         }
 
         /// <summary>
-        /// Rounds only the corners of the whole map: a tile gets a round corner where it lies in a corner of the canvas,
-        /// at most the gaps of its groups away from it.
+        /// Rounds only the corners of the whole map. A tile in a corner of the canvas gets the map's radius less its
+        /// distance from that corner, so every curve runs parallel to the one around it and the deeper ones are
+        /// sharper; a tile away from the corners stays square.
         /// </summary>
-        private void RoundOuterCorners(VisualElement tile, Node node, Rect box)
+        private void RoundOuterCorners(VisualElement tile, Rect box)
         {
             var size = _canvas.contentRect.size;
-            var reach = (node.Depth + 1) * GROUP_GAP + 0.5f;
+            var right = size.x - box.xMax;
+            var bottom = size.y - box.yMax;
 
-            var left = box.xMin <= reach;
-            var top = box.yMin <= reach;
-            var right = box.xMax >= size.x - reach;
-            var bottom = box.yMax >= size.y - reach;
-
-            if (left && top) tile.style.borderTopLeftRadius = CORNER_RADIUS;
-            if (right && top) tile.style.borderTopRightRadius = CORNER_RADIUS;
-            if (left && bottom) tile.style.borderBottomLeftRadius = CORNER_RADIUS;
-            if (right && bottom) tile.style.borderBottomRightRadius = CORNER_RADIUS;
+            tile.style.borderTopLeftRadius = CornerRadius(box.xMin, box.yMin);
+            tile.style.borderTopRightRadius = CornerRadius(right, box.yMin);
+            tile.style.borderBottomLeftRadius = CornerRadius(box.xMin, bottom);
+            tile.style.borderBottomRightRadius = CornerRadius(right, bottom);
         }
+
+        private static float CornerRadius(float insetX, float insetY) => Mathf.Max(0, MAP_RADIUS - Mathf.Max(insetX, insetY));
+
+        private static void SetBorder(VisualElement element, float width, Color color)
+        {
+            element.style.borderLeftWidth = width;
+            element.style.borderRightWidth = width;
+            element.style.borderTopWidth = width;
+            element.style.borderBottomWidth = width;
+            element.style.borderLeftColor = color;
+            element.style.borderRightColor = color;
+            element.style.borderTopColor = color;
+            element.style.borderBottomColor = color;
+        }
+
+        /// <summary>The item's icon over the whole tile, kept whole and centred, under the label.</summary>
+        private static VisualElement IconLayer(Sprite icon) => new() {
+            pickingMode = PickingMode.Ignore,
+            style = {
+                position = Position.Absolute,
+                left = ICON_INSET,
+                right = ICON_INSET,
+                top = ICON_INSET,
+                bottom = ICON_INSET,
+                backgroundImage = Background.FromSprite(icon),
+                backgroundSize = new BackgroundSize(BackgroundSizeType.Contain)
+            }
+        };
 
         /// <summary>Removes everything drawn for the node and its children, their handles included.</summary>
         private static void Erase(Node node)
@@ -479,6 +515,7 @@ namespace SteamToys.Editor.InventorySystem
 
             var nameLine = LineLabel(node.Name, fontSize);
             var amountLine = LineLabel(amount, fontSize);
+            nameLine.style.color = GetNameColor(node.Item) ?? Color.white;
 
             // In a row the name gives way first; the amount shrinks only once the name is gone.
             nameLine.style.flexShrink = 1;
@@ -507,7 +544,9 @@ namespace SteamToys.Editor.InventorySystem
                 marginRight = 0,
                 marginTop = 0,
                 marginBottom = 0,
-                color = Color.white
+                color = Color.white,
+                // Keeps the text readable over an icon or a light background.
+                textShadow = new TextShadow { offset = new Vector2(1, 1), blurRadius = 1, color = new Color(0, 0, 0, 0.8f) }
             }
         };
 
@@ -545,8 +584,12 @@ namespace SteamToys.Editor.InventorySystem
 
         private static string Percent(double chance) => $"{chance * 100:0.#}%";
 
+        /// <summary>The item's own background color when it has one, else a color of its branch of the map.</summary>
         private static Color TileColor(Node node)
         {
+            if (node.Item && node.Item.SchemaSupportsBackgroundColor() && IsSet(node.Item.BackgroundColor))
+                return Opaque(node.Item.BackgroundColor);
+
             var value = EditorGUIUtility.isProSkin ? 0.5f : 0.65f;
 
             // Below the first level siblings share their parent's hue, so their brightness tells them apart.
@@ -1114,6 +1157,18 @@ namespace SteamToys.Editor.InventorySystem
         }
 
         #endregion
+
+        private static Color? GetNameColor(ItemDef item) =>
+            item && item.SchemaSupportsNameColor() && IsSet(item.NameColor) ? Opaque(item.NameColor) : null;
+
+        private static Sprite GetIcon(ItemDef item) =>
+            item && item.SchemaSupportsIconUrl() && item.Icon ? item.Icon : null;
+
+        /// <summary>A color is set unless it is all zeros, the same rule the schema export follows.</summary>
+        private static bool IsSet(Color32 color) => color.r != 0 || color.g != 0 || color.b != 0 || color.a != 0;
+
+        /// <summary>Steam takes only the RGB of a color, so its alpha is ignored here too.</summary>
+        private static Color Opaque(Color32 color) => new Color32(color.r, color.g, color.b, 255);
 
         private static string GetItemName(ItemDef item)
         {
