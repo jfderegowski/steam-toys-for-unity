@@ -622,10 +622,10 @@ namespace SteamToys.Editor.InventorySystem
 
             lines.Add(node.InBundle
                 ? $"×{node.Weight} in the bundle ({node.Weight} of {node.SiblingTotal} items)"
-                : $"Weight {node.Weight} of {node.SiblingTotal} ({100.0 * node.Weight / node.SiblingTotal:0.##}%)");
+                : $"Weight {node.Weight} of {node.SiblingTotal} ({Percent((double)node.Weight / node.SiblingTotal)})");
 
             if (node.Chance < 1)
-                lines.Add($"Chance per roll: {node.Chance * 100:0.###}%");
+                lines.Add($"Chance per roll: {Percent(node.Chance)}");
 
             if (node.Children.Count > 0)
                 lines.Add(node.ContentIsBundle ? "Bundle: grants everything inside." : "Generator: grants one entry inside.");
@@ -639,7 +639,11 @@ namespace SteamToys.Editor.InventorySystem
             return string.Join("\n", lines);
         }
 
-        private static string Percent(double chance) => $"{chance * 100:0.#}%";
+        /// <summary>
+        /// <paramref name="chance"/> as a percent with up to four decimals, so a weight of 7999 of 10000 reads 79.99%
+        /// rather than a rounded 80%.
+        /// </summary>
+        private static string Percent(double chance) => $"{chance * 100:0.####}%";
 
         /// <summary>The item's own background color when it has one, else a color of its branch of the map.</summary>
         private static Color TileColor(Node node)

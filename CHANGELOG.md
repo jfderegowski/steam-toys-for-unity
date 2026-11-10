@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-11-10
+
+### Fixed
+
+- The treemap no longer rounds percentages to one decimal place: a tile, its tooltip and the chance
+  per roll show the share with up to four decimals, so a weight of 7999 of 10000 reads 79.99%, not 80%.
+
 ## [0.10.0] - 2026-11-10
 
 ### Added
