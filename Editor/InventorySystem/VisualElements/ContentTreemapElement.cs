@@ -63,6 +63,10 @@ namespace SteamToys.Editor.InventorySystem
         private const int MAX_FONT_SIZE = 20;
 
         private const float HANDLE_WIDTH = 5f;
+        private const int GRIP_DOTS = 3;
+        private const float GRIP_DOT_SIZE = 3f;
+        private const float GRIP_DOT_SPACING = 2f;
+        private const float GRIP_MIN_EDGE = 16f;
         private const float PERCENT_FIELD_WIDTH = 70f;
         private const float PERCENT_FIELD_HEIGHT = 18f;
         private const uint MIN_DRAG_TOTAL = 100;
@@ -73,7 +77,9 @@ namespace SteamToys.Editor.InventorySystem
         private static readonly Color BackgroundColor = new(0.09f, 0.09f, 0.09f);
         private static readonly Color HeaderTextColor = new(0.85f, 0.85f, 0.85f);
         private static readonly Color HandleIdleColor = new(1f, 1f, 1f, 0f);
-        private static readonly Color HandleActiveColor = new(1f, 1f, 1f, 0.5f);
+        private static readonly Color HandleActiveColor = new(1f, 1f, 1f, 0.35f);
+        private static readonly Color GripIdleColor = new(1f, 1f, 1f, 0.55f);
+        private static readonly Color GripActiveColor = Color.white;
 
         private const float GOLDEN_RATIO = 0.618034f;
 
@@ -584,15 +590,60 @@ namespace SteamToys.Editor.InventorySystem
         {
             var handle = new VisualElement {
                 tooltip = HANDLE_TOOLTIP,
-                style = { position = Position.Absolute, backgroundColor = HandleIdleColor }
+                style = {
+                    position = Position.Absolute,
+                    backgroundColor = HandleIdleColor,
+                    // The grip runs along the edge: a row of dots on a horizontal edge, a column on a vertical one.
+                    flexDirection = vertical ? FlexDirection.Row : FlexDirection.Column,
+                    justifyContent = Justify.Center,
+                    alignItems = Align.Center
+                }
             };
             handle.AddToClassList(vertical ? HANDLE_ROWS_CLASS : HANDLE_COLUMNS_CLASS);
             PlaceHandle(handle, a, vertical);
 
-            handle.RegisterCallback<PointerEnterEvent>(_ => handle.style.backgroundColor = HandleActiveColor);
+            var edgeLength = vertical ? a.Rect.width : a.Rect.height;
+            var dots = new List<VisualElement>();
+            if (edgeLength >= GRIP_MIN_EDGE)
+            {
+                for (var i = 0; i < GRIP_DOTS; i++)
+                {
+                    var dot = new VisualElement {
+                        pickingMode = PickingMode.Ignore,
+                        style = {
+                            flexShrink = 0,
+                            width = GRIP_DOT_SIZE,
+                            height = GRIP_DOT_SIZE,
+                            borderTopLeftRadius = GRIP_DOT_SIZE / 2f,
+                            borderTopRightRadius = GRIP_DOT_SIZE / 2f,
+                            borderBottomLeftRadius = GRIP_DOT_SIZE / 2f,
+                            borderBottomRightRadius = GRIP_DOT_SIZE / 2f,
+                            backgroundColor = GripIdleColor
+                        }
+                    };
+
+                    if (i > 0)
+                    {
+                        if (vertical) dot.style.marginLeft = GRIP_DOT_SPACING;
+                        else dot.style.marginTop = GRIP_DOT_SPACING;
+                    }
+
+                    handle.Add(dot);
+                    dots.Add(dot);
+                }
+            }
+
+            void Highlight(bool active)
+            {
+                handle.style.backgroundColor = active ? HandleActiveColor : HandleIdleColor;
+                foreach (var dot in dots)
+                    dot.style.backgroundColor = active ? GripActiveColor : GripIdleColor;
+            }
+
+            handle.RegisterCallback<PointerEnterEvent>(_ => Highlight(true));
             handle.RegisterCallback<PointerLeaveEvent>(_ => {
                 if (!handle.HasPointerCapture(PointerId.mousePointerId))
-                    handle.style.backgroundColor = HandleIdleColor;
+                    Highlight(false);
             });
 
             handle.RegisterCallback<PointerDownEvent>(evt => {
@@ -622,7 +673,7 @@ namespace SteamToys.Editor.InventorySystem
             });
 
             handle.RegisterCallback<PointerCaptureOutEvent>(_ => {
-                handle.style.backgroundColor = HandleIdleColor;
+                Highlight(false);
                 EndDrag();
             });
 
@@ -1035,9 +1086,10 @@ namespace SteamToys.Editor.InventorySystem
                     offset += length;
                 }
 
-                // Two rows of one tile each, laid the same way, share a whole edge across the rows.
+                // Two rows of one tile each share a whole edge across the rows when they are laid the same way,
+                // or when the second is the last one and fills everything that is left, whichever way it lies.
                 var alone = end - start == 1 ? sorted[start] : null;
-                if (alone != null && previousAlone != null && previousAlone.RowStacked == stacked)
+                if (alone != null && previousAlone != null && (previousAlone.RowStacked == stacked || end == sorted.Count))
                     previousAlone.NextRowAlone = alone;
 
                 previousAlone = alone;
