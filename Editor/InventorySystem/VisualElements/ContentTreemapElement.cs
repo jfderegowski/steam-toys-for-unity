@@ -44,6 +44,7 @@ namespace SteamToys.Editor.InventorySystem
         private const string EQUALIZE_UNDO_NAME = "Equalize Weights";
 
         private const string HANDLE_TOOLTIP = "Drag to move weight between the two entries.";
+        private const string CHANGE_PERCENTAGE_MENU = "Change Percentage";
         private const string EQUALIZE_LEVEL_MENU = "Equalize Weights on This Level";
         private const string EQUALIZE_INSIDE_MENU = "Equalize Weights Inside";
 
@@ -366,14 +367,12 @@ namespace SteamToys.Editor.InventorySystem
 
             RoundOuterCorners(tile, box);
 
-            // A leaf is three layers, one on another: its color, its icon, its label.
-            if (!nested)
-            {
-                SetBorder(tile, TILE_BORDER_WIDTH, TileBorderColor);
+            // Groups get the border too, so a group right inside another one does not melt into its dark background.
+            SetBorder(tile, TILE_BORDER_WIDTH, TileBorderColor);
 
-                if (GetIcon(node.Item) is { } icon)
-                    tile.Add(IconLayer(icon));
-            }
+            // A leaf is three layers, one on another: its color, its icon, its label.
+            if (!nested && GetIcon(node.Item) is { } icon)
+                tile.Add(IconLayer(icon));
 
             if (box.width >= MIN_LABEL_WIDTH && box.height >= MIN_LABEL_HEIGHT)
                 tile.Add(nested ? HeaderLabel(node) : TileLabel(node, box));
@@ -392,7 +391,11 @@ namespace SteamToys.Editor.InventorySystem
 
             tile.AddManipulator(new ContextualMenuManipulator(evt => {
                 if (node.Editable)
+                {
+                    // Opened a frame later, so the menu closing does not take the focus from the new field.
+                    evt.menu.AppendAction(CHANGE_PERCENTAGE_MENU, _ => tile.schedule.Execute(() => BeginPercentEdit(node)));
                     evt.menu.AppendAction(EQUALIZE_LEVEL_MENU, _ => Equalize(node.Source, node.SourcePath));
+                }
 
                 if (node.ContentSource != null)
                     evt.menu.AppendAction(EQUALIZE_INSIDE_MENU, _ => Equalize(node.ContentSource, CONTENT_ELEMENTS_PATH));
@@ -404,7 +407,10 @@ namespace SteamToys.Editor.InventorySystem
             if (!nested)
                 return;
 
-            Squarify(node.Children, new Rect(box.x, box.y + HEADER_HEIGHT, box.width, box.height - HEADER_HEIGHT));
+            // The entries keep clear of the group's border, so it stays a line of its own around them.
+            var inner = TILE_BORDER_WIDTH;
+            Squarify(node.Children, new Rect(box.x + inner, box.y + HEADER_HEIGHT,
+                                             box.width - 2 * inner, box.height - HEADER_HEIGHT - inner));
             foreach (var child in node.Children)
                 DrawNode(child);
 
