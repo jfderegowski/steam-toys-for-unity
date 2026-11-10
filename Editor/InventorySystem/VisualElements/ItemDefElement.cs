@@ -226,6 +226,7 @@ namespace SteamToys.Editor.InventorySystem
             AddField(market, AUTO_STACK, "Whether grants are added to a single stack.");
             AddField(market, PURCHASE_LIMIT, "Blocks a purchase when the user already owns this many. 0 means no limit.");
             AddField(market, CONTAINER_CONTENTS_GENERATOR, "Generator whose possible drops are listed in this item's description.");
+            AddContainerContentsGenerator(market);
 
             // The exchange draws its own section.
             AddField(this, EXCHANGE, "Recipes that consume materials to create this item.");
@@ -288,6 +289,101 @@ namespace SteamToys.Editor.InventorySystem
 
             section.style.display = DisplayStyle.Flex;
             section.Add(CreateFrame(property, tooltip));
+        }
+
+        /// <summary>
+        /// Container Contents Generator takes a generator, so its picker lists only the definitions of a
+        /// <see cref="GeneratorDef{TTags}"/>, and under the field the contents of the chosen one show as a treemap.
+        /// </summary>
+        private void AddContainerContentsGenerator(VisualElement section)
+        {
+            if (!_frames.TryGetValue(CONTAINER_CONTENTS_GENERATOR, out var frame))
+                return;
+
+            var property = _serializedObject.FindProperty(CONTAINER_CONTENTS_GENERATOR);
+
+            // The picker button of the object field lists every ItemDef; a click on it opens the search picker with
+            // only the generators instead. Caught on the way down, so the button never opens its own.
+            frame.RegisterCallback<PointerDownEvent>(evt => {
+                if (evt.button == 0 && IsPickerButton(evt.target))
+                {
+                    ShowGeneratorPicker(property);
+                    evt.StopImmediatePropagation();
+                }
+            }, TrickleDown.TrickleDown);
+
+            frame.RegisterCallback<MouseDownEvent>(evt => {
+                if (IsPickerButton(evt.target))
+                    evt.StopImmediatePropagation();
+            }, TrickleDown.TrickleDown);
+
+            var treemapHolder = new VisualElement();
+            section.Add(treemapHolder);
+
+            ItemDef shown = null;
+            ShowTreemap();
+
+            // Tracked on a parent, because on a PropertyField itself the callback runs only for the first change.
+            treemapHolder.TrackSerializedObjectValue(_serializedObject, _ => ShowTreemap());
+
+            void ShowTreemap()
+            {
+                var generator = property.hasMultipleDifferentValues ? null : property.objectReferenceValue as ItemDef;
+                if (generator == shown)
+                    return;
+
+                shown = generator;
+                treemapHolder.Clear();
+
+                if (!IsGeneratorDef(generator))
+                    return;
+
+                // The generator's own serialized object, so the treemap edits its weights in its asset.
+                var source = new SerializedObject(generator);
+                var elements = source.FindProperty(CONTENT_ELEMENTS_PATH);
+
+                if (elements == null)
+                    return;
+
+                var treemap = new ContentTreemapElement(elements);
+                treemapHolder.Add(treemap);
+                treemap.TrackSerializedObjectValue(source, _ => treemap.Refresh());
+            }
+        }
+
+        private static bool IsPickerButton(IEventHandler target) =>
+            target is VisualElement element && element.ClassListContains(ObjectField.selectorUssClassName);
+
+        /// <summary>Unity's search picker, its query set to every class of generator.</summary>
+        private void ShowGeneratorPicker(SerializedProperty property)
+        {
+            var query = string.Join(" or ", GeneratorClasses.Select(type => "t:" + type.Name));
+
+            UnityEditor.Search.SearchService.ShowObjectPicker((picked, canceled) => {
+                if (canceled)
+                    return;
+
+                _serializedObject.Update();
+                property.objectReferenceValue = picked;
+                _serializedObject.ApplyModifiedProperties();
+            }, null, query, nameof(ItemDef), typeof(ItemDef));
+        }
+
+        /// <summary>The classes Unity can make assets of that are a <see cref="GeneratorDef{TTags}"/>.</summary>
+        private static IEnumerable<Type> GeneratorClasses =>
+            TypeCache.GetTypesDerivedFrom<ItemDef>()
+                .Where(type => !type.IsAbstract && !type.ContainsGenericParameters && IsGeneratorClass(type));
+
+        /// <summary>Whether <paramref name="item"/> is a <see cref="GeneratorDef{TTags}"/>, of any tags.</summary>
+        internal static bool IsGeneratorDef(ItemDef item) => item && IsGeneratorClass(item.GetType());
+
+        private static bool IsGeneratorClass(Type type)
+        {
+            for (; type != null; type = type.BaseType)
+                if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(GeneratorDef<>))
+                    return true;
+
+            return false;
         }
 
         /// <summary>The odds of the tag values as a treemap, under their field, editable like a generator's.</summary>
@@ -642,6 +738,7 @@ namespace SteamToys.Editor.InventorySystem
             (ICON_LARGE, item => GetIconWarnings(item, item.IconUrlLarge, item.IconLarge, "Icon Large")),
             (PURCHASE_BUNDLE_DISCOUNT, GetPurchaseBundleDiscountWarnings),
             (PURCHASE_LIMIT, GetPurchaseLimitWarnings),
+            (CONTAINER_CONTENTS_GENERATOR, GetContainerContentsGeneratorWarnings),
             (EXCHANGE, GetExchangeWarnings),
             (PROMO, GetPromoWarnings),
             (DROP_START_TIME, GetDropStartTimeWarnings),
@@ -726,6 +823,17 @@ namespace SteamToys.Editor.InventorySystem
                 if (element != null && element.Quantity == 0)
                     yield return new Warning($"Contents entry {i} has a {amountName} of 0.");
             }
+        }
+
+        /// <summary>Steam lists in the item's description the drops of a definition of type generator, and of nothing else.</summary>
+        private static IEnumerable<Warning> GetContainerContentsGeneratorWarnings(ItemDef item)
+        {
+            var generator = item.ContainerContentsGenerator;
+
+            if (generator && !IsGeneratorDef(generator))
+                yield return new Warning($"Container Contents Generator is a {generator.Type}, not a generator, so Steam " +
+                                         "lists no drops for it in the item's description.",
+                    FixProperty(item, CONTAINER_CONTENTS_GENERATOR, property => property.objectReferenceValue = null));
         }
 
         private static IEnumerable<Warning> GetPriceWarnings(ItemDef item)

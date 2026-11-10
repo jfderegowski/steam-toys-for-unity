@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-10
+
+### Added
+
+- The contents of a bundle or generator show a treemap under their list, like a stock market map:
+  one tile per entry, its area the entry's share. An entry whose item has contents of its own, e.g.
+  a generator in a generator, is a group with its name on top and its own entries tiled inside, down
+  to the last level. Under a generator a tile shows the chance per roll, multiplied down the levels,
+  and under a bundle how many it grants. A tile shows the item's icon, its name in the item's Name
+  Color and its Background Color, every tile and group is framed by one grey line, and a click pings
+  the item.
+- The weights of a generator's entries can be edited in the treemap at any level, in the asset that
+  holds them. Drag the edge two tiles share, marked with three dots, to move weight between them.
+  Double-click a tile, or choose Change Percentage in its context menu, to type its share among the
+  tiles of its level. Equalize Weights on This Level and Equalize Weights Inside give every entry
+  the same weight. After a drag the weights are reduced to the smallest numbers with the same odds,
+  and Ctrl+Z undoes each change in one step. A bundle's quantities stay in the list.
+- The Tag Generator section shows the tag values as a treemap of their odds, editable the same way.
+- Container Contents Generator shows the treemap of the chosen generator under the field, and its
+  picker opens the search with only the classes of `GeneratorDef<TTags>`.
+- A warning when Container Contents Generator is not a generator, as Steam lists drops only of a
+  definition of type `generator` in the item's description. Fix clears the field.
+- `ContentTreemapElement` draws any serialized list whose elements have a name and a `uint` weight,
+  given the relative paths of both. The name is an `ItemDef`, nested with its contents, or anything
+  else shown as its text, e.g. a string or an enum.
+
+### Changed
+
+- The bar of a generator's odds under its contents is no longer drawn; the treemap takes its place.
+  `WeightBarElement` stays in the package.
+
 ## [0.9.0] - 2026-11-09
 
 ### Added
