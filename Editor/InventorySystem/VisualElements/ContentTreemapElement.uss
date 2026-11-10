@@ -1,0 +1,7 @@
+.content-treemap__handle--columns {
+    cursor: resize-horizontal;
+}
+
+.content-treemap__handle--rows {
+    cursor: resize-vertical;
+}

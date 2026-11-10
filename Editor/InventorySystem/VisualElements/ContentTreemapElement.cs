@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using SteamToys.Runtime.InventorySystem;
@@ -16,18 +17,39 @@ namespace SteamToys.Editor.InventorySystem
     /// <item>Under a bundle the tiles split by quantity and show how many are granted.</item>
     /// <item>Clicking a tile pings its item.</item>
     /// </list>
-    /// Read-only; the weights are edited in the list or the <see cref="WeightBarElement"/>.
+    /// The weights of a generator's entries can be edited here as in the <see cref="WeightBarElement"/>, at any level,
+    /// in the asset that holds them:
+    /// <list type="bullet">
+    /// <item>Dragging the edge between two tiles of one row moves weight from one to the other.</item>
+    /// <item>Double-clicking a tile types its share among its neighbours in percent; they keep their proportions.</item>
+    /// <item>The context menu of a tile gives every entry of its level, or of the group itself, the same weight.</item>
+    /// </list>
+    /// A bundle's quantities are counts, not odds, so they are left to the list.
     /// </summary>
     public class ContentTreemapElement : VisualElement
     {
         private const string ITEM_PROP_NAME = "_item";
         private const string QUANTITY_PROP_NAME = "_quantity";
+        private const string CONTENT_ELEMENTS_PATH = "_bundle._elements";
+
+        private const string STYLE_SHEET_GUID = "e920035125f34fd78dd96a67fe2147fb";
+        private const string HANDLE_COLUMNS_CLASS = "content-treemap__handle--columns";
+        private const string HANDLE_ROWS_CLASS = "content-treemap__handle--rows";
 
         private const string NO_ITEM_LABEL = "(None)";
         private const string PATH_SEPARATOR = " › ";
 
+        private const string DRAG_UNDO_NAME = "Change Weights";
+        private const string PERCENT_UNDO_NAME = "Set Weight Share";
+        private const string EQUALIZE_UNDO_NAME = "Equalize Weights";
+
+        private const string HANDLE_TOOLTIP = "Drag to move weight between the two entries.";
+        private const string EQUALIZE_LEVEL_MENU = "Equalize Weights on This Level";
+        private const string EQUALIZE_INSIDE_MENU = "Equalize Weights Inside";
+
         private const int MAP_HEIGHT = 240;
-        private const int MAP_RADIUS = 3;
+        private const int MAP_RADIUS = 6;
+        private const int CORNER_RADIUS = 5;
         private const int MAX_DEPTH = 8;
         private const float TILE_GAP = 1f;
         private const float GROUP_GAP = 2f;
@@ -40,8 +62,18 @@ namespace SteamToys.Editor.InventorySystem
         private const int MIN_FONT_SIZE = 9;
         private const int MAX_FONT_SIZE = 20;
 
+        private const float HANDLE_WIDTH = 5f;
+        private const float PERCENT_FIELD_WIDTH = 70f;
+        private const float PERCENT_FIELD_HEIGHT = 18f;
+        private const uint MIN_DRAG_TOTAL = 100;
+        private const uint MIN_PERCENT_TOTAL = 1000;
+        private const float MIN_PERCENT = 0.1f;
+        private const float MAX_PERCENT = 99.9f;
+
         private static readonly Color BackgroundColor = new(0.09f, 0.09f, 0.09f);
         private static readonly Color HeaderTextColor = new(0.85f, 0.85f, 0.85f);
+        private static readonly Color HandleIdleColor = new(1f, 1f, 1f, 0f);
+        private static readonly Color HandleActiveColor = new(1f, 1f, 1f, 0.5f);
 
         private const float GOLDEN_RATIO = 0.618034f;
 
@@ -49,7 +81,27 @@ namespace SteamToys.Editor.InventorySystem
         private readonly string _elementsPath;
 
         private readonly VisualElement _canvas;
+        private readonly VisualElement _overlay;
         private readonly List<Node> _roots = new();
+        private readonly List<VisualElement> _rootDrawn = new();
+        private readonly Dictionary<ItemDef, SerializedObject> _sources = new();
+
+        private Node _dragA;
+        private Node _dragB;
+        private VisualElement _dragHandle;
+        private bool _dragVertical;
+        private uint[] _dragStartWeights;
+        private uint _dragPair;
+        private uint _dragTotal;
+        private uint _dragScale;
+        private float _dragStartPos;
+        private float _dragLengthA;
+        private float _dragPairLength;
+        private bool _dragMoved;
+        private int _undoGroup;
+
+        private FloatField _percentField;
+        private bool _percentCancelled;
 
         private class Node
         {
@@ -59,6 +111,7 @@ namespace SteamToys.Editor.InventorySystem
             public uint Weight;
             public uint SiblingTotal;
             public bool InBundle;
+            public double ParentChance;
             public double Chance;
             public float Hue;
             public int Index;
@@ -66,13 +119,32 @@ namespace SteamToys.Editor.InventorySystem
             public bool ContentIsBundle;
             public string NotExpanded;
             public readonly List<Node> Children = new();
+
+            /// <summary>The object and the list this entry is in; null when it cannot be edited.</summary>
+            public SerializedObject Source;
+            public string SourcePath;
+
+            /// <summary>The object and the list of the item's own entries; null when they cannot be edited.</summary>
+            public SerializedObject ContentSource;
+
             public Rect Rect;
+            public Rect Box;
+            public Node RowNext;
+            public Node NextRowAlone;
+            public bool RowStacked;
+            public readonly List<VisualElement> Drawn = new();
+
+            public bool Editable => Source != null && !InBundle;
         }
 
         public ContentTreemapElement(SerializedProperty elements)
         {
             _serializedObject = elements.serializedObject;
             _elementsPath = elements.propertyPath;
+
+            var styleSheet = AssetDatabase.LoadAssetAtPath<StyleSheet>(AssetDatabase.GUIDToAssetPath(STYLE_SHEET_GUID));
+            if (styleSheet)
+                styleSheets.Add(styleSheet);
 
             style.marginLeft = 3;
             style.marginTop = 2;
@@ -91,6 +163,12 @@ namespace SteamToys.Editor.InventorySystem
                 }
             };
 
+            // The handles and the typed share lie over every tile, so a tile drawn later cannot cover them.
+            _overlay = new VisualElement {
+                pickingMode = PickingMode.Ignore,
+                style = { position = Position.Absolute, left = 0, right = 0, top = 0, bottom = 0 }
+            };
+
             _canvas.RegisterCallback<GeometryChangedEvent>(evt => {
                 if (evt.oldRect.size != evt.newRect.size)
                     Draw();
@@ -103,7 +181,12 @@ namespace SteamToys.Editor.InventorySystem
         /// <summary>Rebuilds the tree from the serialized entries and the content of the items they point at.</summary>
         public void Refresh()
         {
+            // A drag redraws only the two tiles it changes and refreshes everything once it ends.
+            if (_dragA != null)
+                return;
+
             _roots.Clear();
+            _sources.Clear();
 
             var elements = _serializedObject.FindProperty(_elementsPath);
             if (elements != null)
@@ -121,7 +204,8 @@ namespace SteamToys.Editor.InventorySystem
                 if (owner)
                     path.Add(owner);
 
-                AddChildren(_roots, entries, owner && owner.Type == ItemType.Bundle, 1.0, null, path, 0, null);
+                AddChildren(_roots, entries, owner && owner.Type == ItemType.Bundle, 1.0, null, path, 0, null,
+                            _serializedObject, _elementsPath);
             }
 
             style.display = _roots.Count > 0 ? DisplayStyle.Flex : DisplayStyle.None;
@@ -130,9 +214,9 @@ namespace SteamToys.Editor.InventorySystem
 
         #region Tree
 
-        private static void AddChildren(List<Node> into, IReadOnlyList<(ItemDef item, uint quantity)> entries,
-                                        bool inBundle, double chance, string parentPath, HashSet<ItemDef> path,
-                                        int depth, float? hue)
+        private void AddChildren(List<Node> into, IReadOnlyList<(ItemDef item, uint quantity)> entries, bool inBundle,
+                                 double chance, string parentPath, HashSet<ItemDef> path, int depth, float? hue,
+                                 SerializedObject source, string sourcePath)
         {
             uint total = 0;
             foreach (var (_, quantity) in entries)
@@ -155,10 +239,13 @@ namespace SteamToys.Editor.InventorySystem
                     Weight = quantity,
                     SiblingTotal = total,
                     InBundle = inBundle,
+                    ParentChance = chance,
                     Chance = inBundle ? chance : chance * quantity / total,
                     Hue = hue ?? i * GOLDEN_RATIO % 1f,
                     Index = i,
-                    Depth = depth
+                    Depth = depth,
+                    Source = source,
+                    SourcePath = sourcePath
                 };
 
                 if (item && item.SchemaSupportsContent() && item.Content is { Count: > 0 } content)
@@ -170,15 +257,42 @@ namespace SteamToys.Editor.InventorySystem
                     else
                     {
                         node.ContentIsBundle = item.Type == ItemType.Bundle;
+                        node.ContentSource = node.ContentIsBundle ? null : GetSource(item);
 
                         path.Add(item);
                         AddChildren(node.Children, content.Select(e => (e.Item, e.Quantity)).ToList(),
-                                    node.ContentIsBundle, node.Chance, node.Path, path, depth + 1, node.Hue);
+                                    node.ContentIsBundle, node.Chance, node.Path, path, depth + 1, node.Hue,
+                                    node.ContentSource, CONTENT_ELEMENTS_PATH);
                         path.Remove(item);
                     }
                 }
 
                 into.Add(node);
+            }
+        }
+
+        /// <summary>One serialized object per item, shared by every place the item shows up in.</summary>
+        private SerializedObject GetSource(ItemDef item)
+        {
+            if (_sources.TryGetValue(item, out var source))
+                return source;
+
+            source = new SerializedObject(item);
+            if (source.FindProperty(CONTENT_ELEMENTS_PATH) == null)
+                source = null;
+
+            _sources[item] = source;
+            return source;
+        }
+
+        private static void RecomputeChance(Node node)
+        {
+            node.Chance = node.InBundle ? node.ParentChance : node.ParentChance * node.Weight / node.SiblingTotal;
+
+            foreach (var child in node.Children)
+            {
+                child.ParentChance = node.Chance;
+                RecomputeChance(child);
             }
         }
 
@@ -188,17 +302,26 @@ namespace SteamToys.Editor.InventorySystem
 
         private void Draw()
         {
+            if (_dragA != null)
+                return;
+
+            EndPercentEdit(false);
+
             _canvas.Clear();
+            _overlay.Clear();
+            _rootDrawn.Clear();
 
             var size = _canvas.contentRect.size;
             if (_roots.Count == 0 || float.IsNaN(size.x) || size.x <= 0 || size.y <= 0)
                 return;
 
-            var area = new Rect(0, 0, size.x, size.y);
-            Squarify(_roots, area);
+            Squarify(_roots, new Rect(0, 0, size.x, size.y));
 
             foreach (var node in _roots)
                 DrawNode(node);
+
+            AddHandles(_roots, _rootDrawn);
+            _canvas.Add(_overlay);
         }
 
         /// <summary>
@@ -208,12 +331,15 @@ namespace SteamToys.Editor.InventorySystem
         /// </summary>
         private void DrawNode(Node node)
         {
+            node.Drawn.Clear();
+
             var nested = node.Children.Count > 0 && node.Rect.width >= MIN_NEST_SIZE + 2 * GROUP_GAP &&
                          node.Rect.height >= HEADER_HEIGHT + MIN_NEST_SIZE + 2 * GROUP_GAP;
 
             // Groups stand apart from their neighbours by a wider gap than the tiles inside them.
             var gap = nested ? GROUP_GAP : TILE_GAP;
             var box = new Rect(node.Rect.x + gap, node.Rect.y + gap, node.Rect.width - 2 * gap, node.Rect.height - 2 * gap);
+            node.Box = box;
             if (box.width <= 0 || box.height <= 0)
                 return;
 
@@ -230,19 +356,33 @@ namespace SteamToys.Editor.InventorySystem
                 }
             };
 
+            RoundOuterCorners(tile, node, box);
+
             if (box.width >= MIN_LABEL_WIDTH && box.height >= MIN_LABEL_HEIGHT)
                 tile.Add(nested ? HeaderLabel(node) : TileLabel(node, box));
 
-            var item = node.Item;
             tile.RegisterCallback<PointerDownEvent>(evt => {
-                if (evt.button != 0 || !item)
+                if (evt.button != 0)
                     return;
 
-                EditorGUIUtility.PingObject(item);
+                if (evt.clickCount == 2 && node.Editable)
+                    BeginPercentEdit(node);
+                else if (node.Item)
+                    EditorGUIUtility.PingObject(node.Item);
+
                 evt.StopPropagation();
             });
 
+            tile.AddManipulator(new ContextualMenuManipulator(evt => {
+                if (node.Editable)
+                    evt.menu.AppendAction(EQUALIZE_LEVEL_MENU, _ => Equalize(node.Source, node.SourcePath));
+
+                if (node.ContentSource != null)
+                    evt.menu.AppendAction(EQUALIZE_INSIDE_MENU, _ => Equalize(node.ContentSource, CONTENT_ELEMENTS_PATH));
+            }));
+
             _canvas.Add(tile);
+            node.Drawn.Add(tile);
 
             if (!nested)
                 return;
@@ -250,9 +390,43 @@ namespace SteamToys.Editor.InventorySystem
             Squarify(node.Children, new Rect(box.x, box.y + HEADER_HEIGHT, box.width, box.height - HEADER_HEIGHT));
             foreach (var child in node.Children)
                 DrawNode(child);
+
+            AddHandles(node.Children, node.Drawn);
         }
 
-        private static Label HeaderLabel(Node node) => new($"{node.Name}  {Amount(node)}  ›") {
+        /// <summary>
+        /// Rounds only the corners of the whole map: a tile gets a round corner where it lies in a corner of the canvas,
+        /// at most the gaps of its groups away from it.
+        /// </summary>
+        private void RoundOuterCorners(VisualElement tile, Node node, Rect box)
+        {
+            var size = _canvas.contentRect.size;
+            var reach = (node.Depth + 1) * GROUP_GAP + 0.5f;
+
+            var left = box.xMin <= reach;
+            var top = box.yMin <= reach;
+            var right = box.xMax >= size.x - reach;
+            var bottom = box.yMax >= size.y - reach;
+
+            if (left && top) tile.style.borderTopLeftRadius = CORNER_RADIUS;
+            if (right && top) tile.style.borderTopRightRadius = CORNER_RADIUS;
+            if (left && bottom) tile.style.borderBottomLeftRadius = CORNER_RADIUS;
+            if (right && bottom) tile.style.borderBottomRightRadius = CORNER_RADIUS;
+        }
+
+        /// <summary>Removes everything drawn for the node and its children, their handles included.</summary>
+        private static void Erase(Node node)
+        {
+            foreach (var element in node.Drawn)
+                element.RemoveFromHierarchy();
+
+            node.Drawn.Clear();
+
+            foreach (var child in node.Children)
+                Erase(child);
+        }
+
+        private static Label HeaderLabel(Node node) => new($"{node.Name}  {Amount(node)}") {
             pickingMode = PickingMode.Ignore,
             style = {
                 height = HEADER_HEIGHT,
@@ -360,9 +534,6 @@ namespace SteamToys.Editor.InventorySystem
             if (node.NotExpanded != null)
                 lines.Add(node.NotExpanded);
 
-            if (node.Item)
-                lines.Add("Click to ping.");
-
             return string.Join("\n", lines);
         }
 
@@ -381,15 +552,443 @@ namespace SteamToys.Editor.InventorySystem
 
         #endregion
 
+        #region Dragging
+
+        /// <summary>
+        /// A handle on every edge that two editable tiles share whole: between neighbours in one row, and between two
+        /// rows of one tile each. Moving such an edge changes only those two tiles.
+        /// </summary>
+        private void AddHandles(List<Node> nodes, List<VisualElement> owner)
+        {
+            foreach (var node in nodes)
+            {
+                if (!node.Editable)
+                    continue;
+
+                if (node.RowNext is { Editable: true } next)
+                    AddHandle(node, next, node.RowStacked);
+
+                if (node.NextRowAlone is { Editable: true } below)
+                    AddHandle(node, below, !node.RowStacked);
+            }
+
+            void AddHandle(Node a, Node b, bool vertical)
+            {
+                var handle = CreateHandle(a, b, vertical);
+                _overlay.Add(handle);
+                owner.Add(handle);
+            }
+        }
+
+        private VisualElement CreateHandle(Node a, Node b, bool vertical)
+        {
+            var handle = new VisualElement {
+                tooltip = HANDLE_TOOLTIP,
+                style = { position = Position.Absolute, backgroundColor = HandleIdleColor }
+            };
+            handle.AddToClassList(vertical ? HANDLE_ROWS_CLASS : HANDLE_COLUMNS_CLASS);
+            PlaceHandle(handle, a, vertical);
+
+            handle.RegisterCallback<PointerEnterEvent>(_ => handle.style.backgroundColor = HandleActiveColor);
+            handle.RegisterCallback<PointerLeaveEvent>(_ => {
+                if (!handle.HasPointerCapture(PointerId.mousePointerId))
+                    handle.style.backgroundColor = HandleIdleColor;
+            });
+
+            handle.RegisterCallback<PointerDownEvent>(evt => {
+                if (evt.button != 0)
+                    return;
+
+                if (BeginDrag(a, b, handle, vertical, vertical ? evt.position.y : evt.position.x))
+                    handle.CapturePointer(evt.pointerId);
+
+                evt.StopPropagation();
+            });
+
+            handle.RegisterCallback<PointerMoveEvent>(evt => {
+                if (_dragHandle != handle || !handle.HasPointerCapture(evt.pointerId))
+                    return;
+
+                Drag(vertical ? evt.position.y : evt.position.x);
+                evt.StopPropagation();
+            });
+
+            handle.RegisterCallback<PointerUpEvent>(evt => {
+                if (!handle.HasPointerCapture(evt.pointerId))
+                    return;
+
+                handle.ReleasePointer(evt.pointerId);
+                evt.StopPropagation();
+            });
+
+            handle.RegisterCallback<PointerCaptureOutEvent>(_ => {
+                handle.style.backgroundColor = HandleIdleColor;
+                EndDrag();
+            });
+
+            return handle;
+        }
+
+        /// <summary>Lays the handle along the edge after <paramref name="a"/>: its bottom edge when dragged vertically, else its right one.</summary>
+        private static void PlaceHandle(VisualElement handle, Node a, bool vertical)
+        {
+            if (vertical)
+            {
+                handle.style.left = a.Rect.x;
+                handle.style.width = a.Rect.width;
+                handle.style.top = a.Rect.yMax - HANDLE_WIDTH / 2f;
+                handle.style.height = HANDLE_WIDTH;
+            }
+            else
+            {
+                handle.style.top = a.Rect.y;
+                handle.style.height = a.Rect.height;
+                handle.style.left = a.Rect.xMax - HANDLE_WIDTH / 2f;
+                handle.style.width = HANDLE_WIDTH;
+            }
+        }
+
+        private bool BeginDrag(Node a, Node b, VisualElement handle, bool vertical, float pointer)
+        {
+            EndPercentEdit(true);
+
+            a.Source.Update();
+            var elements = a.Source.FindProperty(a.SourcePath);
+            if (elements == null || Math.Max(a.Index, b.Index) >= elements.arraySize)
+                return false;
+
+            var weights = ReadWeights(elements);
+            var pair = weights[a.Index] + weights[b.Index];
+            if (pair == 0)
+                return false;
+
+            // With a small pair one pixel is too coarse a step, so every weight of the level is first multiplied by
+            // the same integer (the odds stay the same) and reduced again on release.
+            _dragScale = pair < MIN_DRAG_TOTAL ? (MIN_DRAG_TOTAL + pair - 1) / pair : 1;
+            for (var i = 0; i < weights.Length; i++)
+                weights[i] *= _dragScale;
+
+            _dragA = a;
+            _dragB = b;
+            _dragHandle = handle;
+            _dragVertical = vertical;
+            _dragStartWeights = weights;
+            _dragPair = pair * _dragScale;
+            _dragTotal = Sum(weights);
+            _dragStartPos = pointer;
+            _dragLengthA = vertical ? a.Rect.height : a.Rect.width;
+            _dragPairLength = _dragLengthA + (vertical ? b.Rect.height : b.Rect.width);
+            _dragMoved = false;
+
+            BeginUndo(DRAG_UNDO_NAME);
+            if (_dragScale > 1)
+                WriteWeights(a.Source, elements, weights);
+
+            return true;
+        }
+
+        private void Drag(float pointer)
+        {
+            if (_dragPairLength <= 0)
+                return;
+
+            var a = _dragA;
+            var b = _dragB;
+
+            // Neither entry drops to zero, which would take it out of the odds, unless the two had nothing to share.
+            var min = _dragPair >= 2 ? 1L : 0L;
+            var lengthA = _dragLengthA + pointer - _dragStartPos;
+            var weightA = (uint)Math.Clamp((long)Math.Round(lengthA / _dragPairLength * _dragPair), min, _dragPair - min);
+            if (_dragMoved && weightA == a.Weight)
+                return;
+
+            var weights = (uint[])_dragStartWeights.Clone();
+            weights[a.Index] = weightA;
+            weights[b.Index] = _dragPair - weightA;
+
+            a.Source.Update();
+            var elements = a.Source.FindProperty(a.SourcePath);
+            WriteWeights(a.Source, elements, weights);
+            _dragMoved = true;
+
+            a.Weight = weights[a.Index];
+            b.Weight = weights[b.Index];
+            a.SiblingTotal = b.SiblingTotal = _dragTotal;
+            RecomputeChance(a);
+            RecomputeChance(b);
+
+            ResizePair();
+        }
+
+        /// <summary>Gives the two tiles their new share of the row and redraws only them, so the handle keeps the pointer.</summary>
+        private void ResizePair()
+        {
+            var a = _dragA;
+            var b = _dragB;
+            var lengthA = _dragPairLength * a.Weight / _dragPair;
+
+            if (_dragVertical)
+            {
+                a.Rect = new Rect(a.Rect.x, a.Rect.y, a.Rect.width, lengthA);
+                b.Rect = new Rect(b.Rect.x, a.Rect.yMax, b.Rect.width, _dragPairLength - lengthA);
+            }
+            else
+            {
+                a.Rect = new Rect(a.Rect.x, a.Rect.y, lengthA, a.Rect.height);
+                b.Rect = new Rect(a.Rect.xMax, b.Rect.y, _dragPairLength - lengthA, b.Rect.height);
+            }
+
+            Erase(a);
+            Erase(b);
+            DrawNode(a);
+            DrawNode(b);
+
+            PlaceHandle(_dragHandle, a, _dragVertical);
+            _overlay.BringToFront();
+        }
+
+        private void EndDrag()
+        {
+            if (_dragA == null)
+                return;
+
+            var source = _dragA.Source;
+            var path = _dragA.SourcePath;
+
+            _dragA = null;
+            _dragB = null;
+            _dragHandle = null;
+
+            // Moved weights come back as the smallest numbers with the same odds; a click without a move
+            // only takes out what it multiplied in, so the weights typed by hand keep their numbers.
+            if (_dragMoved)
+                ReduceWeights(source, path, 0);
+            else if (_dragScale > 1)
+                ReduceWeights(source, path, _dragScale);
+
+            Undo.CollapseUndoOperations(_undoGroup);
+            Refresh();
+        }
+
+        #endregion
+
+        #region Typed Share
+
+        private void BeginPercentEdit(Node node)
+        {
+            EndPercentEdit(true);
+
+            node.Source.Update();
+            var elements = node.Source.FindProperty(node.SourcePath);
+            if (elements == null || elements.arraySize < 2 || node.Index >= elements.arraySize)
+                return;
+
+            var weights = ReadWeights(elements);
+            var total = Sum(weights);
+            if (total == 0)
+                return;
+
+            var size = _canvas.contentRect.size;
+            var width = Mathf.Min(PERCENT_FIELD_WIDTH, size.x);
+            var height = Mathf.Min(PERCENT_FIELD_HEIGHT, size.y);
+
+            _percentCancelled = false;
+            _percentField = new FloatField {
+                value = (float)Math.Round(100.0 * weights[node.Index] / total, 1),
+                tooltip = "Share among the entries of its level, in percent.",
+                style = {
+                    position = Position.Absolute,
+                    width = width,
+                    height = height,
+                    left = Mathf.Clamp(node.Box.center.x - width / 2f, 0, size.x - width),
+                    top = Mathf.Clamp(node.Box.center.y - height / 2f, 0, size.y - height),
+                    marginLeft = 0,
+                    marginRight = 0,
+                    marginTop = 0,
+                    marginBottom = 0
+                }
+            };
+
+            var field = _percentField;
+            field.RegisterCallback<KeyDownEvent>(evt => {
+                switch (evt.keyCode)
+                {
+                    case KeyCode.Return:
+                    case KeyCode.KeypadEnter:
+                        field.Blur();
+                        evt.StopPropagation();
+                        break;
+                    case KeyCode.Escape:
+                        _percentCancelled = true;
+                        field.Blur();
+                        evt.StopPropagation();
+                        break;
+                }
+            }, TrickleDown.TrickleDown);
+
+            field.RegisterCallback<FocusOutEvent>(_ => {
+                if (_percentField != field)
+                    return;
+
+                EndPercentEdit(!_percentCancelled, node);
+            });
+
+            _overlay.Add(field);
+            field.schedule.Execute(() => field.Focus());
+        }
+
+        private void EndPercentEdit(bool apply, Node node = null)
+        {
+            if (_percentField == null)
+                return;
+
+            var field = _percentField;
+            _percentField = null;
+            field.RemoveFromHierarchy();
+
+            if (apply && node != null)
+                SetShare(node, field.value);
+        }
+
+        /// <summary>Gives the entry this share of its level; the other entries keep their proportions.</summary>
+        private void SetShare(Node node, float percent)
+        {
+            node.Source.Update();
+            var elements = node.Source.FindProperty(node.SourcePath);
+            if (elements == null || node.Index >= elements.arraySize || elements.arraySize < 2)
+                return;
+
+            percent = Mathf.Clamp(percent, MIN_PERCENT, MAX_PERCENT);
+
+            var weights = ReadWeights(elements);
+            var others = Sum(weights) - weights[node.Index];
+
+            if (others == 0)
+            {
+                for (var i = 0; i < weights.Length; i++)
+                    if (i != node.Index) weights[i] = 1;
+
+                others = (uint)(weights.Length - 1);
+            }
+
+            // Enough resolution for a tenth of a percent before the weights are reduced again.
+            var scale = others < MIN_PERCENT_TOTAL ? (MIN_PERCENT_TOTAL + others - 1) / others : 1;
+            for (var i = 0; i < weights.Length; i++)
+                weights[i] *= scale;
+
+            var otherWeight = (double)others * scale;
+            weights[node.Index] = (uint)Math.Max(1, Math.Round(percent * otherWeight / (100 - percent)));
+
+            BeginUndo(PERCENT_UNDO_NAME);
+            WriteWeights(node.Source, elements, weights);
+            ReduceWeights(node.Source, node.SourcePath, 0);
+            Undo.CollapseUndoOperations(_undoGroup);
+
+            Refresh();
+        }
+
+        #endregion
+
+        private void Equalize(SerializedObject source, string path)
+        {
+            source.Update();
+            var elements = source.FindProperty(path);
+            if (elements == null)
+                return;
+
+            var weights = new uint[elements.arraySize];
+            Array.Fill(weights, 1u);
+
+            BeginUndo(EQUALIZE_UNDO_NAME);
+            WriteWeights(source, elements, weights);
+            Undo.CollapseUndoOperations(_undoGroup);
+
+            Refresh();
+        }
+
+        #region Weights
+
+        private void BeginUndo(string name)
+        {
+            Undo.IncrementCurrentGroup();
+            Undo.SetCurrentGroupName(name);
+            _undoGroup = Undo.GetCurrentGroup();
+        }
+
+        /// <summary>Divides every weight by their greatest common divisor, taken together with <paramref name="limit"/> (0 for none).</summary>
+        private static void ReduceWeights(SerializedObject source, string path, uint limit)
+        {
+            source.Update();
+            var elements = source.FindProperty(path);
+            if (elements == null)
+                return;
+
+            var weights = ReadWeights(elements);
+
+            var divisor = limit;
+            foreach (var weight in weights)
+                divisor = Gcd(divisor, weight);
+
+            if (divisor <= 1)
+                return;
+
+            for (var i = 0; i < weights.Length; i++)
+                weights[i] /= divisor;
+
+            WriteWeights(source, elements, weights);
+        }
+
+        private static uint[] ReadWeights(SerializedProperty elements)
+        {
+            var weights = new uint[elements.arraySize];
+            for (var i = 0; i < weights.Length; i++)
+                weights[i] = elements.GetArrayElementAtIndex(i).FindPropertyRelative(QUANTITY_PROP_NAME).uintValue;
+
+            return weights;
+        }
+
+        private static void WriteWeights(SerializedObject source, SerializedProperty elements, uint[] weights)
+        {
+            for (var i = 0; i < weights.Length; i++)
+                elements.GetArrayElementAtIndex(i).FindPropertyRelative(QUANTITY_PROP_NAME).uintValue = weights[i];
+
+            source.ApplyModifiedProperties();
+        }
+
+        private static uint Sum(uint[] weights)
+        {
+            uint total = 0;
+            foreach (var weight in weights)
+                total += weight;
+
+            return total;
+        }
+
+        private static uint Gcd(uint a, uint b)
+        {
+            while (b != 0)
+                (a, b) = (b, a % b);
+
+            return a;
+        }
+
+        #endregion
+
         #region Layout
 
         /// <summary>
         /// Squarified treemap: lays the nodes into <paramref name="area"/> by weight, biggest first, filling rows along
-        /// the shorter side for as long as that keeps the tiles closer to squares.
+        /// the shorter side for as long as that keeps the tiles closer to squares. Each node also learns its neighbour
+        /// in the row, for the handle between them.
         /// </summary>
         private static void Squarify(List<Node> nodes, Rect area)
         {
             var sorted = nodes.OrderByDescending(n => n.Weight).ToList();
+            foreach (var node in sorted)
+            {
+                node.RowNext = null;
+                node.NextRowAlone = null;
+            }
 
             double total = sorted.Sum(n => (double)n.Weight);
             if (total <= 0 || area.width <= 0 || area.height <= 0)
@@ -397,6 +996,7 @@ namespace SteamToys.Editor.InventorySystem
 
             var scale = area.width * area.height / total;
             var start = 0;
+            Node previousAlone = null;
 
             while (start < sorted.Count)
             {
@@ -419,20 +1019,30 @@ namespace SteamToys.Editor.InventorySystem
 
                 // The last row takes what is left, so rounding never leaves a sliver unfilled.
                 var thickness = end == sorted.Count ? Mathf.Max(area.width, area.height) : (float)(rowArea / side);
+                var stacked = area.width >= area.height;
 
                 var offset = 0f;
                 for (var i = start; i < end; i++)
                 {
                     var length = (float)(sorted[i].Weight * scale / rowArea) * side;
 
-                    sorted[i].Rect = area.width >= area.height
+                    sorted[i].Rect = stacked
                         ? new Rect(area.x, area.y + offset, thickness, length)
                         : new Rect(area.x + offset, area.y, length, thickness);
+                    sorted[i].RowStacked = stacked;
+                    sorted[i].RowNext = i + 1 < end ? sorted[i + 1] : null;
 
                     offset += length;
                 }
 
-                area = area.width >= area.height
+                // Two rows of one tile each, laid the same way, share a whole edge across the rows.
+                var alone = end - start == 1 ? sorted[start] : null;
+                if (alone != null && previousAlone != null && previousAlone.RowStacked == stacked)
+                    previousAlone.NextRowAlone = alone;
+
+                previousAlone = alone;
+
+                area = stacked
                     ? new Rect(area.x + thickness, area.y, area.width - thickness, area.height)
                     : new Rect(area.x, area.y + thickness, area.width, area.height - thickness);
 
@@ -448,7 +1058,7 @@ namespace SteamToys.Editor.InventorySystem
             var side2 = (double)side * side;
             var row2 = rowArea * rowArea;
 
-            return System.Math.Max(side2 * max / row2, row2 / (side2 * min));
+            return Math.Max(side2 * max / row2, row2 / (side2 * min));
         }
 
         #endregion
