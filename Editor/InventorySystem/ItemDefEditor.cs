@@ -65,6 +65,8 @@ namespace SteamToys.Editor.InventorySystem
                 (ItemDefElement.DISPLAY_TYPE, GetDisplayTypeWarnings),
                 (ItemDefElement.ICON_URL, GetIconUrlWarnings),
                 (ItemDefElement.ICON_URL_LARGE, GetIconUrlLargeWarnings),
+                (ItemDefElement.ICON, GetIconWarnings),
+                (ItemDefElement.ICON_LARGE, GetIconLargeWarnings),
                 (ItemDefElement.NAME_COLOR, GetNameColorWarnings),
                 (ItemDefElement.BACKGROUND_COLOR, GetBackgroundColorWarnings),
                 (ItemDefElement.CONTENT, GetContentWarnings),
@@ -103,6 +105,8 @@ namespace SteamToys.Editor.InventorySystem
         protected virtual IEnumerable<Warning> GetDisplayTypeWarnings(ItemDef item) => Enumerable.Empty<Warning>();
         protected virtual IEnumerable<Warning> GetIconUrlWarnings(ItemDef item) => Enumerable.Empty<Warning>();
         protected virtual IEnumerable<Warning> GetIconUrlLargeWarnings(ItemDef item) => Enumerable.Empty<Warning>();
+        protected virtual IEnumerable<Warning> GetIconWarnings(ItemDef item) => Enumerable.Empty<Warning>();
+        protected virtual IEnumerable<Warning> GetIconLargeWarnings(ItemDef item) => Enumerable.Empty<Warning>();
         protected virtual IEnumerable<Warning> GetNameColorWarnings(ItemDef item) => Enumerable.Empty<Warning>();
         protected virtual IEnumerable<Warning> GetBackgroundColorWarnings(ItemDef item) => Enumerable.Empty<Warning>();
         protected virtual IEnumerable<Warning> GetContentWarnings(ItemDef item) => Enumerable.Empty<Warning>();

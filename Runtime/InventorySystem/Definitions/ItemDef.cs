@@ -76,6 +76,25 @@ namespace SteamToys.Runtime.InventorySystem
             set => SetIconUrlLarge(value);
         }
 
+        /// <summary>
+        /// The icon downloaded from <see cref="IconUrl"/> into the project, for showing the item in the game. Editor
+        /// only fills it; it is not a schema property and is never exported.
+        /// </summary>
+        public Sprite Icon
+        {
+            get => GetIcon();
+            set => SetIcon(value);
+        }
+
+        /// <summary>
+        /// The icon downloaded from <see cref="IconUrlLarge"/> into the project. Not a schema property, never exported.
+        /// </summary>
+        public Sprite IconLarge
+        {
+            get => GetIconLarge();
+            set => SetIconLarge(value);
+        }
+
         public Color32 NameColor
         {
             get => GetNameColor();
@@ -258,6 +277,8 @@ namespace SteamToys.Runtime.InventorySystem
         [SerializeField] private string _displayType;
         [SerializeField] private Url _iconUrl;
         [SerializeField] private Url _iconUrlLarge;
+        [SerializeField] private Sprite _icon;
+        [SerializeField] private Sprite _iconLarge;
         [SerializeField] private Color32 _nameColor;
         [SerializeField] private Color32 _backgroundColor;
 
@@ -324,6 +345,14 @@ namespace SteamToys.Runtime.InventorySystem
         public virtual Url GetIconUrlLarge() => _iconUrlLarge;
 
         public virtual void SetIconUrlLarge(Url value) => _iconUrlLarge = value;
+
+        public virtual Sprite GetIcon() => _icon;
+
+        public virtual void SetIcon(Sprite value) => _icon = value;
+
+        public virtual Sprite GetIconLarge() => _iconLarge;
+
+        public virtual void SetIconLarge(Sprite value) => _iconLarge = value;
 
         public virtual Color32 GetNameColor() => _nameColor;
 
@@ -493,6 +522,9 @@ namespace SteamToys.Runtime.InventorySystem
                 nameof(_displayType) or nameof(DisplayType) => SchemaSupportsDisplayType(),
                 nameof(_iconUrl) or nameof(IconUrl) => SchemaSupportsIconUrl(),
                 nameof(_iconUrlLarge) or nameof(IconUrlLarge) => SchemaSupportsIconUrlLarge(),
+                // The local copies of the icons go with their URLs.
+                nameof(_icon) or nameof(Icon) => SchemaSupportsIconUrl(),
+                nameof(_iconLarge) or nameof(IconLarge) => SchemaSupportsIconUrlLarge(),
                 nameof(_nameColor) or nameof(NameColor) => SchemaSupportsNameColor(),
                 nameof(_backgroundColor) or nameof(BackgroundColor) => SchemaSupportsBackgroundColor(),
                 nameof(_bundle) or nameof(Content) => SchemaSupportsContent(),

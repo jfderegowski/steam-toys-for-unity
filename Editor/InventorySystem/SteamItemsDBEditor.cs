@@ -175,6 +175,13 @@ namespace SteamToys.Editor.InventorySystem
                 style = { flexGrow = 1 }
             });
 
+            buttons.Add(new InspectorButtonElement(DownloadAllIcons, "Download All Icons")
+            {
+                tooltip = $"Downloads the icons of every definition of the DB from their URLs into {ItemIconDownloader.ROOT}, " +
+                          "in folders following each URL, and sets their Icon and Icon Large to them.",
+                style = { flexGrow = 1 }
+            });
+
             buttons.Add(new InspectorButtonElement(CopyJson, "Copy All As JSON")
             {
                 tooltip = "Copies every definition of the DB in the file the Steam Inventory Service imports, with the " +
@@ -600,6 +607,9 @@ namespace SteamToys.Editor.InventorySystem
                     InventoryItemTags.Count > 0 ? $"on the owned item {string.Join(", ", InventoryItemTags)}" : null
                 }.Where(part => part != null));
         }
+
+        private void DownloadAllIcons() =>
+            _ = ItemIconDownloader.DownloadAsync(((SteamItemsDB)target).Items.Where(item => item).ToArray());
 
         private void CopyJson() => EditorGUIUtility.systemCopyBuffer = ((SteamItemsDB)target).ToJson();
 

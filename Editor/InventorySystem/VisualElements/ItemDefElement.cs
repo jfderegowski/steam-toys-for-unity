@@ -43,6 +43,20 @@ namespace SteamToys.Editor.InventorySystem
         private const string COPY_IMPORT_BUTTON_TOOLTIP =
             "Copy the selected items wrapped in an appid / items envelope, ready to import into the Steam Inventory Service.";
 
+        private const string DOWNLOAD_ICONS_BUTTON_TEXT = "Download Icons";
+
+        private const string DOWNLOAD_ICONS_BUTTON_TOOLTIP =
+            "Downloads the icons of the selected definitions from their URLs into " + ItemIconDownloader.ROOT +
+            ", in folders following each URL, and sets Icon and Icon Large to them.";
+
+        // The shapes Steam asks for: 200x200 for the icon, 350x200 for the large one, until a sprite is set.
+        private const float ICON_ASPECT = 1;
+        private const float ICON_LARGE_ASPECT = 350f / 200f;
+        private const float ICON_GAP = 6;
+
+        private const string HELP_BOX_LABEL_CLASS = "unity-help-box__label";
+        private const string HELP_BOX_BOTTOM_CLASS = "unity-help-box__bottom-container";
+
         private const string SCRIPT_PROPERTY = "m_Script";
         private const string SECTION_SAVE_KEY = "SteamToys.ItemDef.Section.";
 
@@ -55,6 +69,8 @@ namespace SteamToys.Editor.InventorySystem
         internal const string DISPLAY_TYPE = "_displayType";
         internal const string ICON_URL = "_iconUrl";
         internal const string ICON_URL_LARGE = "_iconUrlLarge";
+        internal const string ICON = "_icon";
+        internal const string ICON_LARGE = "_iconLarge";
         internal const string NAME_COLOR = "_nameColor";
         internal const string BACKGROUND_COLOR = "_backgroundColor";
         internal const string CONTENT = "_bundle";
@@ -107,6 +123,7 @@ namespace SteamToys.Editor.InventorySystem
         private readonly Func<ItemDef, IEnumerable<ItemDefWarnign>> _getAdditionalWarnings;
 
         private static readonly List<ItemDefWarnign> NoWarnings = new();
+        private static readonly Color IconPreviewBackground = new(0, 0, 0, 0.15f);
 
         #endregion
 
@@ -172,6 +189,10 @@ namespace SteamToys.Editor.InventorySystem
             AddField(display, ICON_URL_LARGE, "URL to the item's large icon image.");
             AddField(display, NAME_COLOR, "Color of the item's name in inventory.");
             AddField(display, BACKGROUND_COLOR, "Background color of the item in inventory.");
+            AddIconFields(display);
+
+            if (IsShown(ICON_URL) || IsShown(ICON_URL_LARGE))
+                display.Add(CreateDownloadIconsButton());
 
             var contents = AddSection("Contents", "section-contents-icon");
             AddField(contents, CONTENT, "What this creates: a bundle every entry with its quantity, a generator one entry picked by weight.");
@@ -301,6 +322,100 @@ namespace SteamToys.Editor.InventorySystem
             return frame;
         }
 
+        /// <summary>
+        /// Icon and Icon Large side by side across the whole section, each a preview over its sprite field, framed with
+        /// its warnings like any field. Their widths follow the shapes of the icons, so both previews are as tall.
+        /// </summary>
+        private void AddIconFields(VisualElement section)
+        {
+            var row = new VisualElement {
+                style = { flexDirection = FlexDirection.Row, alignItems = Align.Stretch, marginTop = 2, marginBottom = 2 }
+            };
+
+            AddIconField(row, ICON, ICON_ASPECT,
+                "The standard icon downloaded from Icon Url. Kept in the project only, never exported.");
+            AddIconField(row, ICON_LARGE, ICON_LARGE_ASPECT,
+                "The large icon downloaded from Icon Url Large. Kept in the project only, never exported.");
+
+            if (row.childCount == 0)
+                return;
+
+            // The gap only between the two.
+            for (var i = 0; i < row.childCount - 1; i++)
+                row[i].style.marginRight = ICON_GAP;
+
+            section.style.display = DisplayStyle.Flex;
+            section.Add(row);
+        }
+
+        private void AddIconField(VisualElement row, string fieldName, float defaultAspect, string tooltip)
+        {
+            _drawnFields.Add(fieldName);
+
+            var property = _serializedObject.FindProperty(fieldName);
+
+            if (property == null || !IsShown(fieldName))
+                return;
+
+            var aspect = defaultAspect;
+            var column = new VisualElement { tooltip = tooltip };
+
+            column.Add(new Label(property.displayName) { style = { unityFontStyleAndWeight = FontStyle.Bold, marginBottom = 2 } });
+
+            var preview = new Image {
+                scaleMode = ScaleMode.ScaleToFit,
+                style = {
+                    backgroundColor = IconPreviewBackground,
+                    borderTopLeftRadius = 3, borderTopRightRadius = 3, borderBottomLeftRadius = 3, borderBottomRightRadius = 3,
+                    justifyContent = Justify.Center
+                }
+            };
+
+            var empty = new Label("No icon") { style = { unityTextAlign = TextAnchor.MiddleCenter, opacity = 0.5f } };
+
+            preview.Add(empty);
+            column.Add(preview);
+
+            // Bound with the rest by Bind; it takes a sprite dropped on it, and shows the one Download Icons sets.
+            var field = new ObjectField { objectType = typeof(Sprite), allowSceneObjects = false, bindingPath = fieldName };
+
+            field.style.marginLeft = 0;
+            field.style.marginRight = 0;
+            field.style.marginTop = 2;
+            column.Add(field);
+
+            var frame = new FieldFrame(this, column) { style = { flexGrow = aspect, flexShrink = 1, flexBasis = 0, minWidth = 0 } };
+
+            // As tall as the width allows for the shape of the icon.
+            preview.RegisterCallback<GeometryChangedEvent>(change => {
+                var height = change.newRect.width / aspect;
+
+                if (Mathf.Abs(change.newRect.height - height) > 0.5f)
+                    preview.style.height = height;
+            });
+
+            preview.RegisterCallback<ClickEvent>(_ => {
+                if (field.value)
+                    EditorGUIUtility.PingObject(field.value);
+            });
+
+            field.RegisterValueChangedCallback(change => {
+                var sprite = change.newValue as Sprite;
+
+                preview.sprite = sprite;
+                empty.style.display = sprite ? DisplayStyle.None : DisplayStyle.Flex;
+
+                aspect = sprite && sprite.rect.height > 0 ? sprite.rect.width / sprite.rect.height : defaultAspect;
+                frame.style.flexGrow = aspect;
+
+                if (preview.resolvedStyle.width > 0)
+                    preview.style.height = preview.resolvedStyle.width / aspect;
+            });
+
+            _frames[fieldName] = frame;
+            row.Add(frame);
+        }
+
         private bool IsShown(string fieldName) =>
             _items.All(item => !item || item.SchemaSupportsField(fieldName));
 
@@ -314,7 +429,8 @@ namespace SteamToys.Editor.InventorySystem
             private static readonly Color BackgroundColor = new(0.95f, 0.73f, 0.1f, 0.06f);
 
             private readonly ItemDefElement _owner;
-            private readonly VisualElement _messages = new();
+            // Takes the height left when the frame is stretched next to a taller one.
+            private readonly VisualElement _messages = new() { style = { flexGrow = 1 } };
 
             public FieldFrame(ItemDefElement owner, VisualElement field)
             {
@@ -360,6 +476,37 @@ namespace SteamToys.Editor.InventorySystem
                 style.marginBottom = framed ? 2 : 0;
 
                 style.backgroundColor = framed ? BackgroundColor : Color.clear;
+            }
+        }
+
+        #endregion
+
+        #region Icons
+
+        private VisualElement CreateDownloadIconsButton()
+        {
+            InspectorButtonElement button = null;
+
+            button = new InspectorButtonElement(Download, DOWNLOAD_ICONS_BUTTON_TEXT) {
+                tooltip = DOWNLOAD_ICONS_BUTTON_TOOLTIP,
+                style = { marginLeft = 0, marginRight = 0, marginTop = 4 }
+            };
+
+            return button;
+
+            async void Download()
+            {
+                button.SetEnabled(false);
+
+                try
+                {
+                    await ItemIconDownloader.DownloadAsync(LiveItems.ToArray());
+                }
+                finally
+                {
+                    button.SetEnabled(true);
+                    _serializedObject.Update();
+                }
             }
         }
 
@@ -411,15 +558,46 @@ namespace SteamToys.Editor.InventorySystem
         private HelpBox CreateWarningBox(ItemDefWarnign warning, bool named)
         {
             var text = named && warning.ItemDef ? $"{warning.ItemDef.name}: {warning.Message}" : warning.Message;
-            var box = new HelpBox(text, HelpBoxMessageType.Warning);
+            // Grows to fill its frame, so the warnings of fields side by side are as tall; the text stays at the top
+            // and the Fix button at the bottom.
+            var box = new HelpBox(text, HelpBoxMessageType.Warning) { style = { flexGrow = 1 } };
 
-            if (warning.CanFix)
-                box.Add(new UnityEngine.UIElements.Button(() => ApplyFix(warning)) {
-                    text = FIX_BUTTON_TEXT,
-                    tooltip = FIX_BUTTON_TOOLTIP
-                });
+            FitTextHeight(box.Q<Label>(className: HELP_BOX_LABEL_CLASS));
+
+            if (!warning.CanFix)
+                return box;
+
+            var bottom = box.Q(className: HELP_BOX_BOTTOM_CLASS) ?? box;
+
+            bottom.style.flexDirection = FlexDirection.Column;
+            bottom.style.alignItems = Align.Stretch;
+            bottom.style.alignSelf = Align.Stretch;
+
+            bottom.Add(new InspectorButtonElement(() => ApplyFix(warning), FIX_BUTTON_TEXT) {
+                tooltip = FIX_BUTTON_TOOLTIP,
+                style = { marginLeft = 0, marginRight = 0, marginTop = 2, marginBottom = 2, alignSelf = Align.Stretch }
+            });
 
             return box;
+        }
+
+        /// <summary>
+        /// Keeps <paramref name="label"/> as tall as its text at the width it ends up with. Unity measures wrapped
+        /// text at the width before it is rounded to whole pixels, so a line that needs exactly the final width is
+        /// measured as wrapping once more and leaves an empty line under the text.
+        /// </summary>
+        private static void FitTextHeight(Label label)
+        {
+            if (label == null)
+                return;
+
+            label.RegisterCallback<GeometryChangedEvent>(change => {
+                var height = label.MeasureTextSize(label.text, change.newRect.width, MeasureMode.Exactly, 0,
+                    MeasureMode.Undefined).y;
+
+                if (!float.IsNaN(height) && Mathf.Abs(change.newRect.height - height) > 0.5f)
+                    label.style.height = height;
+            });
         }
 
         /// <summary>Fixes the definition, then shows the fields, warnings and JSON as they are now.</summary>
@@ -440,6 +618,8 @@ namespace SteamToys.Editor.InventorySystem
             (NAME, GetNameWarnings),
             (CONTENT, GetContentWarnings),
             (PRICE, GetPriceWarnings),
+            (ICON, item => GetIconWarnings(item, item.IconUrl, item.Icon, "Icon")),
+            (ICON_LARGE, item => GetIconWarnings(item, item.IconUrlLarge, item.IconLarge, "Icon Large")),
             (PURCHASE_BUNDLE_DISCOUNT, GetPurchaseBundleDiscountWarnings),
             (PURCHASE_LIMIT, GetPurchaseLimitWarnings),
             (EXCHANGE, GetExchangeWarnings),
@@ -475,6 +655,28 @@ namespace SteamToys.Editor.InventorySystem
         {
             if (string.IsNullOrWhiteSpace(item.Name))
                 yield return new Warning("Name is empty: Steam rejects the definition, and an upload stops there.");
+        }
+
+        /// <summary>A local icon that is missing, or is not the file of its URL.</summary>
+        private static IEnumerable<Warning> GetIconWarnings(ItemDef item, Url url, Sprite icon, string label)
+        {
+            var hasUrl = url is not null && url.IsValid();
+
+            if (!hasUrl)
+            {
+                if (icon)
+                    yield return new Warning($"{label} is set, but its URL is empty, so Steam shows no icon there.");
+
+                yield break;
+            }
+
+            Action download = () => _ = ItemIconDownloader.DownloadAsync(new[] { item });
+
+            if (!icon)
+                yield return new Warning($"{label} is not downloaded yet; Fix downloads it from its URL.", download);
+            else if (!ItemIconDownloader.IsDownloadOf(icon, url))
+                yield return new Warning($"{label} is not the file of its URL, so it may differ from what Steam shows; " +
+                                         "Fix downloads it from the URL.", download);
         }
 
         private static IEnumerable<Warning> GetContentWarnings(ItemDef item)
