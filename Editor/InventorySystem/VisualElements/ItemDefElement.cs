@@ -99,6 +99,11 @@ namespace SteamToys.Editor.InventorySystem
         private const string TAG_NAME = "_tagName";
         private const string TAG_VALUES_AND_CHANCES = "_tagValuesAndChances";
 
+        // How a SerializableDictionary serializes: a list of entries, each a key and a value.
+        private const string TAG_VALUES_ENTRIES_PATH = ".entries";
+        private const string TAG_VALUE_KEY = "key";
+        private const string TAG_VALUE_CHANCE = "value";
+
         // Serialized paths inside those fields, for the fixes of the warnings.
         private const string HAS_VALUE_PATH = ".hasValue";
         private const string DATE_HAS_VALUE_PATH = "._hasValue";
@@ -201,6 +206,7 @@ namespace SteamToys.Editor.InventorySystem
             var tagGenerator = AddSection("Tag Generator", "section-tag-generator-icon");
             AddField(tagGenerator, TAG_NAME, "Steam name of the generated tag, e.g. rarity.");
             AddField(tagGenerator, TAG_VALUES_AND_CHANCES, "Steam values of the tag with their relative odds, e.g. legendary: 1.");
+            AddTagValuesTreemap(tagGenerator);
 
             var pricing = AddSection("Pricing", "section-pricing-icon");
             AddField(pricing, PRICE, "Price information for the item.");
@@ -282,6 +288,20 @@ namespace SteamToys.Editor.InventorySystem
 
             section.style.display = DisplayStyle.Flex;
             section.Add(CreateFrame(property, tooltip));
+        }
+
+        /// <summary>The odds of the tag values as a treemap, under their field, editable like a generator's.</summary>
+        private void AddTagValuesTreemap(VisualElement section)
+        {
+            var entries = _serializedObject.FindProperty(TAG_VALUES_AND_CHANCES + TAG_VALUES_ENTRIES_PATH);
+
+            if (entries == null || !IsShown(TAG_VALUES_AND_CHANCES))
+                return;
+
+            var treemap = new ContentTreemapElement(entries, TAG_VALUE_KEY, TAG_VALUE_CHANCE);
+
+            section.Add(treemap);
+            treemap.TrackSerializedObjectValue(_serializedObject, _ => treemap.Refresh());
         }
 
         /// <summary>The fields a subclass of the game adds, drawn with its own attributes.</summary>

@@ -49,7 +49,7 @@ namespace SteamToys.Editor.InventorySystem
         private const string EQUALIZE_INSIDE_MENU = "Equalize Weights Inside";
 
         private const int MAP_HEIGHT = 240;
-        private const int MAP_RADIUS = 8;
+        private const int MAP_RADIUS = 4;
         private const float LINE_WIDTH = 1f;
         private const float ICON_INSET = 2f;
         private const int MAX_DEPTH = 8;
@@ -86,6 +86,8 @@ namespace SteamToys.Editor.InventorySystem
 
         private readonly SerializedObject _serializedObject;
         private readonly string _elementsPath;
+        private readonly string _nameProp;
+        private readonly string _weightProp;
 
         private readonly VisualElement _canvas;
         private readonly VisualElement _overlay;
@@ -127,9 +129,10 @@ namespace SteamToys.Editor.InventorySystem
             public string NotExpanded;
             public readonly List<Node> Children = new();
 
-            /// <summary>The object and the list this entry is in; null when it cannot be edited.</summary>
+            /// <summary>The object and the list this entry is in, and its weight's relative path; null when it cannot be edited.</summary>
             public SerializedObject Source;
             public string SourcePath;
+            public string WeightProp;
 
             /// <summary>The object and the list of the item's own entries; null when they cannot be edited.</summary>
             public SerializedObject ContentSource;
@@ -153,10 +156,25 @@ namespace SteamToys.Editor.InventorySystem
             public bool Editable => Source != null && !InBundle;
         }
 
-        public ContentTreemapElement(SerializedProperty elements)
+        /// <summary>A treemap of the elements of a <see cref="BundleContent"/>.</summary>
+        public ContentTreemapElement(SerializedProperty elements) : this(elements, ITEM_PROP_NAME, QUANTITY_PROP_NAME) { }
+
+        /// <summary>
+        /// A treemap of any serialized list whose elements have a name and a weight, e.g. the values of a tag
+        /// generator with their odds.
+        /// </summary>
+        /// <param name="elements">The list.</param>
+        /// <param name="nameProp">
+        /// Relative path of each element's name: an <see cref="ItemDef"/>, whose content is then nested inside it,
+        /// or anything else, shown as its text, e.g. a string or an enum.
+        /// </param>
+        /// <param name="weightProp">Relative path of each element's weight, a <c>uint</c>.</param>
+        public ContentTreemapElement(SerializedProperty elements, string nameProp, string weightProp)
         {
             _serializedObject = elements.serializedObject;
             _elementsPath = elements.propertyPath;
+            _nameProp = nameProp;
+            _weightProp = weightProp;
 
             var styleSheet = AssetDatabase.LoadAssetAtPath<StyleSheet>(AssetDatabase.GUIDToAssetPath(STYLE_SHEET_GUID));
             if (styleSheet)
@@ -207,12 +225,16 @@ namespace SteamToys.Editor.InventorySystem
             var elements = _serializedObject.FindProperty(_elementsPath);
             if (elements != null)
             {
-                var entries = new List<(ItemDef item, uint quantity)>(elements.arraySize);
+                var entries = new List<(ItemDef item, string name, uint weight)>(elements.arraySize);
                 for (var i = 0; i < elements.arraySize; i++)
                 {
                     var element = elements.GetArrayElementAtIndex(i);
-                    entries.Add((element.FindPropertyRelative(ITEM_PROP_NAME).objectReferenceValue as ItemDef,
-                                 element.FindPropertyRelative(QUANTITY_PROP_NAME).uintValue));
+                    var name = element.FindPropertyRelative(_nameProp);
+                    var weight = element.FindPropertyRelative(_weightProp)?.uintValue ?? 0;
+
+                    entries.Add(name is { propertyType: SerializedPropertyType.ObjectReference }
+                        ? (name.objectReferenceValue as ItemDef, null, weight)
+                        : (null, GetLabel(name), weight));
                 }
 
                 var owner = _serializedObject.targetObject as ItemDef;
@@ -221,7 +243,7 @@ namespace SteamToys.Editor.InventorySystem
                     path.Add(owner);
 
                 AddChildren(_roots, entries, owner && owner.Type == ItemType.Bundle, 1.0, null, path, 0, null,
-                            _serializedObject, _elementsPath);
+                            _serializedObject, _elementsPath, _weightProp);
             }
 
             style.display = _roots.Count > 0 ? DisplayStyle.Flex : DisplayStyle.None;
@@ -230,24 +252,25 @@ namespace SteamToys.Editor.InventorySystem
 
         #region Tree
 
-        private void AddChildren(List<Node> into, IReadOnlyList<(ItemDef item, uint quantity)> entries, bool inBundle,
-                                 double chance, string parentPath, HashSet<ItemDef> path, int depth, float? hue,
-                                 SerializedObject source, string sourcePath)
+        /// <param name="entries">The entries of one level: an item, or a name when the entry is no item.</param>
+        private void AddChildren(List<Node> into, IReadOnlyList<(ItemDef item, string name, uint weight)> entries,
+                                 bool inBundle, double chance, string parentPath, HashSet<ItemDef> path, int depth,
+                                 float? hue, SerializedObject source, string sourcePath, string weightProp)
         {
             uint total = 0;
-            foreach (var (_, quantity) in entries)
-                total += quantity;
+            foreach (var entry in entries)
+                total += entry.weight;
 
             if (total == 0)
                 return;
 
             for (var i = 0; i < entries.Count; i++)
             {
-                var (item, quantity) = entries[i];
+                var (item, label, quantity) = entries[i];
                 if (quantity == 0)
                     continue;
 
-                var name = GetItemName(item);
+                var name = label ?? GetItemName(item);
                 var node = new Node {
                     Item = item,
                     Name = name,
@@ -261,7 +284,8 @@ namespace SteamToys.Editor.InventorySystem
                     Index = i,
                     Depth = depth,
                     Source = source,
-                    SourcePath = sourcePath
+                    SourcePath = sourcePath,
+                    WeightProp = weightProp
                 };
 
                 if (item && item.SchemaSupportsContent() && item.Content is { Count: > 0 } content)
@@ -276,9 +300,9 @@ namespace SteamToys.Editor.InventorySystem
                         node.ContentSource = node.ContentIsBundle ? null : GetSource(item);
 
                         path.Add(item);
-                        AddChildren(node.Children, content.Select(e => (e.Item, e.Quantity)).ToList(),
+                        AddChildren(node.Children, content.Select(e => (e.Item, (string)null, e.Quantity)).ToList(),
                                     node.ContentIsBundle, node.Chance, node.Path, path, depth + 1, node.Hue,
-                                    node.ContentSource, CONTENT_ELEMENTS_PATH);
+                                    node.ContentSource, CONTENT_ELEMENTS_PATH, QUANTITY_PROP_NAME);
                         path.Remove(item);
                     }
                 }
@@ -414,11 +438,11 @@ namespace SteamToys.Editor.InventorySystem
                 {
                     // Opened a frame later, so the menu closing does not take the focus from the new field.
                     evt.menu.AppendAction(CHANGE_PERCENTAGE_MENU, _ => tile.schedule.Execute(() => BeginPercentEdit(node)));
-                    evt.menu.AppendAction(EQUALIZE_LEVEL_MENU, _ => Equalize(node.Source, node.SourcePath));
+                    evt.menu.AppendAction(EQUALIZE_LEVEL_MENU, _ => Equalize(node.Source, node.SourcePath, node.WeightProp));
                 }
 
                 if (node.ContentSource != null)
-                    evt.menu.AppendAction(EQUALIZE_INSIDE_MENU, _ => Equalize(node.ContentSource, CONTENT_ELEMENTS_PATH));
+                    evt.menu.AppendAction(EQUALIZE_INSIDE_MENU, _ => Equalize(node.ContentSource, CONTENT_ELEMENTS_PATH, QUANTITY_PROP_NAME));
             }));
 
             node.Host.Add(tile);
@@ -787,7 +811,7 @@ namespace SteamToys.Editor.InventorySystem
             if (elements == null || Math.Max(a.Index, b.Index) >= elements.arraySize)
                 return false;
 
-            var weights = ReadWeights(elements);
+            var weights = ReadWeights(elements, a.WeightProp);
             var pair = weights[a.Index] + weights[b.Index];
             if (pair == 0)
                 return false;
@@ -812,7 +836,7 @@ namespace SteamToys.Editor.InventorySystem
 
             BeginUndo(DRAG_UNDO_NAME);
             if (_dragScale > 1)
-                WriteWeights(a.Source, elements, weights);
+                WriteWeights(a.Source, elements, a.WeightProp, weights);
 
             return true;
         }
@@ -838,7 +862,7 @@ namespace SteamToys.Editor.InventorySystem
 
             a.Source.Update();
             var elements = a.Source.FindProperty(a.SourcePath);
-            WriteWeights(a.Source, elements, weights);
+            WriteWeights(a.Source, elements, a.WeightProp, weights);
             _dragMoved = true;
 
             a.Weight = weights[a.Index];
@@ -884,6 +908,7 @@ namespace SteamToys.Editor.InventorySystem
 
             var source = _dragA.Source;
             var path = _dragA.SourcePath;
+            var weightProp = _dragA.WeightProp;
 
             _dragA = null;
             _dragB = null;
@@ -892,9 +917,9 @@ namespace SteamToys.Editor.InventorySystem
             // Moved weights come back as the smallest numbers with the same odds; a click without a move
             // only takes out what it multiplied in, so the weights typed by hand keep their numbers.
             if (_dragMoved)
-                ReduceWeights(source, path, 0);
+                ReduceWeights(source, path, weightProp, 0);
             else if (_dragScale > 1)
-                ReduceWeights(source, path, _dragScale);
+                ReduceWeights(source, path, weightProp, _dragScale);
 
             Undo.CollapseUndoOperations(_undoGroup);
             Refresh();
@@ -913,7 +938,7 @@ namespace SteamToys.Editor.InventorySystem
             if (elements == null || elements.arraySize < 2 || node.Index >= elements.arraySize)
                 return;
 
-            var weights = ReadWeights(elements);
+            var weights = ReadWeights(elements, node.WeightProp);
             var total = Sum(weights);
             if (total == 0)
                 return;
@@ -990,7 +1015,7 @@ namespace SteamToys.Editor.InventorySystem
 
             percent = Mathf.Clamp(percent, MIN_PERCENT, MAX_PERCENT);
 
-            var weights = ReadWeights(elements);
+            var weights = ReadWeights(elements, node.WeightProp);
             var others = Sum(weights) - weights[node.Index];
 
             if (others == 0)
@@ -1010,8 +1035,8 @@ namespace SteamToys.Editor.InventorySystem
             weights[node.Index] = (uint)Math.Max(1, Math.Round(percent * otherWeight / (100 - percent)));
 
             BeginUndo(PERCENT_UNDO_NAME);
-            WriteWeights(node.Source, elements, weights);
-            ReduceWeights(node.Source, node.SourcePath, 0);
+            WriteWeights(node.Source, elements, node.WeightProp, weights);
+            ReduceWeights(node.Source, node.SourcePath, node.WeightProp, 0);
             Undo.CollapseUndoOperations(_undoGroup);
 
             Refresh();
@@ -1019,7 +1044,7 @@ namespace SteamToys.Editor.InventorySystem
 
         #endregion
 
-        private void Equalize(SerializedObject source, string path)
+        private void Equalize(SerializedObject source, string path, string weightProp)
         {
             source.Update();
             var elements = source.FindProperty(path);
@@ -1030,7 +1055,7 @@ namespace SteamToys.Editor.InventorySystem
             Array.Fill(weights, 1u);
 
             BeginUndo(EQUALIZE_UNDO_NAME);
-            WriteWeights(source, elements, weights);
+            WriteWeights(source, elements, weightProp, weights);
             Undo.CollapseUndoOperations(_undoGroup);
 
             Refresh();
@@ -1046,14 +1071,14 @@ namespace SteamToys.Editor.InventorySystem
         }
 
         /// <summary>Divides every weight by their greatest common divisor, taken together with <paramref name="limit"/> (0 for none).</summary>
-        private static void ReduceWeights(SerializedObject source, string path, uint limit)
+        private static void ReduceWeights(SerializedObject source, string path, string weightProp, uint limit)
         {
             source.Update();
             var elements = source.FindProperty(path);
             if (elements == null)
                 return;
 
-            var weights = ReadWeights(elements);
+            var weights = ReadWeights(elements, weightProp);
 
             var divisor = limit;
             foreach (var weight in weights)
@@ -1065,22 +1090,22 @@ namespace SteamToys.Editor.InventorySystem
             for (var i = 0; i < weights.Length; i++)
                 weights[i] /= divisor;
 
-            WriteWeights(source, elements, weights);
+            WriteWeights(source, elements, weightProp, weights);
         }
 
-        private static uint[] ReadWeights(SerializedProperty elements)
+        private static uint[] ReadWeights(SerializedProperty elements, string weightProp)
         {
             var weights = new uint[elements.arraySize];
             for (var i = 0; i < weights.Length; i++)
-                weights[i] = elements.GetArrayElementAtIndex(i).FindPropertyRelative(QUANTITY_PROP_NAME).uintValue;
+                weights[i] = elements.GetArrayElementAtIndex(i).FindPropertyRelative(weightProp).uintValue;
 
             return weights;
         }
 
-        private static void WriteWeights(SerializedObject source, SerializedProperty elements, uint[] weights)
+        private static void WriteWeights(SerializedObject source, SerializedProperty elements, string weightProp, uint[] weights)
         {
             for (var i = 0; i < weights.Length; i++)
-                elements.GetArrayElementAtIndex(i).FindPropertyRelative(QUANTITY_PROP_NAME).uintValue = weights[i];
+                elements.GetArrayElementAtIndex(i).FindPropertyRelative(weightProp).uintValue = weights[i];
 
             source.ApplyModifiedProperties();
         }
@@ -1213,6 +1238,20 @@ namespace SteamToys.Editor.InventorySystem
                 return NO_ITEM_LABEL;
 
             return string.IsNullOrEmpty(item.Name) ? item.name : item.Name;
+        }
+
+        /// <summary>The name of an entry that is no item, e.g. a tag value as a string or an enum.</summary>
+        private static string GetLabel(SerializedProperty name)
+        {
+            var label = name?.propertyType switch {
+                SerializedPropertyType.String => name.stringValue,
+                SerializedPropertyType.Enum => name.enumValueIndex >= 0 ? name.enumNames[name.enumValueIndex] : name.intValue.ToString(),
+                SerializedPropertyType.Integer => name.longValue.ToString(),
+                null => null,
+                _ => name.boxedValue?.ToString()
+            };
+
+            return string.IsNullOrWhiteSpace(label) ? NO_ITEM_LABEL : label;
         }
     }
 }
