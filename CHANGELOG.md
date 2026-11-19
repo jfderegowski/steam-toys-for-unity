@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.2] - 2026-11-19
+
+### Fixed
+
+- `SteamItemsDB.Get` no longer throws a NullReferenceException after an editor domain reload. Unity restored
+  the cached definition list but not the itemdefid lookup, so the DB thought it was loaded; this broke
+  `Inventory.AddItem` while a Steam inventory result was applied in Edit mode. Both caches are now
+  `[NonSerialized]`, and the DB reloads when either is missing.
+
 ## [0.10.1] - 2026-11-10
 
 ### Fixed

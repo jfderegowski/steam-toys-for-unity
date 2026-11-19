@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -60,8 +61,10 @@ namespace SteamToys.Runtime.InventorySystem
 
         #region Private Fields
 
-        private List<ItemDef> _items;
-        private Dictionary<ulong, ItemDef> _byId;
+        // Caches rebuilt from the Resources folder, never data of the asset. NonSerialized so an editor domain reload
+        // drops both together: Unity would otherwise restore the list but not the dictionary.
+        [NonSerialized] private List<ItemDef> _items;
+        [NonSerialized] private Dictionary<ulong, ItemDef> _byId;
 
         #endregion
 
@@ -116,7 +119,7 @@ namespace SteamToys.Runtime.InventorySystem
 
         private void EnsureLoaded()
         {
-            if (_items == null)
+            if (_items == null || _byId == null)
                 Reload();
         }
 
