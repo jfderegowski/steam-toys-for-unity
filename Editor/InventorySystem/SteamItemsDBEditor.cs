@@ -60,9 +60,26 @@ namespace SteamToys.Editor.InventorySystem
         private static DateTime _steamReadAt;
         private static bool _steamStale = true;
 
+        // The status lists at most this many problems of the DB as a set, so thousands of them do not push the table
+        // out of view or make every layout of the status slow.
+        private const int MaxDbWarningsShown = 20;
+
         private readonly List<Row> _rows = new();
         private readonly List<Row> _visibleRows = new();
         private readonly List<string> _dbWarnings = new();
+
+        // The row of each definition with the dirty count it was built at. A refresh builds again only the rows of
+        // the definitions changed since, so the periodic one costs next to nothing while nothing changes.
+        private readonly Dictionary<ItemDef, (int dirtyCount, Row row)> _rowCache = new();
+
+        // The editor Unity picks for each class, for the warnings an editor of a subclass adds. Kept while the
+        // inspector is open rather than made again for every refresh.
+        private readonly Dictionary<Type, UnityEditor.Editor> _warningEditors = new();
+
+        // Set when every row is to be built again: on opening, when assets were imported, moved or deleted, after an
+        // undo, and when Steam was read. A warning may depend on another definition or an asset, which an edit of the
+        // definition itself does not show.
+        private bool _rebuildAll = true;
 
         // The definition of the selected row, or the itemdefid of a definition Steam alone has. Kept apart from the
         // selection of the table, which a filter can hide the row from.
@@ -217,15 +234,38 @@ namespace SteamToys.Editor.InventorySystem
 
             // Read again on opening, for a change the Steam client did not report.
             _steamStale = true;
+            _rebuildAll = true;
 
             Refresh();
             ShowDetail(FindRow(_selectedKey));
 
-            // Polled, because definitions are files that change without the DB being told.
-            root.schedule.Execute(Refresh).Every(1000);
+            // Polled, because definitions change without the DB being told; a refresh with nothing changed only
+            // compares dirty counts.
+            root.schedule.Execute(() => Refresh()).Every(1000);
 
             return root;
         }
+
+        private void OnEnable()
+        {
+            EditorApplication.projectChanged += RebuildAll;
+            Undo.undoRedoPerformed += RebuildAll;
+        }
+
+        private void OnDisable()
+        {
+            EditorApplication.projectChanged -= RebuildAll;
+            Undo.undoRedoPerformed -= RebuildAll;
+
+            foreach (var editor in _warningEditors.Values)
+                if (editor)
+                    DestroyImmediate(editor);
+
+            _warningEditors.Clear();
+            _rowCache.Clear();
+        }
+
+        private void RebuildAll() => _rebuildAll = true;
 
         private void CreateFromSteam()
         {
@@ -363,6 +403,8 @@ namespace SteamToys.Editor.InventorySystem
 
             // A definition Steam alone had is a definition of the DB now, and stays selected as one.
             var made = _selectedKey is ulong id ? report.Created.Concat(report.Updated).FirstOrDefault(item => item.ItemDefId == id) : null;
+
+            _rebuildAll = true;
 
             if (made)
                 Select(made);
@@ -621,6 +663,10 @@ namespace SteamToys.Editor.InventorySystem
                 File.WriteAllText(path, ((SteamItemsDB)target).ToJson());
         }
 
+        /// <summary>
+        /// Builds again the rows of the definitions that changed, or every row when <see cref="_rebuildAll"/> is set,
+        /// and refills the table only when a row changed. While nothing changes it only compares dirty counts.
+        /// </summary>
         private void Refresh()
         {
             if (!target)
@@ -628,44 +674,115 @@ namespace SteamToys.Editor.InventorySystem
 
             var db = (SteamItemsDB)target;
 
-            db.Reload();
-
             if (Inventory.Initialized && (_steamStale ||
-                                          _steamDefinitions is { Count: 0 } && DateTime.Now - _steamReadAt > SteamRetryInterval))
-                ReadSteam(db);
+                                          _steamDefinitions is { Count: 0 } && DateTime.Now - _steamReadAt > SteamRetryInterval) &&
+                ReadSteam(db))
+                _rebuildAll = true;
 
-            _dbWarnings.Clear();
-            db.CollectSchemaWarnings(_dbWarnings);
+            var changed = _rebuildAll || HasChangedItems(db);
 
-            BuildRows(db);
+            if (changed)
+            {
+                // A changed itemdefid moves the definition in the DB, so it is loaded again with the rows.
+                db.Reload();
 
-            var withProblems = _rows.Count(row => row.Item && row.Severity >= HelpBoxMessageType.Warning);
-            var steamOnly = _rows.Count(row => !row.Item);
+                if (_rebuildAll)
+                    _rowCache.Clear();
 
-            _createButton.SetEnabled(Inventory.Initialized);
+                _rebuildAll = false;
 
-            _status.messageType = withProblems + steamOnly > 0 || _dbWarnings.Count > 0 ? HelpBoxMessageType.Warning : HelpBoxMessageType.Info;
-            _status.text = $"{_rows.Count - steamOnly} definitions in {SteamItemsDB.AssetsFolder}, {withProblems} with problems" +
-                           (steamOnly == 0 ? ". " : $", {steamOnly} on Steam only. ") +
-                           $"App ID {SteamItemsDB.AppId}, from the Steam Settings.\n{DescribeSteam()}" +
-                           (_dbWarnings.Count == 0 ? string.Empty : "\n" + string.Join("\n", _dbWarnings));
+                _dbWarnings.Clear();
+                db.CollectSchemaWarnings(_dbWarnings);
+
+                BuildRows(db);
+            }
+
+            UpdateStatus();
 
             if (_selectedKey is Object selected && !selected)
+            {
                 Select(null);
+                return;
+            }
+
+            if (!changed)
+                return;
 
             ApplyFilter();
             UpdateDetailProblems();
         }
 
         /// <summary>
+        /// Whether a definition of the DB was changed, added or removed since its row was built: its dirty count
+        /// grows with every change made in the editor, an undo included.
+        /// </summary>
+        private bool HasChangedItems(SteamItemsDB db)
+        {
+            var items = db.Items;
+            var count = 0;
+
+            foreach (var item in items)
+            {
+                if (!item || !_rowCache.TryGetValue(item, out var cached) || cached.dirtyCount != EditorUtility.GetDirtyCount(item))
+                    return true;
+
+                count++;
+            }
+
+            return count != _rowCache.Count;
+        }
+
+        /// <summary>The summary over the table, set only when its text changes, so an unchanged one is not laid out again.</summary>
+        private void UpdateStatus()
+        {
+            var withProblems = 0;
+            var steamOnly = 0;
+
+            foreach (var row in _rows)
+            {
+                if (!row.Item)
+                    steamOnly++;
+                else if (row.Severity >= HelpBoxMessageType.Warning)
+                    withProblems++;
+            }
+
+            _createButton.SetEnabled(Inventory.Initialized);
+
+            var messageType = withProblems + steamOnly > 0 || _dbWarnings.Count > 0 ? HelpBoxMessageType.Warning : HelpBoxMessageType.Info;
+            var text = $"{_rows.Count - steamOnly} definitions in {SteamItemsDB.AssetsFolder}, {withProblems} with problems" +
+                       (steamOnly == 0 ? ". " : $", {steamOnly} on Steam only. ") +
+                       $"App ID {SteamItemsDB.AppId}, from the Steam Settings.\n{DescribeSteam()}" +
+                       DescribeDbWarnings();
+
+            if (_status.messageType != messageType)
+                _status.messageType = messageType;
+
+            if (_status.text != text)
+                _status.text = text;
+        }
+
+        private string DescribeDbWarnings()
+        {
+            if (_dbWarnings.Count == 0)
+                return string.Empty;
+
+            var shown = string.Join("\n", _dbWarnings.Take(MaxDbWarningsShown));
+
+            return _dbWarnings.Count <= MaxDbWarningsShown
+                ? "\n" + shown
+                : $"\n{shown}\n... and {_dbWarnings.Count - MaxDbWarningsShown} more.";
+        }
+
+        /// <summary>
         /// Reads the definitions the Steam client lists, and those of the DB it does not list but knows by itemdefid.
         /// </summary>
-        private static void ReadSteam(SteamItemsDB db)
+        /// <returns>Whether they were read; false when there is no Steam session to read them through.</returns>
+        private static bool ReadSteam(SteamItemsDB db)
         {
             var definitions = ItemDefsFromSteam.ReadAll();
 
             if (definitions == null)
-                return;
+                return false;
 
             _steamStale = false;
             _steamReadAt = DateTime.Now;
@@ -683,6 +800,8 @@ namespace SteamToys.Editor.InventorySystem
             }
 
             _steamDefinitions = definitions;
+
+            return true;
         }
 
         private static string DescribeSteam()
@@ -708,44 +827,38 @@ namespace SteamToys.Editor.InventorySystem
 
             var compared = steamById.Count > 0;
             var inDb = new HashSet<ulong>();
+            var live = new HashSet<ItemDef>();
 
-            // The editor Unity picks for each class, for the warnings an editor of a subclass adds.
-            var editors = new Dictionary<Type, UnityEditor.Editor>();
-
-            try
+            foreach (var item in db.Items)
             {
-                foreach (var item in db.Items)
+                if (!item)
+                    continue;
+
+                inDb.Add(item.ItemDefId);
+                live.Add(item);
+                steamById.TryGetValue(item.ItemDefId, out var steam);
+
+                var dirtyCount = EditorUtility.GetDirtyCount(item);
+
+                // Unchanged since its row was built, and still paired with the same definition on Steam: an itemdefid
+                // changed in the DB pairs it with another one.
+                if (_rowCache.TryGetValue(item, out var cached) && cached.dirtyCount == dirtyCount && cached.row.Steam == steam)
                 {
-                    if (!item)
-                        continue;
-
-                    inDb.Add(item.ItemDefId);
-                    steamById.TryGetValue(item.ItemDefId, out var steam);
-
-                    var row = new Row(item, steam);
-                    var warnings = ItemDefElement.GetWarnings(item).ToList();
-
-                    if (!editors.TryGetValue(item.GetType(), out var editor))
-                        editors[item.GetType()] = editor = CreateEditor(item);
-
-                    if (editor is ItemDefEditor itemDefEditor)
-                        warnings.AddRange(itemDefEditor.GetWarnings(item));
-
-                    // Fixed in the inspector of the definition, under the table.
-                    foreach (var warning in warnings)
-                        row.Add(HelpBoxMessageType.Warning, warning.Message);
-
-                    if (compared)
-                        AddSteamProblems(row);
-
-                    _rows.Add(row);
+                    _rows.Add(cached.row);
+                    continue;
                 }
+
+                var row = BuildRow(item, steam, compared);
+
+                _rowCache[item] = (dirtyCount, row);
+                _rows.Add(row);
             }
-            finally
+
+            // Definitions removed from the DB, or destroyed.
+            if (_rowCache.Count != live.Count)
             {
-                foreach (var editor in editors.Values)
-                    if (editor)
-                        DestroyImmediate(editor);
+                foreach (var item in _rowCache.Keys.Where(item => !live.Contains(item)).ToList())
+                    _rowCache.Remove(item);
             }
 
             foreach (var steam in steamById.Values.Where(steam => !inDb.Contains(steam.ItemDefId)))
@@ -761,6 +874,38 @@ namespace SteamToys.Editor.InventorySystem
 
             _rows.Clear();
             _rows.AddRange(ordered);
+        }
+
+        /// <summary>The row of a definition of the DB: its warnings, and how it differs from <paramref name="steam"/>.</summary>
+        private Row BuildRow(ItemDef item, ItemDefsFromSteam.SteamDefinition steam, bool compared)
+        {
+            var row = new Row(item, steam);
+
+            // Fixed in the inspector of the definition, under the table.
+            foreach (var warning in ItemDefElement.GetWarnings(item))
+                row.Add(HelpBoxMessageType.Warning, warning.Message);
+
+            if (GetWarningEditor(item) is ItemDefEditor itemDefEditor)
+            {
+                foreach (var warning in itemDefEditor.GetWarnings(item))
+                    row.Add(HelpBoxMessageType.Warning, warning.Message);
+            }
+
+            if (compared)
+                AddSteamProblems(row);
+
+            return row;
+        }
+
+        /// <summary>The editor Unity picks for the class of <paramref name="item"/>, made once per class.</summary>
+        private UnityEditor.Editor GetWarningEditor(ItemDef item)
+        {
+            var type = item.GetType();
+
+            if (!_warningEditors.TryGetValue(type, out var editor) || !editor)
+                _warningEditors[type] = editor = CreateEditor(item);
+
+            return editor;
         }
 
         /// <summary>Compares a definition of the DB with the one Steam has under its itemdefid.</summary>
@@ -977,6 +1122,9 @@ namespace SteamToys.Editor.InventorySystem
             _selectedKey = item ? item : null;
 
             Refresh();
+
+            // The table selects the row even when no row changed.
+            ApplyFilter();
             ShowDetail(FindRow(_selectedKey));
         }
 
@@ -1308,12 +1456,22 @@ namespace SteamToys.Editor.InventorySystem
             /// <summary>What the row stands for across refreshes: its definition, or the itemdefid of one Steam alone has.</summary>
             public object Key => Item ? Item : (object)Steam.ItemDefId;
 
-            public HelpBoxMessageType Severity =>
-                Problems.Count == 0 ? HelpBoxMessageType.None : Problems.Max(problem => problem.type);
+            /// <summary>The most severe of the problems, kept as they are added.</summary>
+            public HelpBoxMessageType Severity { get; private set; } = HelpBoxMessageType.None;
 
-            public void Add(HelpBoxMessageType type, string text) => Problems.Add((type, text));
+            private string _description;
 
-            public string DescribeProblems() => string.Join("\n", Problems.Select(problem => problem.text));
+            public void Add(HelpBoxMessageType type, string text)
+            {
+                Problems.Add((type, text));
+                _description = null;
+
+                if (type > Severity)
+                    Severity = type;
+            }
+
+            /// <summary>Every problem, a line each; made once, since the table asks again for every bind of the row.</summary>
+            public string DescribeProblems() => _description ??= string.Join("\n", Problems.Select(problem => problem.text));
 
             public bool Matches(string search) =>
                 ItemDefId.ToString().Contains(search) ||

@@ -100,8 +100,17 @@ namespace SteamToys.Editor.InventorySystem
         /// <summary>
         /// Replaces the previewed JSON. The text is re-highlighted, the copy buttons keep working on live data.
         /// </summary>
-        public void SetJson(string json) =>
+        public void SetJson(string json)
+        {
+            // Set on every edit of an inspector; the same JSON is neither highlighted nor laid out again.
+            if (json == _json)
+                return;
+
+            _json = json;
             _jsonText.text = JsonSyntaxHighlighter.Highlight(json, _theme);
+        }
+
+        private string _json;
 
         /// <summary>
         /// Adds a copy button to the top-right corner. <paramref name="jsonProvider"/> is queried on every

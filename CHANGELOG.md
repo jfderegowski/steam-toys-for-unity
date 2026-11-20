@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.3] - 2026-11-20
+
+### Fixed
+
+- The Steam Items DB inspector stays responsive with hundreds of definitions and warnings. Its refresh every
+  second rebuilt every row, reloaded the folder and refilled the table, about 110 ms with 480 definitions; it now
+  rebuilds only the rows of definitions whose dirty count changed (under 1 ms with nothing changed, a few ms after
+  an edit) and every row only after an asset import, an undo or a read from Steam. The status lists at most 20
+  problems of the DB as a set, then how many more there are.
+- An item definition inspector no longer rebuilds its warning boxes and JSON preview on an edit that leaves them
+  unchanged.
+
 ## [0.10.2] - 2026-11-19
 
 ### Fixed

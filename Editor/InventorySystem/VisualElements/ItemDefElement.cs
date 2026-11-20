@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using fefek5.Toys.Editor.Icons;
 using fefek5.Toys.Editor.VisualElements;
 using Newtonsoft.Json;
@@ -126,6 +127,9 @@ namespace SteamToys.Editor.InventorySystem
         private readonly JsonPreviewElement _preview;
         private readonly List<ItemDefWarnign> _itemWarnings = new();
         private readonly Func<ItemDef, IEnumerable<ItemDefWarnign>> _getAdditionalWarnings;
+
+        // The warnings the boxes show now, as text, so an edit that leaves them as they are does not build them again.
+        private string _shownWarnings;
 
         private static readonly List<ItemDefWarnign> NoWarnings = new();
         private static readonly Color IconPreviewBackground = new(0, 0, 0, 0.15f);
@@ -630,37 +634,68 @@ namespace SteamToys.Editor.InventorySystem
 
         #region Warnings
 
+        /// <summary>
+        /// Shows the warnings as they are now. Called on every change of a field, so the boxes are built again only
+        /// when the warnings differ from the ones shown: with hundreds of them that is most of the cost of an edit.
+        /// </summary>
         private void RefreshWarnings()
         {
-            _warnings.Clear();
-
             var named = _items.Length > 1;
-            var byField = new Dictionary<string, List<ItemDefWarnign>>();
 
-            foreach (var item in _items)
+            // What the boxes show: the definition, field, message and whether it has a Fix. A fix refers to its entry
+            // by the index its message names, so the same text is the same fix.
+            var shown = new StringBuilder();
+
+            _itemWarnings.Clear();
+
+            for (var i = 0; i < _items.Length; i++)
             {
+                var item = _items[i];
+
                 if (!item)
                     continue;
 
-                _itemWarnings.Clear();
+                var first = _itemWarnings.Count;
+
                 _itemWarnings.AddRange(GetWarnings(item));
 
                 if (_getAdditionalWarnings != null)
                     _itemWarnings.AddRange(_getAdditionalWarnings(item));
 
-                foreach (var warning in _itemWarnings)
+                for (var j = first; j < _itemWarnings.Count; j++)
                 {
-                    // Repeated at the top, so a warning still shows while its section is folded.
-                    _warnings.Add(CreateWarningBox(warning, named));
+                    var warning = _itemWarnings[j];
 
-                    if (warning.Field == null || !_frames.ContainsKey(warning.Field))
-                        continue;
-
-                    if (byField.TryGetValue(warning.Field, out var fieldWarnings))
-                        fieldWarnings.Add(warning);
-                    else
-                        byField[warning.Field] = new List<ItemDefWarnign> { warning };
+                    shown.Append(i).Append('\u001f')
+                         .Append(named && warning.ItemDef ? warning.ItemDef.name : null).Append('\u001f')
+                         .Append(warning.Field).Append('\u001f')
+                         .Append(warning.Message).Append('\u001f')
+                         .Append(warning.CanFix).Append('\u001e');
                 }
+            }
+
+            var signature = shown.ToString();
+
+            if (signature == _shownWarnings)
+                return;
+
+            _shownWarnings = signature;
+            _warnings.Clear();
+
+            var byField = new Dictionary<string, List<ItemDefWarnign>>();
+
+            foreach (var warning in _itemWarnings)
+            {
+                // Repeated at the top, so a warning still shows while its section is folded.
+                _warnings.Add(CreateWarningBox(warning, named));
+
+                if (warning.Field == null || !_frames.ContainsKey(warning.Field))
+                    continue;
+
+                if (byField.TryGetValue(warning.Field, out var fieldWarnings))
+                    fieldWarnings.Add(warning);
+                else
+                    byField[warning.Field] = new List<ItemDefWarnign> { warning };
             }
 
             foreach (var (field, frame) in _frames)
