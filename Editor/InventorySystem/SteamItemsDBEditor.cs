@@ -39,38 +39,19 @@ namespace SteamToys.Editor.InventorySystem
         private static readonly Color WarningTint = new(1f, 0.76f, 0.03f, 0.25f);
         private static readonly Color ErrorTint = new(1f, 0.25f, 0.25f, 0.3f);
 
-        // How long to wait before asking a Steam client that had no definitions yet again.
-        private static readonly TimeSpan SteamRetryInterval = TimeSpan.FromSeconds(5);
-
-        // The properties compared with Steam: the ones Create From Steam takes over.
-        private static readonly string[] ComparedProperties =
-        {
-            "type", "name", "description", "tags", "exchange", "tag_generators", "tag_generator_name",
-            "tag_generator_values", "display_type", "icon_url", "icon_url_large", "name_color", "background_color",
-            "store_hidden", "tradable", "marketable", "game_only", "auto_stack"
-        };
-
-        private static readonly HashSet<string> BoolProperties = new() { "store_hidden", "tradable", "marketable", "game_only", "auto_stack" };
-        private static readonly HashSet<string> ColorProperties = new() { "name_color", "background_color" };
-        private static readonly HashSet<string> ListProperties = new() { "tags", "exchange", "tag_generators", "tag_generator_values" };
-
-        // What the Steam client reported, kept for every inspector of the DB and after the session ends. Null until
-        // it was read; empty while the client has not loaded the definitions yet.
-        private static List<ItemDefsFromSteam.SteamDefinition> _steamDefinitions;
-        private static DateTime _steamReadAt;
-        private static bool _steamStale = true;
-
-        // The status lists at most this many problems of the DB as a set, so thousands of them do not push the table
+        // The status lists at most this many problems of the DB itself, so thousands of them do not push the table
         // out of view or make every layout of the status slow.
         private const int MaxDbWarningsShown = 20;
 
         private readonly List<Row> _rows = new();
         private readonly List<Row> _visibleRows = new();
+
+        // The problems of the DB itself, which no definition has; those of a definition are on its row.
         private readonly List<string> _dbWarnings = new();
 
-        // The row of each definition with the dirty count it was built at. A refresh builds again only the rows of
-        // the definitions changed since, so the periodic one costs next to nothing while nothing changes.
-        private readonly Dictionary<ItemDef, (int dirtyCount, Row row)> _rowCache = new();
+        // The row of each definition with the dirty count and itemdefid it was built at. A refresh builds again only
+        // the rows of the definitions changed since, so the periodic one costs next to nothing while nothing changes.
+        private readonly Dictionary<ItemDef, (int dirtyCount, ulong itemDefId, Row row)> _rowCache = new();
 
         // The editor Unity picks for each class, for the warnings an editor of a subclass adds. Kept while the
         // inspector is open rather than made again for every refresh.
@@ -102,9 +83,6 @@ namespace SteamToys.Editor.InventorySystem
 
         [MenuItem(MenuPath)]
         public static void Open() => EditorUtility.OpenPropertyEditor(SteamItemsDB.Instance);
-
-        [InitializeOnLoadMethod]
-        private static void WatchSteamDefinitions() => Inventory.OnDefinitionsChanged += () => _steamStale = true;
 
         #region Assets
 
@@ -233,7 +211,7 @@ namespace SteamToys.Editor.InventorySystem
             root.Add(_detail);
 
             // Read again on opening, for a change the Steam client did not report.
-            _steamStale = true;
+            SteamComparison.MarkStale();
             _rebuildAll = true;
 
             Refresh();
@@ -250,12 +228,16 @@ namespace SteamToys.Editor.InventorySystem
         {
             EditorApplication.projectChanged += RebuildAll;
             Undo.undoRedoPerformed += RebuildAll;
+
+            // Also when the inspector of a definition read Steam.
+            SteamComparison.Changed += RebuildAll;
         }
 
         private void OnDisable()
         {
             EditorApplication.projectChanged -= RebuildAll;
             Undo.undoRedoPerformed -= RebuildAll;
+            SteamComparison.Changed -= RebuildAll;
 
             foreach (var editor in _warningEditors.Values)
                 if (editor)
@@ -674,25 +656,26 @@ namespace SteamToys.Editor.InventorySystem
 
             var db = (SteamItemsDB)target;
 
-            if (Inventory.Initialized && (_steamStale ||
-                                          _steamDefinitions is { Count: 0 } && DateTime.Now - _steamReadAt > SteamRetryInterval) &&
-                ReadSteam(db))
-                _rebuildAll = true;
+            // Raises Changed when it reads, which sets _rebuildAll.
+            SteamComparison.Update();
 
-            var changed = _rebuildAll || HasChangedItems(db);
+            var itemDefIdChanged = false;
+            var changed = _rebuildAll || HasChangedItems(db, out itemDefIdChanged);
 
             if (changed)
             {
-                // A changed itemdefid moves the definition in the DB, so it is loaded again with the rows.
+                // A changed itemdefid moves the definition in the DB, so it is loaded again with the rows. It also
+                // changes which definitions share an itemdefid and which one Steam pairs it with, so every row is
+                // built again.
                 db.Reload();
 
-                if (_rebuildAll)
+                if (_rebuildAll || itemDefIdChanged)
                     _rowCache.Clear();
 
                 _rebuildAll = false;
 
                 _dbWarnings.Clear();
-                db.CollectSchemaWarnings(_dbWarnings);
+                CollectDbWarnings(db, _dbWarnings);
 
                 BuildRows(db);
             }
@@ -716,20 +699,43 @@ namespace SteamToys.Editor.InventorySystem
         /// Whether a definition of the DB was changed, added or removed since its row was built: its dirty count
         /// grows with every change made in the editor, an undo included.
         /// </summary>
-        private bool HasChangedItems(SteamItemsDB db)
+        private bool HasChangedItems(SteamItemsDB db, out bool itemDefIdChanged)
         {
-            var items = db.Items;
             var count = 0;
+            var changed = false;
 
-            foreach (var item in items)
+            itemDefIdChanged = false;
+
+            foreach (var item in db.Items)
             {
-                if (!item || !_rowCache.TryGetValue(item, out var cached) || cached.dirtyCount != EditorUtility.GetDirtyCount(item))
+                if (!item || !_rowCache.TryGetValue(item, out var cached))
                     return true;
+
+                if (cached.dirtyCount != EditorUtility.GetDirtyCount(item))
+                {
+                    changed = true;
+
+                    if (cached.itemDefId != item.ItemDefId)
+                    {
+                        itemDefIdChanged = true;
+                        return true;
+                    }
+                }
 
                 count++;
             }
 
-            return count != _rowCache.Count;
+            return changed || count != _rowCache.Count;
+        }
+
+        /// <summary>
+        /// The problems of the DB itself, which no definition has: those of a definition, its itemdefid and the
+        /// definitions it references included, are its warnings, on its row and framed in its inspector.
+        /// </summary>
+        private static void CollectDbWarnings(SteamItemsDB db, List<string> warnings)
+        {
+            if (SteamItemsDB.AppId == 0)
+                warnings.Add("The Steam Settings have no App ID, so the exported file has appid 0, which Steam rejects.");
         }
 
         /// <summary>The summary over the table, set only when its text changes, so an unchanged one is not laid out again.</summary>
@@ -773,46 +779,17 @@ namespace SteamToys.Editor.InventorySystem
                 : $"\n{shown}\n... and {_dbWarnings.Count - MaxDbWarningsShown} more.";
         }
 
-        /// <summary>
-        /// Reads the definitions the Steam client lists, and those of the DB it does not list but knows by itemdefid.
-        /// </summary>
-        /// <returns>Whether they were read; false when there is no Steam session to read them through.</returns>
-        private static bool ReadSteam(SteamItemsDB db)
-        {
-            var definitions = ItemDefsFromSteam.ReadAll();
-
-            if (definitions == null)
-                return false;
-
-            _steamStale = false;
-            _steamReadAt = DateTime.Now;
-
-            // Empty means the client has not loaded them yet, and was asked to.
-            if (definitions.Count > 0)
-            {
-                var listed = new HashSet<ulong>(definitions.Select(definition => definition.ItemDefId));
-
-                foreach (var item in db.Items)
-                {
-                    if (item && listed.Add(item.ItemDefId) && ItemDefsFromSteam.Read(item.ItemDefId) is { } unlisted)
-                        definitions.Add(unlisted);
-                }
-            }
-
-            _steamDefinitions = definitions;
-
-            return true;
-        }
-
         private static string DescribeSteam()
         {
-            if (_steamDefinitions == null)
+            var definitions = SteamComparison.Definitions;
+
+            if (definitions == null)
                 return "Not compared with Steam, which needs a Steam session: play mode, or Window/Steam Toys/Connect To Steam.";
 
-            if (_steamDefinitions.Count == 0)
+            if (definitions.Count == 0)
                 return "Not compared with Steam: the Steam client has no item definitions for this app yet.";
 
-            return $"Compared with the {_steamDefinitions.Count} definitions the Steam client had at {_steamReadAt:HH:mm:ss}" +
+            return $"Compared with the {definitions.Count} definitions the Steam client had at {SteamComparison.ReadAt:HH:mm:ss}" +
                    (Inventory.Initialized ? "." : "; the Steam session has ended since.");
         }
 
@@ -822,7 +799,7 @@ namespace SteamToys.Editor.InventorySystem
 
             var steamById = new Dictionary<ulong, ItemDefsFromSteam.SteamDefinition>();
 
-            foreach (var steam in _steamDefinitions ?? Enumerable.Empty<ItemDefsFromSteam.SteamDefinition>())
+            foreach (var steam in SteamComparison.Definitions ?? Array.Empty<ItemDefsFromSteam.SteamDefinition>())
                 steamById.TryAdd(steam.ItemDefId, steam);
 
             var compared = steamById.Count > 0;
@@ -850,7 +827,7 @@ namespace SteamToys.Editor.InventorySystem
 
                 var row = BuildRow(item, steam, compared);
 
-                _rowCache[item] = (dirtyCount, row);
+                _rowCache[item] = (dirtyCount, item.ItemDefId, row);
                 _rows.Add(row);
             }
 
@@ -876,7 +853,10 @@ namespace SteamToys.Editor.InventorySystem
             _rows.AddRange(ordered);
         }
 
-        /// <summary>The row of a definition of the DB: its warnings, and how it differs from <paramref name="steam"/>.</summary>
+        /// <summary>
+        /// The row of a definition of the DB: the warnings of the definition, which its inspector frames, the ones
+        /// against Steam among them, and how it differs from <paramref name="steam"/> for the tint of the table.
+        /// </summary>
         private Row BuildRow(ItemDef item, ItemDefsFromSteam.SteamDefinition steam, bool compared)
         {
             var row = new Row(item, steam);
@@ -891,8 +871,29 @@ namespace SteamToys.Editor.InventorySystem
                     row.Add(HelpBoxMessageType.Warning, warning.Message);
             }
 
-            if (compared)
-                AddSteamProblems(row);
+            if (!compared)
+                return row;
+
+            if (steam == null)
+            {
+                // Not a problem: the definition warns only of an item or generator Steam lacks.
+                if (item.Type is not (ItemType.Item or ItemType.Generator))
+                    row.Add(HelpBoxMessageType.Info,
+                        $"The Steam client does not hand out this {item.Type}, so it cannot be compared with Steam.");
+
+                return row;
+            }
+
+            var result = SteamComparison.Compare(item, steam);
+
+            row.Json = result.Json;
+
+            foreach (var (property, value) in result.Differences)
+                row.Differences.Add(property, value);
+
+            // A definition Steam has as another type, or that cannot be compared at all, is marked as an error.
+            if (result.JsonError != null || result.Differences.ContainsKey("type"))
+                row.RaiseSeverity(HelpBoxMessageType.Error);
 
             return row;
         }
@@ -906,83 +907,6 @@ namespace SteamToys.Editor.InventorySystem
                 _warningEditors[type] = editor = CreateEditor(item);
 
             return editor;
-        }
-
-        /// <summary>Compares a definition of the DB with the one Steam has under its itemdefid.</summary>
-        private static void AddSteamProblems(Row row)
-        {
-            var item = row.Item;
-
-            if (row.Steam == null)
-            {
-                if (item.Type is ItemType.Item or ItemType.Generator)
-                    row.Add(HelpBoxMessageType.Warning,
-                        $"Steam has no definition with itemdefid {item.ItemDefId}. Save the JSON and upload it on the " +
-                        "Inventory Service page of Steamworks.");
-                else
-                    row.Add(HelpBoxMessageType.Info,
-                        $"The Steam client does not hand out this {item.Type}, so it cannot be compared with Steam.");
-
-                return;
-            }
-
-            JObject json;
-
-            try
-            {
-                json = row.Json = JObject.FromObject(item);
-            }
-            catch (Exception exception) when (exception is InvalidOperationException or NullReferenceException)
-            {
-                // An exchange entry that is not filled in, which the export stops on too.
-                row.Add(HelpBoxMessageType.Error, $"Cannot be written as JSON, so it is not compared with Steam: {exception.Message}");
-
-                return;
-            }
-
-            foreach (var property in ComparedProperties)
-            {
-                var here = Normalize(property, json.TryGetValue(property, out var token) ? token.ToString() : null);
-                var steam = Normalize(property, row.Steam.Get(property));
-
-                if (here == steam)
-                    continue;
-
-                row.Differences.Add(property, steam);
-
-                row.Add(property == "type" ? HelpBoxMessageType.Error : HelpBoxMessageType.Warning, property == "type"
-                    ? $"Steam has this definition as a {row.Steam.Type}, and the type comes from the class of the asset, " +
-                      "so Create From Steam leaves it alone."
-                    : $"{property} differs from Steam: \"{here}\" here, \"{steam}\" on Steam.");
-            }
-        }
-
-        /// <summary>
-        /// A property as the schema means it, so the JSON of the DB and what the client reports compare equal: the
-        /// client writes flags as 1 and 0 and leaves out false ones, a color may have a leading #, and the order of
-        /// list entries means nothing.
-        /// </summary>
-        private static string Normalize(string property, string value)
-        {
-            value = value?.Trim() ?? string.Empty;
-
-            if (BoolProperties.Contains(property))
-                return value == "1" || string.Equals(value, "true", StringComparison.OrdinalIgnoreCase) ? "true" : "false";
-
-            if (ColorProperties.Contains(property))
-                return value.TrimStart('#').ToUpperInvariant();
-
-            if (ListProperties.Contains(property))
-                return string.Join(";", value
-                    .Split(';', StringSplitOptions.RemoveEmptyEntries)
-                    .Select(entry => string.Join(",", entry
-                        .Split(',', StringSplitOptions.RemoveEmptyEntries)
-                        .Select(part => part.Trim())
-                        .OrderBy(part => part, StringComparer.Ordinal)))
-                    .Where(entry => entry.Length > 0)
-                    .OrderBy(entry => entry, StringComparer.Ordinal));
-
-            return value;
         }
 
         private void ApplyFilter()
@@ -1174,7 +1098,7 @@ namespace SteamToys.Editor.InventorySystem
             else
             {
                 var steam = row.Steam;
-                var classes = ItemDefsFromSteam.FindClasses(steam, _steamDefinitions, out var tags, out var ownedTags);
+                var classes = ItemDefsFromSteam.FindClasses(steam, SteamComparison.Definitions, out var tags, out var ownedTags);
                 var missing = DescribeMissingClass(steam, classes, tags, ownedTags);
 
                 if (missing != null)
@@ -1249,7 +1173,7 @@ namespace SteamToys.Editor.InventorySystem
                     var steam = row.Steam.Properties.TryGetValue(property, out var value) ? JsonConvert.ToString(value) : null;
                     var state = row.Differences.ContainsKey(property) ? property == "type" ? "error" : "differs"
                         // The itemdefid is what pairs the two, so it always matches.
-                        : ComparedProperties.Contains(property) || property == "itemdefid" ? "matches" : "not compared";
+                        : SteamComparison.ComparedProperties.Contains(property) || property == "itemdefid" ? "matches" : "not compared";
 
                     lines.Add((property, here, steam, state));
                 }
@@ -1466,6 +1390,13 @@ namespace SteamToys.Editor.InventorySystem
                 Problems.Add((type, text));
                 _description = null;
 
+                if (type > Severity)
+                    Severity = type;
+            }
+
+            /// <summary>Marks the row at least as severe as <paramref name="type"/>, without a message of its own.</summary>
+            public void RaiseSeverity(HelpBoxMessageType type)
+            {
                 if (type > Severity)
                     Severity = type;
             }

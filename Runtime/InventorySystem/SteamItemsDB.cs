@@ -5,7 +5,6 @@ using System.Linq;
 using Newtonsoft.Json;
 using Runtime;
 using SteamToys.Runtime.Core;
-using SteamToys.Runtime.InventorySystem.ExchangeVariable.Materials;
 using UnityEngine;
 
 namespace SteamToys.Runtime.InventorySystem
@@ -78,7 +77,7 @@ namespace SteamToys.Runtime.InventorySystem
             _items = Resources.LoadAll<ItemDef>(ResourcesPath).OrderBy(item => item.ItemDefId).ToList();
             _byId = new Dictionary<ulong, ItemDef>();
 
-            // The first definition with an itemdefid wins; the duplicates are reported by CollectSchemaWarnings.
+            // The first definition with an itemdefid wins; the inspector of each duplicate warns of it.
             foreach (var item in _items)
                 _byId.TryAdd(item.ItemDefId, item);
         }
@@ -121,85 +120,6 @@ namespace SteamToys.Runtime.InventorySystem
         {
             if (_items == null || _byId == null)
                 Reload();
-        }
-
-        #endregion
-
-        #region Validation
-
-        /// <summary>
-        /// Adds a message for every problem of the definitions as a set, which no single definition can see:
-        /// itemdefids Steam rejects or that repeat, and references to definitions the exported file would not have.
-        /// </summary>
-        public void CollectSchemaWarnings(List<string> warnings)
-        {
-            var ids = new HashSet<ulong>();
-            var known = new HashSet<ItemDef>(Items);
-
-            foreach (var item in Items)
-            {
-                if (!item)
-                    continue;
-
-                var id = item.ItemDefId;
-
-                if (id == 0)
-                    warnings.Add($"{item.name} has no itemdefid.");
-                else if (id > MaxItemDefId)
-                    warnings.Add($"{item.name} has itemdefid {id}, above the highest Steam accepts ({MaxItemDefId}).");
-                else if (id >= FirstWorkshopItemDefId)
-                    warnings.Add($"{item.name} has itemdefid {id}; Steam reserves {FirstWorkshopItemDefId} and up for Workshop items.");
-
-                if (!ids.Add(id))
-                    warnings.Add($"Itemdefid {id} is used by more than one definition.");
-
-                foreach (var reference in GetReferences(item))
-                {
-                    if (reference && !known.Contains(reference))
-                        warnings.Add($"{item.name} references {reference.name}, which is not in {AssetsFolder}, so Steam would not know it.");
-                }
-            }
-        }
-
-        /// <summary>Every definition <paramref name="item"/> names in its JSON.</summary>
-        private static IEnumerable<ItemDef> GetReferences(ItemDef item)
-        {
-            var contents = item.SchemaSupportsContent() ? item.Content : null;
-
-            if (contents != null)
-            {
-                foreach (var element in contents)
-                {
-                    if (element != null)
-                        yield return element.Item;
-                }
-            }
-
-            var tagGenerators = item.SchemaSupportsTagGenerators() ? item.TagGenerators : null;
-
-            if (tagGenerators != null)
-            {
-                foreach (var tagGenerator in tagGenerators)
-                    yield return tagGenerator;
-            }
-
-            if (item.SchemaSupportsContainerContentsGenerator() && item.ContainerContentsGenerator)
-                yield return item.ContainerContentsGenerator;
-
-            if (item.SchemaSupportsExchange() && item.Exchange is { } exchange)
-            {
-                foreach (var recipe in exchange)
-                {
-                    if (recipe == null)
-                        continue;
-
-                    foreach (var material in recipe)
-                    {
-                        if (material is ItemMaterial itemMaterial)
-                            yield return itemMaterial.Item;
-                    }
-                }
-            }
         }
 
         #endregion

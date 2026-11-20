@@ -9,6 +9,7 @@ using SteamToys.Runtime.InventorySystem;
 using SteamToys.Runtime.InventorySystem.Converters;
 using SteamToys.Runtime.InventorySystem.Converters.ExchangeVariable;
 using SteamToys.Runtime.InventorySystem.Converters.Price;
+using SteamToys.Runtime.InventorySystem.ExchangeVariable.Materials;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
@@ -97,8 +98,8 @@ namespace SteamToys.Editor.InventorySystem
         internal const string DROP_WINDOW = "_dropWindow";
         internal const string DROP_MAX_PER_WINDOW = "_dropMaxPerWindow";
         internal const string DROP_LIMIT = "_dropLimit";
-        private const string TAG_NAME = "_tagName";
-        private const string TAG_VALUES_AND_CHANCES = "_tagValuesAndChances";
+        internal const string TAG_NAME = "_tagName";
+        internal const string TAG_VALUES_AND_CHANCES = "_tagValuesAndChances";
 
         // How a SerializableDictionary serializes: a list of entries, each a key and a value.
         private const string TAG_VALUES_ENTRIES_PATH = ".entries";
@@ -173,6 +174,12 @@ namespace SteamToys.Editor.InventorySystem
                 RefreshWarnings();
                 _preview.SetJson(GetItemJson());
             });
+
+            // The differences from Steam, once its definitions are read: polled, since the Steam session starts and
+            // stops outside this inspector, and cheap while they are not stale.
+            RegisterCallback<AttachToPanelEvent>(_ => SteamComparison.Changed += RefreshWarnings);
+            RegisterCallback<DetachFromPanelEvent>(_ => SteamComparison.Changed -= RefreshWarnings);
+            schedule.Execute(() => SteamComparison.Update()).Every(1000);
         }
 
         #region Fields
@@ -766,8 +773,10 @@ namespace SteamToys.Editor.InventorySystem
         /// would reject or silently ignore.
         /// </summary>
         private static readonly (string Field, Func<ItemDef, IEnumerable<Warning>> Get)[] FieldWarnings = {
+            (ITEM_DEF_ID, GetItemDefIdWarnings),
             (NAME, GetNameWarnings),
             (CONTENT, GetContentWarnings),
+            (TAG_GENERATORS, GetTagGeneratorsWarnings),
             (PRICE, GetPriceWarnings),
             (ICON, item => GetIconWarnings(item, item.IconUrl, item.Icon, "Icon")),
             (ICON_LARGE, item => GetIconWarnings(item, item.IconUrlLarge, item.IconLarge, "Icon Large")),
@@ -783,8 +792,12 @@ namespace SteamToys.Editor.InventorySystem
             (TAG_VALUES_AND_CHANCES, GetTagValuesAndChancesWarnings)
         };
 
-        /// <summary>The built-in warnings of <paramref name="item"/>, each with the serialized field that needs fixing.</summary>
-        internal static IEnumerable<ItemDefWarnign> GetWarnings(ItemDef item) => GetFieldWarnings(item, FieldWarnings);
+        /// <summary>
+        /// The built-in warnings of <paramref name="item"/>, each with the serialized field that needs fixing: its
+        /// own settings, then how it differs from the definition Steam has, once Steam was read.
+        /// </summary>
+        internal static IEnumerable<ItemDefWarnign> GetWarnings(ItemDef item) =>
+            GetFieldWarnings(item, FieldWarnings).Concat(SteamComparison.GetWarnings(item));
 
         /// <summary>
         /// The warnings of each of <paramref name="fieldWarnings"/> the type of <paramref name="item"/> uses, about
@@ -800,6 +813,58 @@ namespace SteamToys.Editor.InventorySystem
 
                 foreach (var warning in get(item))
                     yield return new ItemDefWarnign(item, field, warning);
+            }
+        }
+
+        /// <summary>
+        /// An itemdefid Steam rejects or reserves, or one another definition of the DB has too: the DB finds only the
+        /// first of those, and Steam keeps only one.
+        /// </summary>
+        private static IEnumerable<Warning> GetItemDefIdWarnings(ItemDef item)
+        {
+            var id = item.ItemDefId;
+
+            if (id == 0)
+                yield return new Warning("Itemdefid is 0: Steam needs one above 0.");
+            else if (id > SteamItemsDB.MaxItemDefId)
+                yield return new Warning($"Itemdefid {id} is above the highest Steam accepts ({SteamItemsDB.MaxItemDefId}).");
+            else if (id >= SteamItemsDB.FirstWorkshopItemDefId)
+                yield return new Warning($"Itemdefid {id} is in the Workshop range: Steam reserves " +
+                                         $"{SteamItemsDB.FirstWorkshopItemDefId} and up for Workshop items.");
+
+            if (id == 0)
+                yield break;
+
+            var others = SteamItemsDB.Instance.Items.Where(other => other && other != item && other.ItemDefId == id).ToList();
+
+            if (others.Count > 0)
+                yield return new Warning($"Itemdefid {id} is also used by {string.Join(", ", others.Select(other => other.name))}.");
+        }
+
+        /// <summary>
+        /// Whether the DB loads <paramref name="item"/>: it is in a <see cref="SteamItemsDB.ResourcesPath"/> folder of
+        /// a Resources folder. Read from its path rather than the list of the DB, which a miss would load again.
+        /// </summary>
+        private static bool IsInDb(ItemDef item)
+        {
+            var path = AssetDatabase.GetAssetPath(item);
+
+            return string.IsNullOrEmpty(path) ||
+                   path.Contains($"/Resources/{SteamItemsDB.ResourcesPath}/", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>A definition referenced from outside the DB, which the exported file would not have.</summary>
+        private static Warning NotInDbWarning(string what, ItemDef reference) =>
+            new($"{what} is {reference.name}, which is not in {SteamItemsDB.AssetsFolder}, so Steam would not know it.");
+
+        private static IEnumerable<Warning> GetTagGeneratorsWarnings(ItemDef item)
+        {
+            var tagGenerators = item.TagGenerators;
+
+            for (var i = 0; i < (tagGenerators?.Count ?? 0); i++)
+            {
+                if (tagGenerators[i] && !IsInDb(tagGenerators[i]))
+                    yield return NotInDbWarning($"Tag generator {i}", tagGenerators[i]);
             }
         }
 
@@ -854,6 +919,8 @@ namespace SteamToys.Editor.InventorySystem
                 else if (element.Item == item)
                     yield return new Warning($"Contents entry {i} references this {item.Type} itself.",
                         RemoveElement(item, CONTENT_ELEMENTS_PATH, i));
+                else if (element.Item && !IsInDb(element.Item))
+                    yield return NotInDbWarning($"Contents entry {i}", element.Item);
 
                 if (element != null && element.Quantity == 0)
                     yield return new Warning($"Contents entry {i} has a {amountName} of 0.");
@@ -869,6 +936,9 @@ namespace SteamToys.Editor.InventorySystem
                 yield return new Warning($"Container Contents Generator is a {generator.Type}, not a generator, so Steam " +
                                          "lists no drops for it in the item's description.",
                     FixProperty(item, CONTAINER_CONTENTS_GENERATOR, property => property.objectReferenceValue = null));
+
+            if (generator && !IsInDb(generator))
+                yield return NotInDbWarning("Container Contents Generator", generator);
         }
 
         private static IEnumerable<Warning> GetPriceWarnings(ItemDef item)
@@ -950,6 +1020,8 @@ namespace SteamToys.Editor.InventorySystem
                     if (problem != null)
                         yield return new Warning(
                             $"Exchange recipe {i}, material {j}: {problem} The definition cannot be exported until it is set.");
+                    else if (recipe[j] is ItemMaterial { Item: { } material } && material && !IsInDb(material))
+                        yield return NotInDbWarning($"Exchange recipe {i}, material {j}", material);
                 }
             }
         }

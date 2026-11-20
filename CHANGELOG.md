@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-20
+
+### Changed
+
+- Every problem of a definition is now a warning of the definition, framed on its field in the inspector and
+  listed on its row in the Steam Items DB. Before, some showed only in the status of the DB, with no frame and
+  no mark on the row:
+  - Itemdefid 0, above the highest Steam accepts, in the Workshop range, or used by another definition too:
+    on Itemdefid.
+  - A contents entry, tag generator, container contents generator or exchange material that is not in
+    `Assets/Resources/Steam/Items`: on that field.
+  - Differences from the definition Steam has, once Steam was read: on the field each property is written
+    from, and Steam having no item or generator with the itemdefid on Itemdefid. A different type, or a
+    definition that cannot be written as JSON, shows at the top of the inspector.
+- The definition inspector reads Steam itself while a Steam session is up, and updates its warnings when the
+  definitions on Steam are read again.
+- The status of the Steam Items DB lists only problems of the DB itself, such as Steam Settings without an
+  App ID.
+
+### Removed
+
+- `SteamItemsDB.CollectSchemaWarnings`. Its checks are warnings of each definition now, in the editor.
+
 ## [0.10.3] - 2026-11-20
 
 ### Fixed
