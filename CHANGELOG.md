@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-11-23
+
+### Fixed
+
+- An item used up by `ConsumeItem` or by an exchange is removed from `Inventory.Items`. Steam reports it with the
+  `Consumed` flag and a quantity of 0, not with `Removed`, so it stayed in `Items` with a quantity of 0 until the next
+  `Refresh`; an opened container, for example, still showed. A stack consumed only in part keeps its new quantity.
+
 ## [0.12.0] - 2026-11-23
 
 ### Added

@@ -468,7 +468,12 @@ namespace SteamToys.Runtime.InventorySystem
 
                 reported.Add(detail.m_itemId);
 
-                if ((flags & ESteamItemFlags.k_ESteamItemRemoved) != 0)
+                // Steam reports an item it took away as Removed (traded, sold, destroyed by an exchange) or as
+                // Consumed with a quantity of 0 (ConsumeItem, used up by an exchange); neither is owned any more.
+                // A partly consumed stack keeps its quantity and stays.
+                const ESteamItemFlags gone = ESteamItemFlags.k_ESteamItemRemoved | ESteamItemFlags.k_ESteamItemConsumed;
+
+                if ((flags & gone) != 0 && ((flags & ESteamItemFlags.k_ESteamItemRemoved) != 0 || detail.m_unQuantity == 0))
                 {
                     RemoveItem(detail.m_itemId);
                     continue;
