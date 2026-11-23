@@ -329,6 +329,26 @@ namespace SteamToys.Runtime.InventorySystem
         }
 
         /// <summary>
+        /// Takes the items of a result from a Steam inventory call made outside this class, e.g. a raw
+        /// <c>SteamInventory.ExchangeItems</c> or <c>TriggerItemDrop</c>, so <see cref="Items"/> shows the change without
+        /// reading the whole inventory again. Items Steam marks as removed are removed; with
+        /// <paramref name="isFullInventory"/> (a <c>GetAllItems</c> result) every item it does not list is removed too.
+        /// Raises <see cref="OnChanged"/>. Call it once the result is ready and before destroying it: the handle stays the
+        /// caller's, this never destroys it.
+        /// </summary>
+        /// <returns>False when the result is not ready, failed, or is one this class made and applies itself.</returns>
+        public static bool ApplyResult(SteamInventoryResult_t handle, bool isFullInventory = false)
+        {
+            if (!Initialized || _pending.ContainsKey(handle))
+                return false;
+
+            if (SteamInventory.GetResultStatus(handle) != EResult.k_EResultOK)
+                return false;
+
+            return Apply(handle, isFullInventory);
+        }
+
+        /// <summary>
         /// True when inventory calls can be made. Warns only the first time it fails, so a game that asks every frame
         /// does not flood the console.
         /// </summary>
@@ -402,7 +422,7 @@ namespace SteamToys.Runtime.InventorySystem
 
         private static void OnResultReady(SteamInventoryResultReady_t callback)
         {
-            // Results of calls made elsewhere belong to their caller, who destroys them.
+            // Results of calls made elsewhere belong to their caller, who destroys them (and may pass them to ApplyResult).
             if (!_pending.Remove(callback.m_handle, out var pending))
                 return;
 

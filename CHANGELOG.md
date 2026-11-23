@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-23
+
+### Added
+
+- `Inventory.ApplyResult(handle, isFullInventory)` takes the items of a result from a Steam inventory call made
+  outside `Inventory`, such as a raw `SteamInventory.ExchangeItems` or `TriggerItemDrop`. `Inventory.Items` then
+  shows the change and `OnChanged` is raised, without reading the whole inventory again. Before, `Inventory` only
+  applied results of its own calls, so an item a game opened or dropped through its own code stayed in `Items`
+  until the next `Refresh`. The handle stays the caller's to destroy.
+
 ## [0.11.0] - 2026-11-20
 
 ### Changed
