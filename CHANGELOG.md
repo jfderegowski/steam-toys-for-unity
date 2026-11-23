@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.2] - 2026-11-23
+
+### Fixed
+
+- A material an exchange destroys is removed from `Inventory.Items`, e.g. a container opened with
+  `ExchangeItems`. Steam reports it with a quantity of 0 and no flag at all, which 0.12.1 still missed: it only
+  removed items marked `Removed`, or `Consumed` with a quantity of 0. Every reported item with a quantity of 0 is
+  now removed, whatever its flags.
+
 ## [0.12.1] - 2026-11-23
 
 ### Fixed
