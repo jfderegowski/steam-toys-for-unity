@@ -15,6 +15,8 @@ namespace SteamToys.Editor.InventorySystem.PropertyDrawers
         private const string OPEN_ICON = "open-icon";
         private const string COPY_ICON = "copy-icon";
         private const string PASTE_ICON = "paste-icon";
+        // Unity's own.
+        private const string FOLDER_ICON = "Folder Icon";
 
         private const float BUTTON_SIZE = 18;
         private const float ICON_SIZE = 12;
@@ -51,11 +53,15 @@ namespace SteamToys.Editor.InventorySystem.PropertyDrawers
             SetMargins(textField, 0);
 
             var openBtn = CreateIconButton(OPEN_ICON, "Open in browser");
+            var serverBtn = CreateIconButton(EditorGUIUtility.IconContent(FOLDER_ICON).image,
+                "Open the folder of this URL on the FTP server, in the program set for ftp:// links or in Windows Explorer. The server is set in " +
+                "Preferences > Steam Toys > Icon Upload, which this opens until it is.");
             var copyBtn = CreateIconButton(COPY_ICON, "Copy to clipboard");
             var pasteBtn = CreateIconButton(PASTE_ICON, "Paste from clipboard (an http:// or https:// URL)");
 
             inputs.Add(textField);
             inputs.Add(openBtn);
+            inputs.Add(serverBtn);
             inputs.Add(copyBtn);
             inputs.Add(pasteBtn);
 
@@ -120,6 +126,13 @@ namespace SteamToys.Editor.InventorySystem.PropertyDrawers
             });
 
             openBtn.clicked += () => Application.OpenURL(valueProp.stringValue);
+
+            serverBtn.clicked += () => ItemIconUploader.OpenOnServer(new Url(valueProp.stringValue));
+
+            // The server is set in the preferences, outside the inspector, so the button checks it while it is shown.
+            serverBtn.schedule.Execute(() =>
+                serverBtn.SetEnabled(ItemIconUploader.CanOpenOnServer(new Url(valueProp.stringValue))))
+                .Every(CLIPBOARD_CHECK_MS);
 
             copyBtn.clicked += () => GUIUtility.systemCopyBuffer = valueProp.stringValue;
 
@@ -208,6 +221,11 @@ namespace SteamToys.Editor.InventorySystem.PropertyDrawers
         {
             EditorIconsDatabase.TryGetIcon<Texture2D>(iconName, out var icon);
 
+            return CreateIconButton(icon, tooltip);
+        }
+
+        private static Button CreateIconButton(Texture icon, string tooltip)
+        {
             var button = new Button {
                 tooltip = tooltip,
                 style = {

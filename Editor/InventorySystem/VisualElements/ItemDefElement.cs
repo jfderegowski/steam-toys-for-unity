@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 using fefek5.Toys.Editor.Icons;
 using fefek5.Toys.Editor.VisualElements;
 using Newtonsoft.Json;
@@ -44,6 +45,12 @@ namespace SteamToys.Editor.InventorySystem
 
         private const string COPY_IMPORT_BUTTON_TOOLTIP =
             "Copy the selected items wrapped in an appid / items envelope, ready to import into the Steam Inventory Service.";
+
+        private const string UPLOAD_ICONS_BUTTON_TEXT = "Upload Icons";
+
+        private const string UPLOAD_ICONS_BUTTON_TOOLTIP =
+            "Sends Icon and Icon Large of the selected definitions over FTP to the paths of their URLs on the server " +
+            "set in Preferences > Steam Toys > Icon Upload, overwriting what is there.";
 
         private const string DOWNLOAD_ICONS_BUTTON_TEXT = "Download Icons";
 
@@ -208,7 +215,18 @@ namespace SteamToys.Editor.InventorySystem
             AddIconFields(display);
 
             if (IsShown(ICON_URL) || IsShown(ICON_URL_LARGE))
-                display.Add(CreateDownloadIconsButton());
+            {
+                var buttons = new VisualElement { style = { flexDirection = FlexDirection.Row, marginTop = 4 } };
+                var upload = CreateIconsButton(ItemIconUploader.UploadAsync, UPLOAD_ICONS_BUTTON_TEXT,
+                    UPLOAD_ICONS_BUTTON_TOOLTIP);
+                var download = CreateIconsButton(ItemIconDownloader.DownloadAsync, DOWNLOAD_ICONS_BUTTON_TEXT,
+                    DOWNLOAD_ICONS_BUTTON_TOOLTIP);
+
+                upload.style.marginRight = ICON_GAP;
+                buttons.Add(upload);
+                buttons.Add(download);
+                display.Add(buttons);
+            }
 
             var contents = AddSection("Contents", "section-contents-icon");
             AddField(contents, CONTENT, "What this creates: a bundle every entry with its quantity, a generator one entry picked by weight.");
@@ -610,24 +628,25 @@ namespace SteamToys.Editor.InventorySystem
 
         #region Icons
 
-        private VisualElement CreateDownloadIconsButton()
+        /// <summary>A button running <paramref name="run"/> on the selected definitions, disabled until it ends.</summary>
+        private VisualElement CreateIconsButton(Func<IReadOnlyCollection<ItemDef>, Task> run, string text, string tooltip)
         {
             InspectorButtonElement button = null;
 
-            button = new InspectorButtonElement(Download, DOWNLOAD_ICONS_BUTTON_TEXT) {
-                tooltip = DOWNLOAD_ICONS_BUTTON_TOOLTIP,
-                style = { marginLeft = 0, marginRight = 0, marginTop = 4 }
+            button = new InspectorButtonElement(Run, text) {
+                tooltip = tooltip,
+                style = { marginLeft = 0, marginRight = 0, marginTop = 0, marginBottom = 0, flexGrow = 1, flexBasis = 0 }
             };
 
             return button;
 
-            async void Download()
+            async void Run()
             {
                 button.SetEnabled(false);
 
                 try
                 {
-                    await ItemIconDownloader.DownloadAsync(LiveItems.ToArray());
+                    await run(LiveItems.ToArray());
                 }
                 finally
                 {

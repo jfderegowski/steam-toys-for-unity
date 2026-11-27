@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-27
+
+### Added
+
+- Upload Icons in the Visual & Display section of an item definition, beside Download Icons, which now share one
+  row. It sends Icon and Icon Large over FTP to the place on the server their URLs point at: Remote Root, then the
+  path of the URL, e.g. `https://mygames.dev/steam/Tires/Gold.png` to `<Remote Root>/steam/Tires/Gold.png`. Missing
+  folders are made, and it asks before overwriting.
+- A folder button on every URL field, which opens the folder of the URL on the FTP server: in the program set for
+  `ftp://` links, e.g. WinSCP, or in Windows Explorer when none is, or a browser is. While the server is not set, it
+  opens its settings. A WinSCP site named after the `user@host` of the link opens with its saved password.
+- Preferences > Steam Toys > Icon Upload: the site of the URLs, FTP host, user, password, FTPS and Remote Root. They
+  are kept per user in EditorPrefs, never in the project or a build; the password is not encrypted there.
+
 ## [0.12.2] - 2026-11-23
 
 ### Fixed
